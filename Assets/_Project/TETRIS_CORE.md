@@ -26,4 +26,4 @@ Open `Assets/_Project/Scenes/TetrisDemo.unity` and press Play.
 - `W`: rotate clockwise.
 - `S`: soft drop.
 
-Use **Block Escape → Build Tetris Demo** to rebuild the scene and config asset.
+Use **Block Escape → Build Classroom Tetris Scene** to rebuild the scene and config asset.

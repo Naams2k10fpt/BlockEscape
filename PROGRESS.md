@@ -1,4 +1,4 @@
-# Block Escape — Theo dõi tiến trình
+# Block Escape — Tiến độ dự án
 
 **Cập nhật lần cuối:** 20/06/2026  
 **Cột mốc hiện tại:** Hệ thống Tetris cốt lõi  
@@ -29,6 +29,7 @@
 - [x] Tạo thư mục `Assets/_Project` có tổ chức rõ ràng.
 - [x] Tạo assembly cho Runtime, Editor và EditMode Test.
 - [x] Thêm file `.gitignore` dành cho Unity.
+- [x] Thêm `README.md` và `PROGRESS.md` tại thư mục gốc cho cả nhóm.
 - [x] Tạo scene có Hierarchy rõ ràng, phù hợp trình bày trên lớp.
 - [x] Tạo physics layer `World` và `FallingBlock`.
 - [x] Thêm scene Tetris Demo vào Build Settings.
@@ -148,6 +149,7 @@ Cột mốc Tetris Core được xem là hoàn thành khi:
 | 20/06/2026 | Thêm preview block tiếp theo và chuyển động rơi từng ô | Chờ kiểm thử thủ công lần cuối |
 | 20/06/2026 | Bỏ đặt block tự động và thêm điều khiển WASD | Tetromino do người chơi điều khiển |
 | 20/06/2026 | Đặt vị trí spawn trước khi tạo visual và physics | Không còn nháy block tại tâm màn hình |
+| 20/06/2026 | Đưa README và bảng tiến độ lên thư mục gốc | Team có thể theo dõi trực tiếp trên GitHub |
 
 ## Cách cập nhật file này
 
