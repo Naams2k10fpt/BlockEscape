@@ -1,0 +1,14 @@
+{
+  "name": "BlockEscape.Tetris.Tests",
+  "rootNamespace": "BlockEscape.Tetris.Tests",
+  "references": [
+    "BlockEscape.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

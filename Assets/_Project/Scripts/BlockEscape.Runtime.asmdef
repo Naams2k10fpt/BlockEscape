@@ -1,0 +1,9 @@
+{
+  "name": "BlockEscape.Runtime",
+  "rootNamespace": "BlockEscape",
+  "references": [
+    "Unity.InputSystem",
+    "Unity.ugui"
+  ],
+  "autoReferenced": true
+}
