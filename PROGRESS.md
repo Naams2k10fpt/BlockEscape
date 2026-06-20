@@ -2,7 +2,7 @@
 
 - **Cập nhật lần cuối:** 20/06/2026
 - **Cột mốc hiện tại:** Chuẩn hóa Input System
-- **Tiến độ tổng thể ước tính:** 28%
+- **Tiến độ tổng thể ước tính:** 31%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity`
 
@@ -106,8 +106,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Drone AI | 0% | Chưa làm | Chưa phân công |
 | Dynamic Events | 0% | Chưa làm | Chưa phân công |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
-| HUD và game flow | 30% | Có HUD, Pause Menu và xác nhận reset | Chưa phân công |
-| Main Menu, Options và Save | 0% | Chưa làm | Chưa phân công |
+| HUD và game flow | 45% | Có Pause, xác nhận reset và Game Over summary | Chưa phân công |
+| Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
 | Test và Windows build | 20% | Có EditMode tests cơ bản | Chưa phân công |
 
@@ -136,6 +136,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Hai danger row và overflow timer ba giây.
 - [x] Reset, pause và HUD thống kê.
 - [x] Pause Menu bằng `Esc`, nút Resume và Reset có hộp xác nhận.
+- [x] Pause Menu hiển thị số block, hàng đã xóa, điểm và seed của lượt hiện tại.
 - [x] Sửa lỗi thiếu SpriteRenderer và nháy block tại tâm màn hình.
 
 ### Input System
@@ -146,6 +147,15 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] `ActiveTetromino` không còn đọc `Keyboard.current` trực tiếp.
 - [x] Pause và hộp xác nhận reset vô hiệu hóa input gameplay nhưng vẫn giữ map `System`.
 - [x] Scene builder tạo object `Input Service (Persistent)` và gắn action asset trong Inspector.
+
+### Scene flow và Game Over
+
+- [x] Tạo scene `MainMenu` với nút Bắt đầu và Thoát game.
+- [x] Nút Bắt đầu tải `TetrisDemo`; Build Settings đặt Main Menu trước Gameplay.
+- [x] Board overflow mở bảng tổng kết thay vì chỉ hiện dòng trạng thái.
+- [x] Tổng kết hiển thị nguyên nhân thua, block đã thả, hàng đã xóa, điểm và seed.
+- [x] Game Over có nút Chơi lại và Main Menu.
+- [x] Pause Menu có nút trở về Main Menu và yêu cầu xác nhận trước khi rời lượt.
 
 ## 6. Kiến trúc và contract dùng chung
 
@@ -740,6 +750,11 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 20/06/2026 | Bugfix | Tách ghost khỏi transform của Rigidbody và giảm alpha | Ghost không còn giật khi giữ soft drop |
 | 20/06/2026 | Tetris UI | Thêm Pause Menu và xác nhận reset | Tránh reset nhầm và có thể tiếp tục bằng nút/ESC |
 | 20/06/2026 | Input System | Tạo ba action map và `InputService` persistent | Tetris, player và system dùng binding tách biệt |
+| 20/06/2026 | Tetris UI | Thêm thống kê lượt chơi trong Pause Menu | Dễ theo dõi và trình bày khi demo |
+| 20/06/2026 | Bugfix UI | Khôi phục reference từ scene cũ trước khi tạo HUD fallback | Không còn HUD/Status chồng lên nhau |
+| 20/06/2026 | Scene Flow | Thêm Main Menu và Game Over summary | Có vòng lặp Start → Gameplay → Kết quả → Restart/Menu |
+| 20/06/2026 | Bugfix UI Input | Thay `AssignDefaultActions` bằng UI action asset riêng | Builder tạo liên tiếp hai scene không còn exception |
+| 20/06/2026 | Pause Flow | Thêm xác nhận trước khi trở về Main Menu | Tránh người chơi làm mất lượt do bấm nhầm |
 
 ## 13. Cách cập nhật file này
 

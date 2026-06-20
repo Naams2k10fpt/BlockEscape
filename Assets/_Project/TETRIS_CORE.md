@@ -19,7 +19,7 @@ This milestone intentionally contains no platform player, enemy, pickups, or fin
 
 ## Run
 
-Open `Assets/_Project/Scenes/TetrisDemo.unity` and press Play.
+Open `Assets/_Project/Scenes/MainMenu.unity` and press Play. Start loads `TetrisDemo`; board overflow opens a run summary with Restart and Main Menu actions.
 
 Input is provided by the persistent `Input Service (Persistent)` object. Tetris, future Player, and System controls use separate action maps from `Assets/InputSystem_Actions.inputactions`.
 

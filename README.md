@@ -20,7 +20,9 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Preview tetromino tiếp theo.
 - Ghost piece trong suốt hiển thị vị trí block sẽ khóa.
 - Khóa block, phát hiện/xóa nhiều hàng và dịch địa hình.
-- Board overflow, Pause Menu, xác nhận reset và HUD demo.
+- Board overflow, Pause Menu có thống kê lượt chơi, xác nhận reset và HUD demo.
+- Main Menu có nút Bắt đầu/Thoát và màn Game Over tổng kết lượt chơi.
+- Pause Menu có nút trở về Main Menu với hộp xác nhận để tránh mất lượt nhầm.
 - Input System được tách thành ba map `Tetris`, `Player`, `System` và quản lý tập trung qua `InputService`.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.
@@ -47,7 +49,7 @@ Sau đó:
 1. Mở Unity Hub.
 2. Chọn **Add project from disk**.
 3. Chọn thư mục `BlockEscape`.
-4. Mở scene `Assets/_Project/Scenes/TetrisDemo.unity`.
+4. Mở scene `Assets/_Project/Scenes/MainMenu.unity`.
 5. Nhấn **Play**.
 
 Nếu scene bị mất reference hoặc Hierarchy chưa đúng, chọn:
@@ -55,6 +57,8 @@ Nếu scene bị mất reference hoặc Hierarchy chưa đúng, chọn:
 ```text
 Block Escape → Build Classroom Tetris Scene
 ```
+
+Công cụ trên tạo đồng thời `MainMenu` và `TetrisDemo`, đồng thời cập nhật Build Settings theo thứ tự Main Menu → Gameplay.
 
 ## Điều khiển hiện tại
 

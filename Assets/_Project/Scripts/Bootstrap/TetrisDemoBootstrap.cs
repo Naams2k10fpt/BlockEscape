@@ -4,6 +4,7 @@ using BlockEscape.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace BlockEscape.Bootstrap
@@ -26,11 +27,13 @@ namespace BlockEscape.Bootstrap
         [SerializeField] private Image _overflowFill;
         [SerializeField] private NextPiecePreview _nextPiecePreview;
         [SerializeField] private TetrisPauseMenu _pauseMenu;
+        [SerializeField] private TetrisGameOverMenu _gameOverMenu;
 
         private int _rowsCleared;
         private int _lineScore;
         private TetrominoKind _lastSpawned;
         private bool _paused;
+        private bool _gameOver;
 
         private void Awake()
         {
@@ -41,31 +44,45 @@ namespace BlockEscape.Bootstrap
                 _config = CreateRuntimeDefaults();
 
             _config.Sanitize();
+            RecoverSceneReferences();
             ConfigureCamera();
             InitializeInput();
             if (_arenaVisuals == null)
                 CreateArenaVisuals();
-            InitializeSystems();
             if (_statsText == null || _statusText == null || _overflowFill == null)
                 CreateHud();
-            else if (_pauseMenu == null)
+            else
             {
                 var existingCanvas = FindAnyObjectByType<Canvas>();
                 if (existingCanvas != null)
                 {
-                    _pauseMenu = CreatePauseMenu(existingCanvas.transform);
-                    EnsureEventSystem();
+                    if (_pauseMenu == null)
+                        _pauseMenu = CreatePauseMenu(existingCanvas.transform);
+                    if (_gameOverMenu == null)
+                        _gameOverMenu = CreateGameOverMenu(existingCanvas.transform);
+                    if (_pauseMenu != null || _gameOverMenu != null)
+                        EnsureEventSystem();
                 }
             }
+            InitializeSystems();
+            if (_statusText != null)
+            {
+                _statusText.text = "RUNNING";
+                _statusText.color = Color.white;
+            }
             InitializePauseFlow();
+            InitializeGameOverFlow();
         }
 
         private void Update()
         {
-            if (_inputService != null && _inputService.ResetRun.WasPressedThisFrame())
-                OpenResetConfirmation();
-            else if (_inputService != null && _inputService.Pause.WasPressedThisFrame())
-                HandleEscape();
+            if (!_gameOver)
+            {
+                if (_inputService != null && _inputService.ResetRun.WasPressedThisFrame())
+                    OpenResetConfirmation();
+                else if (_inputService != null && _inputService.Pause.WasPressedThisFrame())
+                    HandleEscape();
+            }
 
             UpdateHud();
         }
@@ -76,6 +93,12 @@ namespace BlockEscape.Bootstrap
             {
                 _pauseMenu.ResumeRequested -= ResumeGame;
                 _pauseMenu.ResetConfirmed -= ResetDemo;
+                _pauseMenu.MainMenuConfirmed -= ReturnToMainMenu;
+            }
+            if (_gameOverMenu != null)
+            {
+                _gameOverMenu.RestartRequested -= ResetDemo;
+                _gameOverMenu.MainMenuRequested -= ReturnToMainMenu;
             }
             Time.timeScale = 1f;
         }
@@ -100,6 +123,45 @@ namespace BlockEscape.Bootstrap
             _spawner.PieceSpawned += kind => _lastSpawned = kind;
             _spawner.NextPieceChanged += OnNextPieceChanged;
             _spawner.Initialize(_board, _config, _inputService);
+        }
+
+        private void RecoverSceneReferences()
+        {
+            if (_board == null)
+                _board = FindAnyObjectByType<BlockBoard>();
+            if (_spawner == null)
+                _spawner = FindAnyObjectByType<TetrominoSpawner>();
+            if (_arenaVisuals == null)
+            {
+                var arenaObject = GameObject.Find("Arena Visuals");
+                if (arenaObject != null) _arenaVisuals = arenaObject.transform;
+            }
+
+            var canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include);
+            foreach (var canvas in canvases)
+            {
+                if (_statsText == null)
+                    _statsText = FindNamedComponent<Text>(canvas.transform, "Game Statistics");
+                if (_statusText == null)
+                    _statusText = FindNamedComponent<Text>(canvas.transform, "Game Status");
+                if (_overflowFill == null)
+                    _overflowFill = FindNamedComponent<Image>(canvas.transform, "Danger Fill");
+                if (_nextPiecePreview == null)
+                    _nextPiecePreview = FindNamedComponent<NextPiecePreview>(canvas.transform, "Next Piece Preview");
+                if (_pauseMenu == null)
+                    _pauseMenu = canvas.GetComponentInChildren<TetrisPauseMenu>(true);
+                if (_gameOverMenu == null)
+                    _gameOverMenu = canvas.GetComponentInChildren<TetrisGameOverMenu>(true);
+            }
+        }
+
+        private static T FindNamedComponent<T>(Transform root, string objectName) where T : Component
+        {
+            var components = root.GetComponentsInChildren<T>(true);
+            foreach (var component in components)
+                if (component.gameObject.name == objectName)
+                    return component;
+            return null;
         }
 
         private void InitializeInput()
@@ -214,6 +276,7 @@ namespace BlockEscape.Bootstrap
             fillRect.offsetMax = new Vector2(-3f, -3f);
 
             _pauseMenu = CreatePauseMenu(canvasObject.transform);
+            _gameOverMenu = CreateGameOverMenu(canvasObject.transform);
             EnsureEventSystem();
         }
 
@@ -235,8 +298,10 @@ namespace BlockEscape.Bootstrap
         {
             Time.timeScale = 1f;
             _paused = false;
+            _gameOver = false;
             if (_inputService != null) _inputService.SetGameplayEnabled(true);
             if (_pauseMenu != null) _pauseMenu.HideAll();
+            if (_gameOverMenu != null) _gameOverMenu.Hide();
             _rowsCleared = 0;
             _lineScore = 0;
             _board.ResetBoard();
@@ -252,13 +317,26 @@ namespace BlockEscape.Bootstrap
 
             _pauseMenu.ResumeRequested += ResumeGame;
             _pauseMenu.ResetConfirmed += ResetDemo;
+            _pauseMenu.MainMenuConfirmed += ReturnToMainMenu;
+            UpdatePauseStatistics();
             _pauseMenu.HideAll();
+        }
+
+        private void InitializeGameOverFlow()
+        {
+            if (_gameOverMenu == null)
+                return;
+
+            _gameOverMenu.RestartRequested += ResetDemo;
+            _gameOverMenu.MainMenuRequested += ReturnToMainMenu;
+            _gameOverMenu.Hide();
         }
 
         private void HandleEscape()
         {
-            if (_pauseMenu != null && _pauseMenu.IsResetConfirmationVisible)
+            if (_pauseMenu != null && _pauseMenu.IsConfirmationVisible)
             {
+                UpdatePauseStatistics();
                 _pauseMenu.ShowPause();
                 return;
             }
@@ -274,7 +352,11 @@ namespace BlockEscape.Bootstrap
             _paused = true;
             Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
-            if (_pauseMenu != null) _pauseMenu.ShowPause();
+            if (_pauseMenu != null)
+            {
+                UpdatePauseStatistics();
+                _pauseMenu.ShowPause();
+            }
             if (_statusText != null)
             {
                 _statusText.text = "PAUSED";
@@ -312,6 +394,18 @@ namespace BlockEscape.Bootstrap
                 _pauseMenu.ShowResetConfirmation();
             else
                 ResetDemo();
+        }
+
+        private void UpdatePauseStatistics()
+        {
+            if (_pauseMenu == null || _spawner == null)
+                return;
+
+            _pauseMenu.SetRunStatistics(
+                _spawner.PiecesSpawned,
+                _rowsCleared,
+                _lineScore,
+                _spawner.Seed);
         }
 
         private void OnPieceLocked(TetrominoKind kind)
@@ -353,11 +447,30 @@ namespace BlockEscape.Bootstrap
 
         private void OnOverflowed()
         {
+            _gameOver = true;
+            _paused = false;
+            Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
+            if (_pauseMenu != null) _pauseMenu.HideAll();
+            if (_gameOverMenu != null && _spawner != null)
+            {
+                _gameOverMenu.Show(
+                    _spawner.PiecesSpawned,
+                    _rowsCleared,
+                    _lineScore,
+                    _spawner.Seed,
+                    "BLOCK CHẠM VÙNG NGUY HIỂM");
+            }
             if (_statusText == null)
                 return;
-            _statusText.text = "BOARD OVERFLOW — PRESS ESC OR R";
+            _statusText.text = "GAME OVER";
             _statusText.color = new Color(1f, 0.2f, 0.25f);
+        }
+
+        private void ReturnToMainMenu()
+        {
+            Time.timeScale = 1f;
+            SceneManager.LoadScene("MainMenu");
         }
 
         private static TetrisPauseMenu CreatePauseMenu(Transform canvasRoot)
@@ -367,17 +480,22 @@ namespace BlockEscape.Bootstrap
             var controller = controllerObject.AddComponent<TetrisPauseMenu>();
 
             var pausePanel = CreateOverlay(canvasRoot, "Pause Menu Overlay", new Color(0f, 0f, 0f, 0.72f));
-            var pauseDialog = CreatePanel(pausePanel.transform, "Pause Dialog", new Vector2(520f, 410f));
+            var pauseDialog = CreatePanel(pausePanel.transform, "Pause Dialog", new Vector2(560f, 580f));
             var pauseTitle = CreateText(pauseDialog.transform, "Pause Title", "TẠM DỪNG", 40, TextAnchor.UpperCenter);
             SetRect(pauseTitle.rectTransform, new Vector2(0f, -30f), new Vector2(460f, 60f), new Vector2(0.5f, 1f));
             pauseTitle.color = new Color(0.35f, 0.85f, 1f);
 
+            var runStats = CreateText(pauseDialog.transform, "Pause Run Statistics", "BLOCK ĐÃ THẢ  0\nHÀNG ĐÃ XÓA  0     ĐIỂM  0\nSEED  0", 22, TextAnchor.MiddleCenter);
+            SetRect(runStats.rectTransform, new Vector2(0f, 100f), new Vector2(500f, 105f), new Vector2(0.5f, 0.5f));
+            runStats.color = new Color(0.45f, 1f, 0.65f);
+
             var controls = CreateText(pauseDialog.transform, "Pause Controls", "A/D: Di chuyển   W: Xoay   S: Soft drop\nESC: Tiếp tục", 20, TextAnchor.MiddleCenter);
-            SetRect(controls.rectTransform, new Vector2(0f, 55f), new Vector2(450f, 70f), new Vector2(0.5f, 0.5f));
+            SetRect(controls.rectTransform, new Vector2(0f, 15f), new Vector2(480f, 60f), new Vector2(0.5f, 0.5f));
             controls.color = new Color(0.72f, 0.8f, 0.92f);
 
-            var resumeButton = CreateButton(pauseDialog.transform, "Resume Button", "TIẾP TỤC", new Vector2(0f, -55f), new Vector2(320f, 58f));
-            var resetButton = CreateButton(pauseDialog.transform, "Reset Button", "CHƠI LẠI", new Vector2(0f, -130f), new Vector2(320f, 58f));
+            var resumeButton = CreateButton(pauseDialog.transform, "Resume Button", "TIẾP TỤC", new Vector2(0f, -75f), new Vector2(320f, 58f));
+            var resetButton = CreateButton(pauseDialog.transform, "Reset Button", "CHƠI LẠI", new Vector2(0f, -150f), new Vector2(320f, 58f));
+            var mainMenuButton = CreateButton(pauseDialog.transform, "Pause Main Menu Button", "TRỞ VỀ MAIN MENU", new Vector2(0f, -225f), new Vector2(320f, 58f));
 
             var confirmationPanel = CreateOverlay(canvasRoot, "Reset Confirmation Overlay", new Color(0f, 0f, 0f, 0.82f));
             var confirmationDialog = CreatePanel(confirmationPanel.transform, "Reset Confirmation Dialog", new Vector2(620f, 330f));
@@ -391,16 +509,59 @@ namespace BlockEscape.Bootstrap
             var confirmButton = CreateButton(confirmationDialog.transform, "Confirm Reset Button", "CÓ, RESET", new Vector2(-145f, -105f), new Vector2(250f, 58f));
             var cancelButton = CreateButton(confirmationDialog.transform, "Cancel Reset Button", "HỦY", new Vector2(145f, -105f), new Vector2(250f, 58f));
 
+            var mainMenuConfirmationPanel = CreateOverlay(canvasRoot, "Main Menu Confirmation Overlay", new Color(0f, 0f, 0f, 0.82f));
+            var mainMenuConfirmationDialog = CreatePanel(mainMenuConfirmationPanel.transform, "Main Menu Confirmation Dialog", new Vector2(660f, 350f));
+            var mainMenuConfirmationTitle = CreateText(mainMenuConfirmationDialog.transform, "Main Menu Confirmation Title", "TRỞ VỀ MAIN MENU?", 34, TextAnchor.UpperCenter);
+            SetRect(mainMenuConfirmationTitle.rectTransform, new Vector2(0f, -28f), new Vector2(600f, 55f), new Vector2(0.5f, 1f));
+            mainMenuConfirmationTitle.color = new Color(1f, 0.72f, 0.25f);
+
+            var mainMenuMessage = CreateText(mainMenuConfirmationDialog.transform, "Main Menu Confirmation Message", "Bạn có chắc muốn rời lượt chơi hiện tại?\nToàn bộ tiến trình chưa lưu sẽ bị mất.", 23, TextAnchor.MiddleCenter);
+            SetRect(mainMenuMessage.rectTransform, new Vector2(0f, 28f), new Vector2(580f, 105f), new Vector2(0.5f, 0.5f));
+
+            var confirmMainMenuButton = CreateButton(mainMenuConfirmationDialog.transform, "Confirm Main Menu Button", "ĐỒNG Ý", new Vector2(-155f, -112f), new Vector2(270f, 58f));
+            var cancelMainMenuButton = CreateButton(mainMenuConfirmationDialog.transform, "Cancel Main Menu Button", "HỦY", new Vector2(155f, -112f), new Vector2(270f, 58f));
+
             controller.Configure(
                 pausePanel,
                 confirmationPanel,
+                mainMenuConfirmationPanel,
+                runStats,
                 resumeButton,
                 resetButton,
+                mainMenuButton,
                 confirmButton,
-                cancelButton);
+                cancelButton,
+                confirmMainMenuButton,
+                cancelMainMenuButton);
 
             pausePanel.SetActive(false);
             confirmationPanel.SetActive(false);
+            mainMenuConfirmationPanel.SetActive(false);
+            return controller;
+        }
+
+        private static TetrisGameOverMenu CreateGameOverMenu(Transform canvasRoot)
+        {
+            var controllerObject = new GameObject("Game Over Menu Controller");
+            controllerObject.transform.SetParent(canvasRoot, false);
+            var controller = controllerObject.AddComponent<TetrisGameOverMenu>();
+
+            var panel = CreateOverlay(canvasRoot, "Game Over Overlay", new Color(0f, 0f, 0f, 0.88f));
+            var dialog = CreatePanel(panel.transform, "Game Over Summary Dialog", new Vector2(680f, 620f));
+
+            var title = CreateText(dialog.transform, "Game Over Title", "GAME OVER", 52, TextAnchor.UpperCenter);
+            SetRect(title.rectTransform, new Vector2(0f, -35f), new Vector2(600f, 75f), new Vector2(0.5f, 1f));
+            title.color = new Color(1f, 0.25f, 0.3f);
+
+            var summary = CreateText(dialog.transform, "Run Summary", "KẾT QUẢ LƯỢT CHƠI", 25, TextAnchor.MiddleCenter);
+            SetRect(summary.rectTransform, new Vector2(0f, 55f), new Vector2(590f, 280f), new Vector2(0.5f, 0.5f));
+            summary.color = new Color(0.82f, 0.9f, 1f);
+
+            var restartButton = CreateButton(dialog.transform, "Restart Run Button", "CHƠI LẠI", new Vector2(0f, -155f), new Vector2(360f, 62f));
+            var mainMenuButton = CreateButton(dialog.transform, "Return Main Menu Button", "MAIN MENU", new Vector2(0f, -235f), new Vector2(360f, 62f));
+
+            controller.Configure(panel, summary, restartButton, mainMenuButton);
+            panel.SetActive(false);
             return controller;
         }
 
@@ -451,9 +612,11 @@ namespace BlockEscape.Bootstrap
                 return;
 
             var eventSystemObject = new GameObject("Event System");
+            eventSystemObject.SetActive(false);
             eventSystemObject.AddComponent<EventSystem>();
             var inputModule = eventSystemObject.AddComponent<InputSystemUIInputModule>();
-            inputModule.AssignDefaultActions();
+            UiInputActions.AssignTo(inputModule);
+            eventSystemObject.SetActive(true);
         }
 
         private static void StretchFullScreen(RectTransform rect)

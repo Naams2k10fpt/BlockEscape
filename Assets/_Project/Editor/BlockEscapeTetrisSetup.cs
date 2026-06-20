@@ -18,10 +18,11 @@ namespace BlockEscape.Editor
     public static class BlockEscapeTetrisSetup
     {
         private const string ScenePath = "Assets/_Project/Scenes/TetrisDemo.unity";
+        private const string MainMenuScenePath = "Assets/_Project/Scenes/MainMenu.unity";
         private const string ConfigPath = "Assets/_Project/Resources/TetrisBalanceConfig.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string SquareAssetPath = "Assets/_Project/Art/GeneratedSquare.asset";
-        private const string ClassroomMarker = "m_Name: Input Service (Persistent)";
+        private const string ClassroomMarker = "m_Name: Main Menu Confirmation Dialog";
 
         static BlockEscapeTetrisSetup()
         {
@@ -89,10 +90,16 @@ namespace BlockEscape.Editor
             managerData.FindProperty("_overflowFill").objectReferenceValue = hud.overflowFill;
             managerData.FindProperty("_nextPiecePreview").objectReferenceValue = hud.nextPreview;
             managerData.FindProperty("_pauseMenu").objectReferenceValue = hud.pauseMenu;
+            managerData.FindProperty("_gameOverMenu").objectReferenceValue = hud.gameOverMenu;
             managerData.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            CreateMainMenuScene();
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(MainMenuScenePath, true),
+                new EditorBuildSettingsScene(ScenePath, true)
+            };
 
             PlayerSettings.companyName = "PRU213 Team";
             PlayerSettings.productName = "Block Escape";
@@ -104,8 +111,8 @@ namespace BlockEscape.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-            Selection.activeGameObject = gameManagerObject;
-            Debug.Log("Classroom-ready Tetris scene built successfully: " + ScenePath);
+            Selection.activeGameObject = GameObject.Find("Game Manager");
+            Debug.Log($"Demo scenes built successfully: {MainMenuScenePath}, {ScenePath}");
         }
 
         private static void UpgradeOldDemoOnce()
@@ -113,10 +120,72 @@ namespace BlockEscape.Editor
             if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling)
                 return;
 
-            if (File.Exists(ScenePath) && File.ReadAllText(ScenePath).Contains(ClassroomMarker))
+            if (File.Exists(ScenePath) &&
+                File.ReadAllText(ScenePath).Contains(ClassroomMarker) &&
+                File.Exists(MainMenuScenePath))
                 return;
 
             BuildTetrisDemo();
+        }
+
+        private static void CreateMainMenuScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            scene.name = "MainMenu";
+            CreateCamera();
+
+            var uiRoot = new GameObject("Main Menu UI").transform;
+            var canvasObject = new GameObject("Main Menu Canvas");
+            canvasObject.transform.SetParent(uiRoot, false);
+            var canvas = canvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            var scaler = canvasObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+            canvasObject.AddComponent<GraphicRaycaster>();
+
+            var backgroundObject = new GameObject("Menu Background");
+            backgroundObject.transform.SetParent(canvasObject.transform, false);
+            var background = backgroundObject.AddComponent<Image>();
+            background.color = new Color(0.025f, 0.035f, 0.075f, 1f);
+            StretchFullScreen(background.rectTransform);
+
+            var accentObject = new GameObject("Title Accent");
+            accentObject.transform.SetParent(canvasObject.transform, false);
+            var accent = accentObject.AddComponent<Image>();
+            accent.color = new Color(0.2f, 0.75f, 1f, 0.9f);
+            SetRect(accent.rectTransform, new Vector2(0f, 235f), new Vector2(560f, 5f), new Vector2(0.5f, 0.5f));
+
+            var title = CreateText(canvasObject.transform, "Game Title", "BLOCK ESCAPE", 72, TextAnchor.MiddleCenter);
+            SetRect(title.rectTransform, new Vector2(0f, 330f), new Vector2(1000f, 110f), new Vector2(0.5f, 0.5f));
+            title.color = new Color(0.35f, 0.85f, 1f);
+
+            var subtitle = CreateText(canvasObject.transform, "Game Subtitle", "TETRIS PLATFORM SURVIVAL", 28, TextAnchor.MiddleCenter);
+            SetRect(subtitle.rectTransform, new Vector2(0f, 270f), new Vector2(800f, 55f), new Vector2(0.5f, 0.5f));
+            subtitle.color = new Color(0.72f, 0.8f, 0.92f);
+
+            var startButton = CreateButton(canvasObject.transform, "Start Game Button", "BẮT ĐẦU", new Vector2(0f, 45f), new Vector2(400f, 72f));
+            var exitButton = CreateButton(canvasObject.transform, "Exit Game Button", "THOÁT GAME", new Vector2(0f, -55f), new Vector2(400f, 72f));
+
+            var controls = CreateText(canvasObject.transform, "Control Hint", "TETRIS: A / D DI CHUYỂN  •  W XOAY  •  S SOFT DROP", 22, TextAnchor.MiddleCenter);
+            SetRect(controls.rectTransform, new Vector2(0f, -250f), new Vector2(1100f, 55f), new Vector2(0.5f, 0.5f));
+            controls.color = new Color(0.55f, 0.65f, 0.8f);
+
+            var footer = CreateText(canvasObject.transform, "Project Footer", "PRU213 FINAL PROJECT", 18, TextAnchor.LowerCenter);
+            SetRect(footer.rectTransform, new Vector2(0f, 28f), new Vector2(600f, 40f), new Vector2(0.5f, 0f));
+            footer.color = new Color(0.42f, 0.5f, 0.65f);
+
+            var controllerObject = new GameObject("Main Menu Controller");
+            controllerObject.transform.SetParent(uiRoot, false);
+            var controller = controllerObject.AddComponent<MainMenuController>();
+            var controllerData = new SerializedObject(controller);
+            controllerData.FindProperty("_startButton").objectReferenceValue = startButton;
+            controllerData.FindProperty("_exitButton").objectReferenceValue = exitButton;
+            controllerData.ApplyModifiedPropertiesWithoutUndo();
+
+            CreateEventSystem(uiRoot);
+            EditorSceneManager.SaveScene(scene, MainMenuScenePath);
         }
 
         private static Camera CreateCamera()
@@ -243,9 +312,10 @@ namespace BlockEscape.Editor
             fillRect.offsetMax = new Vector2(-3f, -3f);
 
             var pauseMenu = CreatePauseMenu(canvasObject.transform);
+            var gameOverMenu = CreateGameOverMenu(canvasObject.transform);
             CreateEventSystem(uiRoot);
 
-            return new HudReferences(stats, status, overflowFill, nextPreview, pauseMenu);
+            return new HudReferences(stats, status, overflowFill, nextPreview, pauseMenu, gameOverMenu);
         }
 
         private static TetrisPauseMenu CreatePauseMenu(Transform canvasRoot)
@@ -255,17 +325,22 @@ namespace BlockEscape.Editor
             var controller = controllerObject.AddComponent<TetrisPauseMenu>();
 
             var pausePanel = CreateOverlay(canvasRoot, "Pause Menu Overlay", new Color(0f, 0f, 0f, 0.72f));
-            var pauseDialog = CreatePanel(pausePanel.transform, "Pause Dialog", new Vector2(520f, 410f));
+            var pauseDialog = CreatePanel(pausePanel.transform, "Pause Dialog", new Vector2(560f, 580f));
             var pauseTitle = CreateText(pauseDialog.transform, "Pause Title", "TẠM DỪNG", 40, TextAnchor.UpperCenter);
             SetRect(pauseTitle.rectTransform, new Vector2(0f, -30f), new Vector2(460f, 60f), new Vector2(0.5f, 1f));
             pauseTitle.color = new Color(0.35f, 0.85f, 1f);
 
+            var runStats = CreateText(pauseDialog.transform, "Pause Run Statistics", "BLOCK ĐÃ THẢ  0\nHÀNG ĐÃ XÓA  0     ĐIỂM  0\nSEED  0", 22, TextAnchor.MiddleCenter);
+            SetRect(runStats.rectTransform, new Vector2(0f, 100f), new Vector2(500f, 105f), new Vector2(0.5f, 0.5f));
+            runStats.color = new Color(0.45f, 1f, 0.65f);
+
             var controls = CreateText(pauseDialog.transform, "Pause Controls", "A/D: Di chuyển   W: Xoay   S: Soft drop\nESC: Tiếp tục", 20, TextAnchor.MiddleCenter);
-            SetRect(controls.rectTransform, new Vector2(0f, 55f), new Vector2(450f, 70f), new Vector2(0.5f, 0.5f));
+            SetRect(controls.rectTransform, new Vector2(0f, 15f), new Vector2(480f, 60f), new Vector2(0.5f, 0.5f));
             controls.color = new Color(0.72f, 0.8f, 0.92f);
 
-            var resumeButton = CreateButton(pauseDialog.transform, "Resume Button", "TIẾP TỤC", new Vector2(0f, -55f), new Vector2(320f, 58f));
-            var resetButton = CreateButton(pauseDialog.transform, "Reset Button", "CHƠI LẠI", new Vector2(0f, -130f), new Vector2(320f, 58f));
+            var resumeButton = CreateButton(pauseDialog.transform, "Resume Button", "TIẾP TỤC", new Vector2(0f, -75f), new Vector2(320f, 58f));
+            var resetButton = CreateButton(pauseDialog.transform, "Reset Button", "CHƠI LẠI", new Vector2(0f, -150f), new Vector2(320f, 58f));
+            var mainMenuButton = CreateButton(pauseDialog.transform, "Pause Main Menu Button", "TRỞ VỀ MAIN MENU", new Vector2(0f, -225f), new Vector2(320f, 58f));
 
             var confirmationPanel = CreateOverlay(canvasRoot, "Reset Confirmation Overlay", new Color(0f, 0f, 0f, 0.82f));
             var confirmationDialog = CreatePanel(confirmationPanel.transform, "Reset Confirmation Dialog", new Vector2(620f, 330f));
@@ -279,17 +354,66 @@ namespace BlockEscape.Editor
             var confirmButton = CreateButton(confirmationDialog.transform, "Confirm Reset Button", "CÓ, RESET", new Vector2(-145f, -105f), new Vector2(250f, 58f));
             var cancelButton = CreateButton(confirmationDialog.transform, "Cancel Reset Button", "HỦY", new Vector2(145f, -105f), new Vector2(250f, 58f));
 
+            var mainMenuConfirmationPanel = CreateOverlay(canvasRoot, "Main Menu Confirmation Overlay", new Color(0f, 0f, 0f, 0.82f));
+            var mainMenuConfirmationDialog = CreatePanel(mainMenuConfirmationPanel.transform, "Main Menu Confirmation Dialog", new Vector2(660f, 350f));
+            var mainMenuConfirmationTitle = CreateText(mainMenuConfirmationDialog.transform, "Main Menu Confirmation Title", "TRỞ VỀ MAIN MENU?", 34, TextAnchor.UpperCenter);
+            SetRect(mainMenuConfirmationTitle.rectTransform, new Vector2(0f, -28f), new Vector2(600f, 55f), new Vector2(0.5f, 1f));
+            mainMenuConfirmationTitle.color = new Color(1f, 0.72f, 0.25f);
+
+            var mainMenuMessage = CreateText(mainMenuConfirmationDialog.transform, "Main Menu Confirmation Message", "Bạn có chắc muốn rời lượt chơi hiện tại?\nToàn bộ tiến trình chưa lưu sẽ bị mất.", 23, TextAnchor.MiddleCenter);
+            SetRect(mainMenuMessage.rectTransform, new Vector2(0f, 28f), new Vector2(580f, 105f), new Vector2(0.5f, 0.5f));
+
+            var confirmMainMenuButton = CreateButton(mainMenuConfirmationDialog.transform, "Confirm Main Menu Button", "ĐỒNG Ý", new Vector2(-155f, -112f), new Vector2(270f, 58f));
+            var cancelMainMenuButton = CreateButton(mainMenuConfirmationDialog.transform, "Cancel Main Menu Button", "HỦY", new Vector2(155f, -112f), new Vector2(270f, 58f));
+
             var menuData = new SerializedObject(controller);
             menuData.FindProperty("_pausePanel").objectReferenceValue = pausePanel;
             menuData.FindProperty("_resetConfirmationPanel").objectReferenceValue = confirmationPanel;
+            menuData.FindProperty("_mainMenuConfirmationPanel").objectReferenceValue = mainMenuConfirmationPanel;
+            menuData.FindProperty("_runStatsText").objectReferenceValue = runStats;
             menuData.FindProperty("_resumeButton").objectReferenceValue = resumeButton;
             menuData.FindProperty("_resetButton").objectReferenceValue = resetButton;
+            menuData.FindProperty("_mainMenuButton").objectReferenceValue = mainMenuButton;
             menuData.FindProperty("_confirmResetButton").objectReferenceValue = confirmButton;
             menuData.FindProperty("_cancelResetButton").objectReferenceValue = cancelButton;
+            menuData.FindProperty("_confirmMainMenuButton").objectReferenceValue = confirmMainMenuButton;
+            menuData.FindProperty("_cancelMainMenuButton").objectReferenceValue = cancelMainMenuButton;
             menuData.ApplyModifiedPropertiesWithoutUndo();
 
             pausePanel.SetActive(false);
             confirmationPanel.SetActive(false);
+            mainMenuConfirmationPanel.SetActive(false);
+            return controller;
+        }
+
+        private static TetrisGameOverMenu CreateGameOverMenu(Transform canvasRoot)
+        {
+            var controllerObject = new GameObject("Game Over Menu Controller");
+            controllerObject.transform.SetParent(canvasRoot, false);
+            var controller = controllerObject.AddComponent<TetrisGameOverMenu>();
+
+            var panel = CreateOverlay(canvasRoot, "Game Over Overlay", new Color(0f, 0f, 0f, 0.88f));
+            var dialog = CreatePanel(panel.transform, "Game Over Summary Dialog", new Vector2(680f, 620f));
+
+            var title = CreateText(dialog.transform, "Game Over Title", "GAME OVER", 52, TextAnchor.UpperCenter);
+            SetRect(title.rectTransform, new Vector2(0f, -35f), new Vector2(600f, 75f), new Vector2(0.5f, 1f));
+            title.color = new Color(1f, 0.25f, 0.3f);
+
+            var summary = CreateText(dialog.transform, "Run Summary", "KẾT QUẢ LƯỢT CHƠI", 25, TextAnchor.MiddleCenter);
+            SetRect(summary.rectTransform, new Vector2(0f, 55f), new Vector2(590f, 280f), new Vector2(0.5f, 0.5f));
+            summary.color = new Color(0.82f, 0.9f, 1f);
+
+            var restartButton = CreateButton(dialog.transform, "Restart Run Button", "CHƠI LẠI", new Vector2(0f, -155f), new Vector2(360f, 62f));
+            var mainMenuButton = CreateButton(dialog.transform, "Return Main Menu Button", "MAIN MENU", new Vector2(0f, -235f), new Vector2(360f, 62f));
+
+            var menuData = new SerializedObject(controller);
+            menuData.FindProperty("_panel").objectReferenceValue = panel;
+            menuData.FindProperty("_summaryText").objectReferenceValue = summary;
+            menuData.FindProperty("_restartButton").objectReferenceValue = restartButton;
+            menuData.FindProperty("_mainMenuButton").objectReferenceValue = mainMenuButton;
+            menuData.ApplyModifiedPropertiesWithoutUndo();
+
+            panel.SetActive(false);
             return controller;
         }
 
@@ -338,9 +462,11 @@ namespace BlockEscape.Editor
         {
             var eventSystemObject = new GameObject("Event System");
             eventSystemObject.transform.SetParent(parent, false);
+            eventSystemObject.SetActive(false);
             eventSystemObject.AddComponent<EventSystem>();
             var inputModule = eventSystemObject.AddComponent<InputSystemUIInputModule>();
-            inputModule.AssignDefaultActions();
+            UiInputActions.AssignTo(inputModule);
+            eventSystemObject.SetActive(true);
         }
 
         private static void StretchFullScreen(RectTransform rect)
@@ -456,14 +582,22 @@ namespace BlockEscape.Editor
             public readonly Image overflowFill;
             public readonly NextPiecePreview nextPreview;
             public readonly TetrisPauseMenu pauseMenu;
+            public readonly TetrisGameOverMenu gameOverMenu;
 
-            public HudReferences(Text stats, Text status, Image overflowFill, NextPiecePreview nextPreview, TetrisPauseMenu pauseMenu)
+            public HudReferences(
+                Text stats,
+                Text status,
+                Image overflowFill,
+                NextPiecePreview nextPreview,
+                TetrisPauseMenu pauseMenu,
+                TetrisGameOverMenu gameOverMenu)
             {
                 this.stats = stats;
                 this.status = status;
                 this.overflowFill = overflowFill;
                 this.nextPreview = nextPreview;
                 this.pauseMenu = pauseMenu;
+                this.gameOverMenu = gameOverMenu;
             }
         }
     }
