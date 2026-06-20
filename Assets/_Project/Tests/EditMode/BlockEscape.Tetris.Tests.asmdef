@@ -2,7 +2,8 @@
   "name": "BlockEscape.Tetris.Tests",
   "rootNamespace": "BlockEscape.Tetris.Tests",
   "references": [
-    "BlockEscape.Runtime"
+    "BlockEscape.Runtime",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [
     "Editor"

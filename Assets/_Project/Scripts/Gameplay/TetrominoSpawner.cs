@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using BlockEscape.Core;
 using UnityEngine;
 
 namespace BlockEscape.Tetris
@@ -8,6 +9,7 @@ namespace BlockEscape.Tetris
     {
         private BlockBoard _board;
         private TetrisBalanceConfig _config;
+        private InputService _input;
         private SevenBag _bag;
         private System.Random _random;
         private Coroutine _spawnRoutine;
@@ -23,10 +25,11 @@ namespace BlockEscape.Tetris
         public int PiecesSpawned { get; private set; }
         public TetrominoKind NextKind => _nextKind;
 
-        public void Initialize(BlockBoard board, TetrisBalanceConfig config)
+        public void Initialize(BlockBoard board, TetrisBalanceConfig config, InputService input)
         {
             _board = board;
             _config = config;
+            _input = input;
             Seed = config.seed == 0 ? Environment.TickCount : config.seed;
             _bag = new SevenBag(Seed);
             _random = new System.Random(Seed ^ 0x5f3759df);
@@ -112,6 +115,7 @@ namespace BlockEscape.Tetris
             _activePiece.Initialize(
                 _board,
                 this,
+                _input,
                 kind,
                 rotation,
                 origin,

@@ -10,6 +10,7 @@ This milestone intentionally contains no platform player, enemy, pickups, or fin
 - Random initial column and rotation, grid-driven falling, lock delay, and static block colliders.
 - Discrete one-cell falling steps, matching classic Tetris timing.
 - A right-side preview showing the next piece already reserved by the 7-bag.
+- A translucent ghost piece showing the current tetromino's landing position.
 - `A/D` move, `W` rotates clockwise, and `S` soft-drops the active tetromino.
 - Multi-row detection, warning flash, clear, and animated compaction.
 - Three-second overflow grace period and stop condition.
@@ -20,8 +21,10 @@ This milestone intentionally contains no platform player, enemy, pickups, or fin
 
 Open `Assets/_Project/Scenes/TetrisDemo.unity` and press Play.
 
-- `R`: reset with the same seed.
-- `P`: pause/resume.
+Input is provided by the persistent `Input Service (Persistent)` object. Tetris, future Player, and System controls use separate action maps from `Assets/InputSystem_Actions.inputactions`.
+
+- `R`: open the reset confirmation dialog.
+- `Esc`: open or close the pause menu.
 - `A/D`: move the falling tetromino.
 - `W`: rotate clockwise.
 - `S`: soft drop.

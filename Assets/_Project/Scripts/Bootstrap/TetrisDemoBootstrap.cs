@@ -1,7 +1,9 @@
+using BlockEscape.Core;
 using BlockEscape.Tetris;
 using BlockEscape.UI;
 using UnityEngine;
-using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace BlockEscape.Bootstrap
@@ -16,12 +18,14 @@ namespace BlockEscape.Bootstrap
         [SerializeField] private Transform _arenaVisuals;
         [SerializeField] private BlockBoard _board;
         [SerializeField] private TetrominoSpawner _spawner;
+        [SerializeField] private InputService _inputService;
 
         [Header("HUD references")]
         [SerializeField] private Text _statsText;
         [SerializeField] private Text _statusText;
         [SerializeField] private Image _overflowFill;
         [SerializeField] private NextPiecePreview _nextPiecePreview;
+        [SerializeField] private TetrisPauseMenu _pauseMenu;
 
         private int _rowsCleared;
         private int _lineScore;
@@ -38,29 +42,41 @@ namespace BlockEscape.Bootstrap
 
             _config.Sanitize();
             ConfigureCamera();
+            InitializeInput();
             if (_arenaVisuals == null)
                 CreateArenaVisuals();
             InitializeSystems();
             if (_statsText == null || _statusText == null || _overflowFill == null)
                 CreateHud();
+            else if (_pauseMenu == null)
+            {
+                var existingCanvas = FindAnyObjectByType<Canvas>();
+                if (existingCanvas != null)
+                {
+                    _pauseMenu = CreatePauseMenu(existingCanvas.transform);
+                    EnsureEventSystem();
+                }
+            }
+            InitializePauseFlow();
         }
 
         private void Update()
         {
-            var keyboard = Keyboard.current;
-            if (keyboard != null)
-            {
-                if (keyboard.rKey.wasPressedThisFrame)
-                    ResetDemo();
-                if (keyboard.pKey.wasPressedThisFrame)
-                    TogglePause();
-            }
+            if (_inputService != null && _inputService.ResetRun.WasPressedThisFrame())
+                OpenResetConfirmation();
+            else if (_inputService != null && _inputService.Pause.WasPressedThisFrame())
+                HandleEscape();
 
             UpdateHud();
         }
 
         private void OnDestroy()
         {
+            if (_pauseMenu != null)
+            {
+                _pauseMenu.ResumeRequested -= ResumeGame;
+                _pauseMenu.ResetConfirmed -= ResetDemo;
+            }
             Time.timeScale = 1f;
         }
 
@@ -83,7 +99,22 @@ namespace BlockEscape.Bootstrap
 
             _spawner.PieceSpawned += kind => _lastSpawned = kind;
             _spawner.NextPieceChanged += OnNextPieceChanged;
-            _spawner.Initialize(_board, _config);
+            _spawner.Initialize(_board, _config, _inputService);
+        }
+
+        private void InitializeInput()
+        {
+            if (InputService.Current != null)
+                _inputService = InputService.Current;
+
+            if (_inputService == null)
+            {
+                var inputObject = new GameObject("Input Service (Persistent)");
+                _inputService = inputObject.AddComponent<InputService>();
+            }
+
+            _inputService.EnsureInitialized();
+            _inputService.SetGameplayEnabled(true);
         }
 
         private void ConfigureCamera()
@@ -156,7 +187,7 @@ namespace BlockEscape.Bootstrap
             _statsText = CreateText(canvasObject.transform, "Stats", string.Empty, 24, TextAnchor.UpperLeft);
             SetRect(_statsText.rectTransform, new Vector2(24f, -80f), new Vector2(520f, 220f), new Vector2(0f, 1f));
 
-            var help = CreateText(canvasObject.transform, "Tetris Controls (WASD)", "A / D  MOVE\nW  ROTATE\nS  SOFT DROP\nR  RESET\nP  PAUSE", 21, TextAnchor.LowerRight);
+            var help = CreateText(canvasObject.transform, "Tetris Controls (WASD)", "A / D  MOVE\nW  ROTATE\nS  SOFT DROP\nR  RESET MENU\nESC  PAUSE", 21, TextAnchor.LowerRight);
             SetRect(help.rectTransform, new Vector2(-24f, 24f), new Vector2(500f, 190f), new Vector2(1f, 0f));
             help.color = new Color(0.7f, 0.78f, 0.9f);
 
@@ -181,6 +212,9 @@ namespace BlockEscape.Bootstrap
             fillRect.anchorMax = Vector2.one;
             fillRect.offsetMin = new Vector2(3f, 3f);
             fillRect.offsetMax = new Vector2(-3f, -3f);
+
+            _pauseMenu = CreatePauseMenu(canvasObject.transform);
+            EnsureEventSystem();
         }
 
         private void UpdateHud()
@@ -201,6 +235,8 @@ namespace BlockEscape.Bootstrap
         {
             Time.timeScale = 1f;
             _paused = false;
+            if (_inputService != null) _inputService.SetGameplayEnabled(true);
+            if (_pauseMenu != null) _pauseMenu.HideAll();
             _rowsCleared = 0;
             _lineScore = 0;
             _board.ResetBoard();
@@ -209,14 +245,73 @@ namespace BlockEscape.Bootstrap
             _statusText.color = Color.white;
         }
 
-        private void TogglePause()
+        private void InitializePauseFlow()
         {
-            if (_board.IsOverflowed)
+            if (_pauseMenu == null)
                 return;
-            _paused = !_paused;
-            Time.timeScale = _paused ? 0f : 1f;
-            _statusText.text = _paused ? "PAUSED" : "RUNNING";
-            _statusText.color = _paused ? new Color(1f, 0.85f, 0.25f) : Color.white;
+
+            _pauseMenu.ResumeRequested += ResumeGame;
+            _pauseMenu.ResetConfirmed += ResetDemo;
+            _pauseMenu.HideAll();
+        }
+
+        private void HandleEscape()
+        {
+            if (_pauseMenu != null && _pauseMenu.IsResetConfirmationVisible)
+            {
+                _pauseMenu.ShowPause();
+                return;
+            }
+
+            if (_paused)
+                ResumeGame();
+            else
+                PauseGame();
+        }
+
+        private void PauseGame()
+        {
+            _paused = true;
+            Time.timeScale = 0f;
+            if (_inputService != null) _inputService.SetGameplayEnabled(false);
+            if (_pauseMenu != null) _pauseMenu.ShowPause();
+            if (_statusText != null)
+            {
+                _statusText.text = "PAUSED";
+                _statusText.color = new Color(1f, 0.85f, 0.25f);
+            }
+        }
+
+        private void ResumeGame()
+        {
+            _paused = false;
+            Time.timeScale = 1f;
+            if (_inputService != null)
+                _inputService.SetGameplayEnabled(_board != null && !_board.IsOverflowed);
+            if (_pauseMenu != null) _pauseMenu.HideAll();
+            if (_statusText != null)
+            {
+                _statusText.text = _board != null && _board.IsOverflowed ? "BOARD OVERFLOW — PRESS R" : "RUNNING";
+                _statusText.color = _board != null && _board.IsOverflowed
+                    ? new Color(1f, 0.2f, 0.25f)
+                    : Color.white;
+            }
+        }
+
+        private void OpenResetConfirmation()
+        {
+            _paused = true;
+            Time.timeScale = 0f;
+            if (_inputService != null) _inputService.SetGameplayEnabled(false);
+            if (_statusText != null)
+            {
+                _statusText.text = "PAUSED";
+                _statusText.color = new Color(1f, 0.85f, 0.25f);
+            }
+            if (_pauseMenu != null)
+                _pauseMenu.ShowResetConfirmation();
+            else
+                ResetDemo();
         }
 
         private void OnPieceLocked(TetrominoKind kind)
@@ -258,10 +353,116 @@ namespace BlockEscape.Bootstrap
 
         private void OnOverflowed()
         {
+            if (_inputService != null) _inputService.SetGameplayEnabled(false);
             if (_statusText == null)
                 return;
-            _statusText.text = "BOARD OVERFLOW — PRESS R";
+            _statusText.text = "BOARD OVERFLOW — PRESS ESC OR R";
             _statusText.color = new Color(1f, 0.2f, 0.25f);
+        }
+
+        private static TetrisPauseMenu CreatePauseMenu(Transform canvasRoot)
+        {
+            var controllerObject = new GameObject("Pause Menu Controller");
+            controllerObject.transform.SetParent(canvasRoot, false);
+            var controller = controllerObject.AddComponent<TetrisPauseMenu>();
+
+            var pausePanel = CreateOverlay(canvasRoot, "Pause Menu Overlay", new Color(0f, 0f, 0f, 0.72f));
+            var pauseDialog = CreatePanel(pausePanel.transform, "Pause Dialog", new Vector2(520f, 410f));
+            var pauseTitle = CreateText(pauseDialog.transform, "Pause Title", "TẠM DỪNG", 40, TextAnchor.UpperCenter);
+            SetRect(pauseTitle.rectTransform, new Vector2(0f, -30f), new Vector2(460f, 60f), new Vector2(0.5f, 1f));
+            pauseTitle.color = new Color(0.35f, 0.85f, 1f);
+
+            var controls = CreateText(pauseDialog.transform, "Pause Controls", "A/D: Di chuyển   W: Xoay   S: Soft drop\nESC: Tiếp tục", 20, TextAnchor.MiddleCenter);
+            SetRect(controls.rectTransform, new Vector2(0f, 55f), new Vector2(450f, 70f), new Vector2(0.5f, 0.5f));
+            controls.color = new Color(0.72f, 0.8f, 0.92f);
+
+            var resumeButton = CreateButton(pauseDialog.transform, "Resume Button", "TIẾP TỤC", new Vector2(0f, -55f), new Vector2(320f, 58f));
+            var resetButton = CreateButton(pauseDialog.transform, "Reset Button", "CHƠI LẠI", new Vector2(0f, -130f), new Vector2(320f, 58f));
+
+            var confirmationPanel = CreateOverlay(canvasRoot, "Reset Confirmation Overlay", new Color(0f, 0f, 0f, 0.82f));
+            var confirmationDialog = CreatePanel(confirmationPanel.transform, "Reset Confirmation Dialog", new Vector2(620f, 330f));
+            var confirmationTitle = CreateText(confirmationDialog.transform, "Confirmation Title", "XÁC NHẬN CHƠI LẠI", 34, TextAnchor.UpperCenter);
+            SetRect(confirmationTitle.rectTransform, new Vector2(0f, -28f), new Vector2(560f, 55f), new Vector2(0.5f, 1f));
+            confirmationTitle.color = new Color(1f, 0.72f, 0.25f);
+
+            var confirmationMessage = CreateText(confirmationDialog.transform, "Confirmation Message", "Bạn có muốn reset lại màn chơi không?\nToàn bộ tiến trình của lượt hiện tại sẽ bị mất.", 23, TextAnchor.MiddleCenter);
+            SetRect(confirmationMessage.rectTransform, new Vector2(0f, 25f), new Vector2(540f, 100f), new Vector2(0.5f, 0.5f));
+
+            var confirmButton = CreateButton(confirmationDialog.transform, "Confirm Reset Button", "CÓ, RESET", new Vector2(-145f, -105f), new Vector2(250f, 58f));
+            var cancelButton = CreateButton(confirmationDialog.transform, "Cancel Reset Button", "HỦY", new Vector2(145f, -105f), new Vector2(250f, 58f));
+
+            controller.Configure(
+                pausePanel,
+                confirmationPanel,
+                resumeButton,
+                resetButton,
+                confirmButton,
+                cancelButton);
+
+            pausePanel.SetActive(false);
+            confirmationPanel.SetActive(false);
+            return controller;
+        }
+
+        private static GameObject CreateOverlay(Transform parent, string name, Color color)
+        {
+            var gameObject = new GameObject(name);
+            gameObject.transform.SetParent(parent, false);
+            var image = gameObject.AddComponent<Image>();
+            image.color = color;
+            StretchFullScreen(image.rectTransform);
+            return gameObject;
+        }
+
+        private static GameObject CreatePanel(Transform parent, string name, Vector2 size)
+        {
+            var gameObject = new GameObject(name);
+            gameObject.transform.SetParent(parent, false);
+            var image = gameObject.AddComponent<Image>();
+            image.color = new Color(0.055f, 0.07f, 0.13f, 0.98f);
+            SetRect(image.rectTransform, Vector2.zero, size, new Vector2(0.5f, 0.5f));
+            return gameObject;
+        }
+
+        private static Button CreateButton(Transform parent, string name, string label, Vector2 position, Vector2 size)
+        {
+            var gameObject = new GameObject(name);
+            gameObject.transform.SetParent(parent, false);
+            var image = gameObject.AddComponent<Image>();
+            image.color = new Color(0.16f, 0.34f, 0.62f, 1f);
+            SetRect(image.rectTransform, position, size, new Vector2(0.5f, 0.5f));
+
+            var button = gameObject.AddComponent<Button>();
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.75f, 0.9f, 1f);
+            colors.pressedColor = new Color(0.55f, 0.75f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            button.colors = colors;
+
+            var text = CreateText(gameObject.transform, "Label", label, 24, TextAnchor.MiddleCenter);
+            StretchFullScreen(text.rectTransform);
+            return button;
+        }
+
+        private static void EnsureEventSystem()
+        {
+            if (EventSystem.current != null)
+                return;
+
+            var eventSystemObject = new GameObject("Event System");
+            eventSystemObject.AddComponent<EventSystem>();
+            var inputModule = eventSystemObject.AddComponent<InputSystemUIInputModule>();
+            inputModule.AssignDefaultActions();
+        }
+
+        private static void StretchFullScreen(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         private static Text CreateText(Transform parent, string name, string value, int fontSize, TextAnchor alignment)

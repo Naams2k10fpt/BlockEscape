@@ -3,7 +3,8 @@
   "rootNamespace": "BlockEscape.Editor",
   "references": [
     "BlockEscape.Runtime",
-    "Unity.ugui"
+    "Unity.ugui",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [
     "Editor"

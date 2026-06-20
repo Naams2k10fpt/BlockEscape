@@ -1,8 +1,8 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
 - **Cập nhật lần cuối:** 20/06/2026
-- **Cột mốc hiện tại:** Hoàn thiện Tetris Core
-- **Tiến độ tổng thể ước tính:** 25%
+- **Cột mốc hiện tại:** Chuẩn hóa Input System
+- **Tiến độ tổng thể ước tính:** 28%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity`
 
@@ -43,7 +43,7 @@ Không tự ý thay đổi các quyết định sau trong branch cá nhân. Nế
 | Địa hình tĩnh | Dùng Tilemap; không đưa tetromino động vào Tilemap |
 | Input Tetris | `A/D` di chuyển, `W` xoay, `S` soft drop |
 | Input player | Mũi tên trái/phải di chuyển, mũi tên lên nhảy, mũi tên xuống cúi |
-| Pause | `Esc` trong bản final; `P` chỉ dùng trong Tetris Demo hiện tại |
+| Pause | `Esc` mở/đóng Pause Menu; `R` mở xác nhận reset |
 | UI | uGUI Canvas; TextMeshPro chỉ dùng khi cả nhóm đã import và thống nhất font |
 | Cấu hình | Giá trị cân bằng đặt trong ScriptableObject, không rải magic number trong nhiều script |
 | Giao tiếp hệ thống | Dùng C# event và reference Inspector; không dùng `FindObjectOfType` mỗi frame |
@@ -97,8 +97,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 | Module | Tiến độ | Trạng thái | Phụ trách |
 |---|---:|---|---|
-| Tetris Core | 90% | Chờ kiểm thử thủ công | Chưa phân công |
-| Chuẩn hóa Input System | 10% | Chưa làm | Chưa phân công |
+| Tetris Core | 95% | Đã qua playtest, còn xác nhận Test Runner | Chưa phân công |
+| Chuẩn hóa Input System | 90% | Đã code, chờ kiểm thử Play Mode | Chưa phân công |
 | Tilemap và đấu trường | 5% | Chưa làm | Chưa phân công |
 | Player Controller | 0% | Chưa làm | Chưa phân công |
 | Máu và sát thương | 0% | Chưa làm | Chưa phân công |
@@ -106,7 +106,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Drone AI | 0% | Chưa làm | Chưa phân công |
 | Dynamic Events | 0% | Chưa làm | Chưa phân công |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
-| HUD và game flow | 20% | Có HUD Tetris Demo | Chưa phân công |
+| HUD và game flow | 30% | Có HUD, Pause Menu và xác nhận reset | Chưa phân công |
 | Main Menu, Options và Save | 0% | Chưa làm | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
 | Test và Windows build | 20% | Có EditMode tests cơ bản | Chưa phân công |
@@ -130,11 +130,22 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Điều khiển `A/D/W/S`, giữ phím ngang và wall kick đơn giản.
 - [x] Block rơi từng bước đúng một ô.
 - [x] Preview tetromino tiếp theo.
+- [x] Ghost piece trong suốt hiển thị vị trí khóa dự kiến phía dưới.
 - [x] Lock delay, collider tĩnh và object pooling.
 - [x] Phát hiện/xóa nhiều hàng và dịch block phía trên.
 - [x] Hai danger row và overflow timer ba giây.
 - [x] Reset, pause và HUD thống kê.
+- [x] Pause Menu bằng `Esc`, nút Resume và Reset có hộp xác nhận.
 - [x] Sửa lỗi thiếu SpriteRenderer và nháy block tại tâm màn hình.
+
+### Input System
+
+- [x] Thu gọn `InputSystem_Actions.inputactions` thành ba map `Tetris`, `Player`, `System`.
+- [x] WASD chỉ điều khiển Tetris; phím mũi tên được dành riêng cho player.
+- [x] Tạo một `InputService` persistent quản lý toàn bộ action map.
+- [x] `ActiveTetromino` không còn đọc `Keyboard.current` trực tiếp.
+- [x] Pause và hộp xác nhận reset vô hiệu hóa input gameplay nhưng vẫn giữ map `System`.
+- [x] Scene builder tạo object `Input Service (Persistent)` và gắn action asset trong Inspector.
 
 ## 6. Kiến trúc và contract dùng chung
 
@@ -230,17 +241,19 @@ Các bước:
 1. Chạy liên tục ít nhất 50 tetromino với seed cố định.
 2. Kiểm tra preview luôn trùng piece tiếp theo.
 3. Thử giữ `A/D`, đổi hướng nhanh, xoay sát hai tường và xoay trên block.
-4. Soft drop bằng `S` đến khi chạm block; không được xuyên hoặc khóa hai lần.
-5. Tạo tình huống xóa 1, 2, 3 và 4 hàng.
-6. Để block vượt danger row và kiểm tra overflow đúng ba giây.
-7. Reset khi đang rơi, đang clear hàng và sau overflow.
-8. Bổ sung test cho bug tìm được trước khi sửa nếu có thể tái hiện bằng `BoardModel`.
+4. Kiểm tra ghost piece cập nhật đúng sau mỗi lần di chuyển và xoay.
+5. Soft drop bằng `S` đến khi chạm block; không được xuyên hoặc khóa hai lần.
+6. Tạo tình huống xóa 1, 2, 3 và 4 hàng.
+7. Để block vượt danger row và kiểm tra overflow đúng ba giây.
+8. Reset khi đang rơi, đang clear hàng và sau overflow.
+9. Bổ sung test cho bug tìm được trước khi sửa nếu có thể tái hiện bằng `BoardModel`.
 
 Nghiệm thu:
 
 - [ ] Không có exception, MissingComponent hoặc soft-lock sau 50 piece.
 - [ ] Mỗi lần bấm/giữ phím chỉ thay đổi vị trí theo cell hợp lệ.
 - [ ] Preview đúng 100%.
+- [ ] Ghost luôn chỉ đúng vị trí khóa cuối cùng và không có collider.
 - [ ] Row clear và compaction không sai occupancy.
 - [ ] Test Runner EditMode xanh toàn bộ.
 
@@ -263,6 +276,7 @@ Action Map cần tạo:
 | Player | Jump | Up Arrow |
 | Player | Crouch | Down Arrow |
 | System | Pause | Escape |
+| System | ResetRun | `R` |
 
 Các bước:
 
@@ -271,6 +285,8 @@ Các bước:
 3. Chuyển `ActiveTetromino` từ `Keyboard.current` sang action của `InputService` nhưng giữ nguyên hành vi repeat.
 4. Chỉ bật map Tetris và Player khi game `Playing`; map System luôn bật.
 5. Chưa làm UI rebind trong task này, nhưng không hard-code phím ở script mới.
+
+Trạng thái hiện tại: toàn bộ năm bước đã được triển khai; cần playtest lại các tiêu chí nghiệm thu bên dưới trước khi đổi task thành hoàn thành.
 
 Nghiệm thu:
 
@@ -691,6 +707,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 
 - [ ] 50 tetromino spawn/lock không exception hoặc soft-lock.
 - [ ] Preview luôn trùng piece tiếp theo.
+- [ ] Ghost piece cập nhật đúng khi di chuyển, xoay và soft drop.
 - [ ] Mỗi bước rơi đúng một cell.
 - [ ] `A/D/W/S` không cho đi xuyên board hoặc locked block.
 - [ ] Xóa đúng 1–4 hàng và compaction đúng.
@@ -703,7 +720,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 - `TetrisDemo` là scene demo được Editor builder tạo lại; không dùng làm scene final.
 - HUD dùng Screen Space Overlay nên chủ yếu hiện trong Game View.
 - Game hiện mới có Tetris, chưa có player platform.
-- ActiveTetromino hiện đọc `Keyboard.current`; INPUT-01 sẽ chuyển sang InputService.
+- `ActiveTetromino` và Pause/Reset đều đọc action từ `InputService`; script gameplay mới không được đọc phím trực tiếp.
 - BoardModel là nguồn dữ liệu thật; SpriteRenderer/Collider chỉ là phần hiển thị vật lý.
 - Các giá trị phase/player trong tài liệu là default đã thống nhất nhưng vẫn có thể cân bằng qua ScriptableObject sau playtest.
 
@@ -719,6 +736,10 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 20/06/2026 | Bugfix | Sửa renderer và nháy tại tâm | Runtime ổn định hơn |
 | 20/06/2026 | Documentation | README và PROGRESS tại root | Team theo dõi trên GitHub |
 | 20/06/2026 | Documentation | Chi tiết hóa task và contract | Thống nhất cách triển khai giữa thành viên |
+| 20/06/2026 | Tetris UX | Thêm ghost piece tại vị trí rơi | Người chơi nhìn trước vị trí khóa block |
+| 20/06/2026 | Bugfix | Tách ghost khỏi transform của Rigidbody và giảm alpha | Ghost không còn giật khi giữ soft drop |
+| 20/06/2026 | Tetris UI | Thêm Pause Menu và xác nhận reset | Tránh reset nhầm và có thể tiếp tục bằng nút/ESC |
+| 20/06/2026 | Input System | Tạo ba action map và `InputService` persistent | Tetris, player và system dùng binding tách biệt |
 
 ## 13. Cách cập nhật file này
 

@@ -18,8 +18,10 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Block rơi từng ô theo nhịp Tetris.
 - Điều khiển block bằng WASD.
 - Preview tetromino tiếp theo.
+- Ghost piece trong suốt hiển thị vị trí block sẽ khóa.
 - Khóa block, phát hiện/xóa nhiều hàng và dịch địa hình.
-- Board overflow, pause, reset và HUD demo.
+- Board overflow, Pause Menu, xác nhận reset và HUD demo.
+- Input System được tách thành ba map `Tetris`, `Player`, `System` và quản lý tập trung qua `InputService`.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.
 
@@ -61,10 +63,12 @@ Block Escape → Build Classroom Tetris Scene
 | `A / D` | Di chuyển tetromino trái/phải |
 | `W` | Xoay tetromino theo chiều kim đồng hồ |
 | `S` | Soft drop |
-| `P` | Pause/Resume |
-| `R` | Reset lượt chơi với cùng seed |
+| `Esc` | Mở/đóng Pause Menu |
+| `R` | Mở hộp xác nhận reset lượt chơi |
 
 Nhân vật platform sau này sẽ sử dụng các phím mũi tên để không xung đột với điều khiển Tetris.
+
+Không đọc `Keyboard.current` trực tiếp trong script gameplay mới. Thành viên phải lấy action tương ứng từ `InputService` để Pause có thể vô hiệu hóa gameplay thống nhất.
 
 ## Cấu trúc project
 

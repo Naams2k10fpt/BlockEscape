@@ -1,6 +1,6 @@
 using System.Collections;
+using BlockEscape.Core;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace BlockEscape.Tetris
 {
@@ -8,6 +8,7 @@ namespace BlockEscape.Tetris
     {
         private BlockBoard _board;
         private TetrominoSpawner _owner;
+        private InputService _input;
         private TetrominoKind _kind;
         private int _rotation;
         private Vector2Int[] _localCells;
@@ -20,6 +21,8 @@ namespace BlockEscape.Tetris
         private bool _finished;
         private Rigidbody2D _rigidbody;
         private SpriteRenderer[] _renderers;
+        private Transform _ghostRoot;
+        private SpriteRenderer[] _ghostRenderers;
         private GameObject _warningBar;
         private int _heldDirection;
         private float _horizontalHoldTime;
@@ -29,6 +32,7 @@ namespace BlockEscape.Tetris
         private const float HorizontalRepeatDelay = 0.18f;
         private const float HorizontalRepeatInterval = 0.07f;
         private const float SoftDropRepeatInterval = 0.06f;
+        private const float GhostAlpha = 0.10f;
 
         public TetrominoKind Kind => _kind;
         public int Rotation => _rotation;
@@ -37,6 +41,7 @@ namespace BlockEscape.Tetris
         public void Initialize(
             BlockBoard board,
             TetrominoSpawner owner,
+            InputService input,
             TetrominoKind kind,
             int rotation,
             Vector2Int origin,
@@ -46,6 +51,7 @@ namespace BlockEscape.Tetris
         {
             _board = board;
             _owner = owner;
+            _input = input;
             _kind = kind;
             _rotation = rotation;
             _origin = origin;
@@ -68,6 +74,8 @@ namespace BlockEscape.Tetris
             _rigidbody.position = spawnWorldPosition;
 
             BuildCells();
+            BuildGhostCells();
+            UpdateGhostPiece();
             if (telegraphSeconds > 0f)
             {
                 BuildWarningBar();
@@ -80,21 +88,20 @@ namespace BlockEscape.Tetris
             if (_telegraphing || _finished || _board == null || _board.IsOverflowed || Time.timeScale <= 0f)
                 return;
 
-            var keyboard = Keyboard.current;
-            if (keyboard == null)
+            if (_input == null || !_input.GameplayEnabled)
                 return;
 
-            HandleHorizontalInput(keyboard);
+            HandleHorizontalInput(_input);
 
-            if (keyboard.wKey.wasPressedThisFrame)
+            if (_input.TetrisRotate.WasPressedThisFrame())
                 TryRotateClockwise();
 
-            if (keyboard.sKey.wasPressedThisFrame)
+            if (_input.TetrisSoftDrop.WasPressedThisFrame())
             {
                 TryMove(Vector2Int.down);
                 _softDropRepeatTime = 0f;
             }
-            else if (keyboard.sKey.isPressed)
+            else if (_input.TetrisSoftDrop.IsPressed())
             {
                 _softDropRepeatTime += Time.deltaTime;
                 while (_softDropRepeatTime >= SoftDropRepeatInterval)
@@ -126,6 +133,7 @@ namespace BlockEscape.Tetris
                 _fallStepTimer -= stepInterval;
                 _origin = nextOrigin;
                 _rigidbody.position = _board.WorldForCell(_origin);
+                UpdateGhostPiece();
                 return;
             }
 
@@ -186,6 +194,52 @@ namespace BlockEscape.Tetris
             }
         }
 
+        private void BuildGhostCells()
+        {
+            var ghostObject = new GameObject("Ghost Piece (Landing Preview)");
+            ghostObject.transform.SetParent(_board.transform, false);
+            ghostObject.layer = gameObject.layer;
+            _ghostRoot = ghostObject.transform;
+
+            _ghostRenderers = new SpriteRenderer[_localCells.Length];
+            var pieceColor = TetrominoCatalog.GetColor(_kind);
+            var ghostColor = new Color(pieceColor.r, pieceColor.g, pieceColor.b, GhostAlpha);
+
+            for (var i = 0; i < _localCells.Length; i++)
+            {
+                var cell = new GameObject($"Ghost Cell {i}");
+                cell.transform.SetParent(_ghostRoot, false);
+                cell.transform.localPosition = new Vector3(_localCells[i].x, _localCells[i].y, 0f);
+                cell.transform.localScale = new Vector3(0.86f, 0.86f, 1f);
+                cell.layer = gameObject.layer;
+
+                var renderer = cell.AddComponent<SpriteRenderer>();
+                renderer.sprite = RuntimeVisuals.Square;
+                renderer.color = ghostColor;
+                renderer.sortingOrder = 15;
+                _ghostRenderers[i] = renderer;
+            }
+        }
+
+        private void UpdateGhostPiece()
+        {
+            if (_ghostRoot == null || _ghostRenderers == null)
+                return;
+
+            var landingOrigin = _origin;
+            while (_board.CanPlace(_localCells, landingOrigin + Vector2Int.down))
+                landingOrigin += Vector2Int.down;
+
+            _ghostRoot.position = _board.WorldForCell(landingOrigin);
+            var showGhost = landingOrigin != _origin;
+
+            for (var i = 0; i < _ghostRenderers.Length; i++)
+            {
+                _ghostRenderers[i].enabled = showGhost;
+                _ghostRenderers[i].transform.localPosition = new Vector3(_localCells[i].x, _localCells[i].y, 0f);
+            }
+        }
+
         private void BuildWarningBar()
         {
             var size = TetrominoCatalog.GetSize(_kind, _rotation);
@@ -206,11 +260,10 @@ namespace BlockEscape.Tetris
                 renderer.color = color;
         }
 
-        private void HandleHorizontalInput(Keyboard keyboard)
+        private void HandleHorizontalInput(InputService input)
         {
-            var direction = keyboard.aKey.isPressed == keyboard.dKey.isPressed
-                ? 0
-                : keyboard.aKey.isPressed ? -1 : 1;
+            var moveValue = input.TetrisMove.ReadValue<float>();
+            var direction = moveValue < -0.5f ? -1 : moveValue > 0.5f ? 1 : 0;
 
             if (direction == 0)
             {
@@ -252,6 +305,7 @@ namespace BlockEscape.Tetris
             _lockTimer = 0f;
             if (offset.y < 0)
                 _fallStepTimer = 0f;
+            UpdateGhostPiece();
             return true;
         }
 
@@ -274,6 +328,7 @@ namespace BlockEscape.Tetris
                 for (var i = 0; i < _localCells.Length; i++)
                     _renderers[i].transform.localPosition = new Vector3(_localCells[i].x, _localCells[i].y, 0f);
                 _lockTimer = 0f;
+                UpdateGhostPiece();
                 return;
             }
         }
@@ -284,6 +339,7 @@ namespace BlockEscape.Tetris
                 return;
 
             _finished = true;
+            DestroyGhostPiece();
             _rigidbody.position = _board.WorldForCell(_origin);
             _board.CommitPiece(_kind, _rotation, _origin);
             _owner.NotifyPieceFinished(this);
@@ -295,9 +351,27 @@ namespace BlockEscape.Tetris
             if (_finished)
                 return;
             _finished = true;
+            DestroyGhostPiece();
             if (_warningBar != null)
                 Destroy(_warningBar);
             Destroy(gameObject);
+        }
+
+        private void OnDestroy()
+        {
+            DestroyGhostPiece();
+        }
+
+        private void DestroyGhostPiece()
+        {
+            if (_ghostRoot == null)
+                return;
+
+            var ghostObject = _ghostRoot.gameObject;
+            ghostObject.SetActive(false);
+            _ghostRoot = null;
+            _ghostRenderers = null;
+            Destroy(ghostObject);
         }
     }
 }
