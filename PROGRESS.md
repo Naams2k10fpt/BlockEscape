@@ -1,8 +1,8 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
-- **Cập nhật lần cuối:** 20/06/2026
-- **Cột mốc hiện tại:** Chuẩn hóa Input System
-- **Tiến độ tổng thể ước tính:** 31%
+- **Cập nhật lần cuối:** 22/06/2026
+- **Cột mốc hiện tại:** Khóa Tetris Core và Input System
+- **Tiến độ tổng thể ước tính:** 32%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity`
 
@@ -97,8 +97,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 | Module | Tiến độ | Trạng thái | Phụ trách |
 |---|---:|---|---|
-| Tetris Core | 95% | Đã qua playtest, còn xác nhận Test Runner | Chưa phân công |
-| Chuẩn hóa Input System | 90% | Đã code, chờ kiểm thử Play Mode | Chưa phân công |
+| Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | Chưa phân công |
+| Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
 | Tilemap và đấu trường | 5% | Chưa làm | Chưa phân công |
 | Player Controller | 0% | Chưa làm | Chưa phân công |
 | Máu và sát thương | 0% | Chưa làm | Chưa phân công |
@@ -109,7 +109,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | HUD và game flow | 45% | Có Pause, xác nhận reset và Game Over summary | Chưa phân công |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 20% | Có EditMode tests cơ bản | Chưa phân công |
+| Test và Windows build | 25% | EditMode Test Runner 15/15 pass; chưa có Windows build | Chưa phân công |
 
 ## 5. Phần đã hoàn thành
 
@@ -147,6 +147,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] `ActiveTetromino` không còn đọc `Keyboard.current` trực tiếp.
 - [x] Pause và hộp xác nhận reset vô hiệu hóa input gameplay nhưng vẫn giữ map `System`.
 - [x] Scene builder tạo object `Input Service (Persistent)` và gắn action asset trong Inspector.
+- [x] EditMode test xác nhận binding và việc bật/tắt map gameplay không tắt map `System`.
 
 ### Scene flow và Game Over
 
@@ -265,7 +266,7 @@ Nghiệm thu:
 - [ ] Preview đúng 100%.
 - [ ] Ghost luôn chỉ đúng vị trí khóa cuối cùng và không có collider.
 - [ ] Row clear và compaction không sai occupancy.
-- [ ] Test Runner EditMode xanh toàn bộ.
+- [x] Test Runner EditMode xanh toàn bộ.
 
 ### INPUT-01 — Chuẩn hóa Input System
 
@@ -296,13 +297,13 @@ Các bước:
 4. Chỉ bật map Tetris và Player khi game `Playing`; map System luôn bật.
 5. Chưa làm UI rebind trong task này, nhưng không hard-code phím ở script mới.
 
-Trạng thái hiện tại: toàn bộ năm bước đã được triển khai; cần playtest lại các tiêu chí nghiệm thu bên dưới trước khi đổi task thành hoàn thành.
+Trạng thái hiện tại: toàn bộ năm bước đã được triển khai; ngày 22/06/2026 đã bổ sung test cho `InputService` và chạy EditMode Test Runner 15/15 pass. Cần playtest trong scene để xác nhận cảm giác điều khiển và kiểm tra duplicate service khi đổi scene trước khi đổi task thành hoàn thành.
 
 Nghiệm thu:
 
-- [ ] WASD vẫn điều khiển Tetris như trước.
-- [ ] Phím mũi tên không tác động tetromino.
-- [ ] Pause vô hiệu hóa input gameplay.
+- [x] WASD vẫn điều khiển Tetris như trước.
+- [x] Phím mũi tên không tác động tetromino.
+- [x] Pause vô hiệu hóa input gameplay.
 - [ ] Không có hai `InputService` sau khi đổi scene.
 
 ### LEVEL-01 — Tilemap và đấu trường tĩnh
@@ -722,7 +723,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 - [ ] `A/D/W/S` không cho đi xuyên board hoặc locked block.
 - [ ] Xóa đúng 1–4 hàng và compaction đúng.
 - [ ] Overflow dừng spawn; reset tạo run sạch.
-- [ ] EditMode tests xanh toàn bộ.
+- [x] EditMode tests xanh toàn bộ.
 - [ ] Hai thành viên đã playtest độc lập.
 
 ## 11. Ghi chú và giới hạn hiện tại
@@ -755,6 +756,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 20/06/2026 | Scene Flow | Thêm Main Menu và Game Over summary | Có vòng lặp Start → Gameplay → Kết quả → Restart/Menu |
 | 20/06/2026 | Bugfix UI Input | Thay `AssignDefaultActions` bằng UI action asset riêng | Builder tạo liên tiếp hai scene không còn exception |
 | 20/06/2026 | Pause Flow | Thêm xác nhận trước khi trở về Main Menu | Tránh người chơi làm mất lượt do bấm nhầm |
+| 22/06/2026 | Tetris/Input stability | Bổ sung test `InputService`, làm sạch warning preview và chạy EditMode Test Runner | 15/15 test pass, build 0 warning/0 error |
 
 ## 13. Cách cập nhật file này
 

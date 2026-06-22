@@ -1,6 +1,8 @@
 using System.Linq;
+using BlockEscape.Core;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace BlockEscape.Tetris.Tests
@@ -35,6 +37,42 @@ namespace BlockEscape.Tetris.Tests
                 tetrisPaths.Any(path => path.Contains("Arrow")),
                 Is.False,
                 "Arrow keys are reserved for the player map.");
+        }
+
+        [Test]
+        public void InputService_TogglesGameplayMapsWithoutDisablingSystemMap()
+        {
+            if (InputService.Current != null)
+                Assert.Ignore("InputService singleton already exists in the open editor scene.");
+
+            var serviceObject = new GameObject("InputService Test");
+            var service = serviceObject.AddComponent<InputService>();
+
+            try
+            {
+                service.EnsureInitialized();
+
+                Assert.That(service.TetrisMove.enabled, Is.True);
+                Assert.That(service.PlayerMove.enabled, Is.True);
+                Assert.That(service.Pause.enabled, Is.True);
+                Assert.That(service.ResetRun.enabled, Is.True);
+
+                service.SetGameplayEnabled(false);
+
+                Assert.That(service.TetrisMove.enabled, Is.False);
+                Assert.That(service.PlayerMove.enabled, Is.False);
+                Assert.That(service.Pause.enabled, Is.True);
+                Assert.That(service.ResetRun.enabled, Is.True);
+
+                service.SetGameplayEnabled(true);
+
+                Assert.That(service.TetrisMove.enabled, Is.True);
+                Assert.That(service.PlayerMove.enabled, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(serviceObject);
+            }
         }
 
         private static void AssertAction(InputActionMap map, string actionName, params string[] expectedPaths)
