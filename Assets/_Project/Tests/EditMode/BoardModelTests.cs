@@ -151,5 +151,35 @@ namespace BlockEscape.Tetris.Tests
             }
         }
 
+        [Test]
+        public void ActiveTetromino_FallingCellsUseSolidColliders()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Test Piece");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, new Vector2Int(1, 4), 1f, 0f, 0f);
+
+                var colliders = pieceObject.GetComponentsInChildren<BoxCollider2D>();
+                Assert.That(colliders.Length, Is.EqualTo(4));
+                foreach (var collider in colliders)
+                    Assert.That(collider.isTrigger, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
     }
 }

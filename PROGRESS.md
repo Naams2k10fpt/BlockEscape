@@ -101,7 +101,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | Chưa phân công |
 | Player Controller | 74% | Có movement, jump, crouch, config, prefab, sandbox integration và runtime spawn trong TetrisDemo; còn playtest cảm giác điều khiển | Chưa phân công |
-| Block tương tác với player | 15% | `BlockBoard` phát hiện cell lock đè player và TetrisDemo chuyển Game Over | Chưa phân công |
+| Block tương tác với player | 25% | Falling block chặn player bằng solid collider; locked cell đè player sẽ Game Over | Chưa phân công |
 | Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
@@ -184,6 +184,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] `TetrisDemoBootstrap` tự spawn player khi Play nếu scene chưa có player.
 - [x] `BlockBoard` phát hiện locked cell overlap player và phát event crush.
 - [x] TetrisDemo chuyển Game Over với lý do player bị block đè.
+- [x] Falling tetromino dùng solid `BoxCollider2D`, không còn trigger để player đi xuyên qua.
 
 ### Máu và sát thương
 
@@ -806,6 +807,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 23/06/2026 | PLAYER demo hook | TetrisDemo builder tạo platform test và instantiate `Player.prefab` cạnh board | Đã có hook khi rebuild scene |
 | 23/06/2026 | PLAYER visible in demo | TetrisDemo runtime tự tạo player/platform nếu scene thiếu player | Bấm Play trong TetrisDemo là thấy nhân vật cạnh board |
 | 23/06/2026 | PLAYER crush game over | Locked block overlap player sẽ phát `PlayerCrushed` và mở Game Over | Có EditMode test cho crush detection |
+| 23/06/2026 | Falling block collision | Đổi collider của active tetromino từ trigger sang solid để chặn player khi đang rơi | Có EditMode test khóa collider không trigger |
 
 ## 13. Cách cập nhật file này
 

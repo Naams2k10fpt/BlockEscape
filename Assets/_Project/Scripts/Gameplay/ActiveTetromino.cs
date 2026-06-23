@@ -190,7 +190,7 @@ namespace BlockEscape.Tetris
 
                 var collider = cell.AddComponent<BoxCollider2D>();
                 collider.size = new Vector2(0.94f, 0.94f);
-                collider.isTrigger = true;
+                collider.isTrigger = false;
             }
         }
 
