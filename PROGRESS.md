@@ -179,8 +179,9 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Thêm crouch bằng Down Arrow, đổi collider theo `PlayerConfig` và giữ crouch khi thiếu headroom.
 - [x] Gắn `PlayerHealth` vào prefab và nối SpriteRenderer để nhấp nháy iFrame.
 - [x] Đưa `Player.prefab` vào `ArenaSandbox` để playtest bằng Left/Right/Up/Down Arrow.
-- [x] TetrisDemo builder tạo `Player Test Rig` với platform layer `World` và instantiate `Player.prefab` trong đấu trường tại vùng giữa-dưới.
-- [x] `TetrisDemoBootstrap` tự spawn player/platform khi Play nếu scene chưa có player.
+- [x] TetrisDemo builder/runtime spawn `Player.prefab` trong đấu trường tại vùng giữa-dưới, không dùng platform tạm.
+- [x] Viền trái/phải/đáy của đấu trường có collider layer `World`, player rơi xuống đáy và không lọt ra ngoài.
+- [x] `TetrisDemoBootstrap` tự spawn player khi Play nếu scene chưa có player.
 - [x] `BlockBoard` phát hiện locked cell overlap player và phát event crush.
 - [x] TetrisDemo chuyển Game Over với lý do player bị block đè.
 

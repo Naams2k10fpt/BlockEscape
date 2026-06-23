@@ -224,18 +224,14 @@ namespace BlockEscape.Editor
             var borders = new GameObject("Arena Borders").transform;
             borders.SetParent(root, false);
             var borderColor = new Color(0.35f, 0.65f, 1f, 0.9f);
-            CreateQuad("Left Wall", borders, sprite, new Vector2(origin.x - 0.08f, center.y), new Vector2(0.16f, config.boardHeight + 0.2f), borderColor, 5);
-            CreateQuad("Right Wall", borders, sprite, new Vector2(origin.x + config.boardWidth + 0.08f, center.y), new Vector2(0.16f, config.boardHeight + 0.2f), borderColor, 5);
-            CreateQuad("Floor", borders, sprite, new Vector2(center.x, origin.y - 0.08f), new Vector2(config.boardWidth + 0.2f, 0.16f), borderColor, 5);
+            AddWorldCollider(CreateQuad("Left Wall", borders, sprite, new Vector2(origin.x - 0.08f, center.y), new Vector2(0.16f, config.boardHeight + 0.2f), borderColor, 5));
+            AddWorldCollider(CreateQuad("Right Wall", borders, sprite, new Vector2(origin.x + config.boardWidth + 0.08f, center.y), new Vector2(0.16f, config.boardHeight + 0.2f), borderColor, 5));
+            AddWorldCollider(CreateQuad("Floor", borders, sprite, new Vector2(center.x, origin.y - 0.08f), new Vector2(config.boardWidth + 0.2f, 0.16f), borderColor, 5));
         }
 
         private static void CreatePlayerTestRig(Sprite sprite)
         {
             var root = new GameObject("Player Test Rig").transform;
-            var platform = CreateQuad("Player Test Platform", root, sprite, new Vector2(0f, -5.65f), new Vector2(4f, 0.3f), new Color(0.30f, 0.50f, 0.42f), 6);
-            platform.layer = LayerOrDefault("World");
-            platform.AddComponent<BoxCollider2D>();
-
             var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
             if (playerPrefab == null)
                 return;
@@ -243,6 +239,12 @@ namespace BlockEscape.Editor
             var player = (GameObject)PrefabUtility.InstantiatePrefab(playerPrefab);
             player.name = "Player";
             player.transform.position = new Vector3(0f, -4.6f, 0f);
+        }
+
+        private static void AddWorldCollider(GameObject gameObject)
+        {
+            gameObject.layer = LayerOrDefault("World");
+            gameObject.AddComponent<BoxCollider2D>();
         }
 
         private static HudReferences CreateHud(Transform uiRoot)

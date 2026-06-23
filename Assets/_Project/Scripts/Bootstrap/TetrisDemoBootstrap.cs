@@ -38,7 +38,6 @@ namespace BlockEscape.Bootstrap
         private Transform _player;
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
-        private static readonly Vector3 PlayerPlatformPosition = new(0f, -5.65f, 0f);
 
         private void Awake()
         {
@@ -54,6 +53,7 @@ namespace BlockEscape.Bootstrap
             InitializeInput();
             if (_arenaVisuals == null)
                 CreateArenaVisuals();
+            EnsureArenaBoundaryColliders();
             EnsurePlayerTestRig();
             if (_statsText == null || _statusText == null || _overflowFill == null)
                 CreateHud();
@@ -245,28 +245,39 @@ namespace BlockEscape.Bootstrap
             RuntimeVisuals.CreateQuad("Danger Line", root, new Vector3(center.x, dangerY, 0f), new Vector2(_config.boardWidth, 0.08f), new Color(1f, 0.2f, 0.25f, 0.85f), 5);
 
             var borderColor = new Color(0.35f, 0.65f, 1f, 0.9f);
-            RuntimeVisuals.CreateQuad("Border Left", root, new Vector3(origin.x - 0.08f, center.y, 0f), new Vector2(0.16f, _config.boardHeight + 0.2f), borderColor, 5);
-            RuntimeVisuals.CreateQuad("Border Right", root, new Vector3(origin.x + _config.boardWidth + 0.08f, center.y, 0f), new Vector2(0.16f, _config.boardHeight + 0.2f), borderColor, 5);
-            RuntimeVisuals.CreateQuad("Border Bottom", root, new Vector3(center.x, origin.y - 0.08f, 0f), new Vector2(_config.boardWidth + 0.2f, 0.16f), borderColor, 5);
+            AddWorldCollider(RuntimeVisuals.CreateQuad("Border Left", root, new Vector3(origin.x - 0.08f, center.y, 0f), new Vector2(0.16f, _config.boardHeight + 0.2f), borderColor, 5));
+            AddWorldCollider(RuntimeVisuals.CreateQuad("Border Right", root, new Vector3(origin.x + _config.boardWidth + 0.08f, center.y, 0f), new Vector2(0.16f, _config.boardHeight + 0.2f), borderColor, 5));
+            AddWorldCollider(RuntimeVisuals.CreateQuad("Border Bottom", root, new Vector3(center.x, origin.y - 0.08f, 0f), new Vector2(_config.boardWidth + 0.2f, 0.16f), borderColor, 5));
+        }
+
+        private static void EnsureArenaBoundaryColliders()
+        {
+            AddWorldCollider(GameObject.Find("Left Wall"));
+            AddWorldCollider(GameObject.Find("Right Wall"));
+            AddWorldCollider(GameObject.Find("Floor"));
+            AddWorldCollider(GameObject.Find("Border Left"));
+            AddWorldCollider(GameObject.Find("Border Right"));
+            AddWorldCollider(GameObject.Find("Border Bottom"));
+        }
+
+        private static void AddWorldCollider(GameObject gameObject)
+        {
+            if (gameObject == null)
+                return;
+
+            var worldLayer = LayerMask.NameToLayer("World");
+            if (worldLayer >= 0)
+                gameObject.layer = worldLayer;
+
+            if (gameObject.GetComponent<BoxCollider2D>() == null)
+                gameObject.AddComponent<BoxCollider2D>();
         }
 
         private void EnsurePlayerTestRig()
         {
             var platform = GameObject.Find("Player Test Platform");
-            if (platform == null)
-            {
-                platform = RuntimeVisuals.CreateQuad(
-                    "Player Test Platform",
-                    transform,
-                    PlayerPlatformPosition,
-                    new Vector2(4f, 0.3f),
-                    new Color(0.30f, 0.50f, 0.42f),
-                    6);
-                var worldLayer = LayerMask.NameToLayer("World");
-                if (worldLayer >= 0)
-                    platform.layer = worldLayer;
-                platform.AddComponent<BoxCollider2D>();
-            }
+            if (platform != null)
+                Destroy(platform);
 
             var player = FindAnyObjectByType<PlayerController>();
             if (player != null)
