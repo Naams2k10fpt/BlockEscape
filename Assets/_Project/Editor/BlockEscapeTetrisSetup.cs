@@ -232,7 +232,7 @@ namespace BlockEscape.Editor
         private static void CreatePlayerTestRig(Sprite sprite)
         {
             var root = new GameObject("Player Test Rig").transform;
-            var platform = CreateQuad("Player Test Platform", root, sprite, new Vector2(-11f, -7.85f), new Vector2(4f, 0.3f), new Color(0.30f, 0.50f, 0.42f), 6);
+            var platform = CreateQuad("Player Test Platform", root, sprite, new Vector2(0f, -5.65f), new Vector2(4f, 0.3f), new Color(0.30f, 0.50f, 0.42f), 6);
             platform.layer = LayerOrDefault("World");
             platform.AddComponent<BoxCollider2D>();
 
@@ -242,7 +242,7 @@ namespace BlockEscape.Editor
 
             var player = (GameObject)PrefabUtility.InstantiatePrefab(playerPrefab);
             player.name = "Player";
-            player.transform.position = new Vector3(-11f, -6.8f, 0f);
+            player.transform.position = new Vector3(0f, -4.6f, 0f);
         }
 
         private static HudReferences CreateHud(Transform uiRoot)

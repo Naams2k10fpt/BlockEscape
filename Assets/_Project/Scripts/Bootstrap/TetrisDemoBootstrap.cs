@@ -37,7 +37,8 @@ namespace BlockEscape.Bootstrap
         private bool _gameOver;
         private Transform _player;
 
-        private static readonly Vector3 PlayerSpawnPosition = new(-11f, -6.8f, 0f);
+        private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
+        private static readonly Vector3 PlayerPlatformPosition = new(0f, -5.65f, 0f);
 
         private void Awake()
         {
@@ -257,7 +258,7 @@ namespace BlockEscape.Bootstrap
                 platform = RuntimeVisuals.CreateQuad(
                     "Player Test Platform",
                     transform,
-                    new Vector3(-11f, -7.85f, 0f),
+                    PlayerPlatformPosition,
                     new Vector2(4f, 0.3f),
                     new Color(0.30f, 0.50f, 0.42f),
                     6);
