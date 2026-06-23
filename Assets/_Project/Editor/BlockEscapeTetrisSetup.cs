@@ -21,6 +21,7 @@ namespace BlockEscape.Editor
         private const string MainMenuScenePath = "Assets/_Project/Scenes/MainMenu.unity";
         private const string ConfigPath = "Assets/_Project/Resources/TetrisBalanceConfig.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
+        private const string PlayerPrefabPath = "Assets/_Project/Prefabs/Player/Player.prefab";
         private const string SquareAssetPath = "Assets/_Project/Art/GeneratedSquare.asset";
         private const string ClassroomMarker = "m_Name: Main Menu Confirmation Dialog";
 
@@ -74,6 +75,7 @@ namespace BlockEscape.Editor
 
             var arenaRoot = new GameObject("Arena Visuals").transform;
             CreateArenaVisuals(arenaRoot, squareSprite, config);
+            CreatePlayerTestRig(squareSprite);
 
             var uiRoot = new GameObject("User Interface").transform;
             var hud = CreateHud(uiRoot);
@@ -225,6 +227,22 @@ namespace BlockEscape.Editor
             CreateQuad("Left Wall", borders, sprite, new Vector2(origin.x - 0.08f, center.y), new Vector2(0.16f, config.boardHeight + 0.2f), borderColor, 5);
             CreateQuad("Right Wall", borders, sprite, new Vector2(origin.x + config.boardWidth + 0.08f, center.y), new Vector2(0.16f, config.boardHeight + 0.2f), borderColor, 5);
             CreateQuad("Floor", borders, sprite, new Vector2(center.x, origin.y - 0.08f), new Vector2(config.boardWidth + 0.2f, 0.16f), borderColor, 5);
+        }
+
+        private static void CreatePlayerTestRig(Sprite sprite)
+        {
+            var root = new GameObject("Player Test Rig").transform;
+            var platform = CreateQuad("Player Test Platform", root, sprite, new Vector2(-11f, -7.85f), new Vector2(4f, 0.3f), new Color(0.30f, 0.50f, 0.42f), 6);
+            platform.layer = LayerOrDefault("World");
+            platform.AddComponent<BoxCollider2D>();
+
+            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            if (playerPrefab == null)
+                return;
+
+            var player = (GameObject)PrefabUtility.InstantiatePrefab(playerPrefab);
+            player.name = "Player";
+            player.transform.position = new Vector3(-11f, -6.8f, 0f);
         }
 
         private static HudReferences CreateHud(Transform uiRoot)
@@ -556,6 +574,7 @@ namespace BlockEscape.Editor
             var layers = serializedObject.FindProperty("layers");
             AddLayer(layers, "World");
             AddLayer(layers, "FallingBlock");
+            AddLayer(layers, "Player");
             serializedObject.ApplyModifiedProperties();
         }
 
@@ -573,6 +592,12 @@ namespace BlockEscape.Editor
             }
 
             Debug.LogWarning("No free user layer slot for " + layerName);
+        }
+
+        private static int LayerOrDefault(string layerName)
+        {
+            var layer = LayerMask.NameToLayer(layerName);
+            return layer >= 0 ? layer : 0;
         }
 
         private readonly struct HudReferences
