@@ -157,6 +157,7 @@ GameObject:
   - component: {fileID: 7400637797050449020}
   - component: {fileID: 4099851910730779178}
   - component: {fileID: 461126505445435953}
+  - component: {fileID: 1285482479806762412}
   m_Layer: 10
   m_Name: Player
   m_TagString: Untagged
@@ -255,10 +256,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0cf6cb1d39b7eda4e9598c42bfff5981, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: BlockEscape.Runtime::BlockEscape.Player.PlayerController
   _config: {fileID: 11400000, guid: 4c811cd24ba065140a8d0eed90276f42, type: 2}
   _groundCheck: {fileID: 5706792345519917892}
   _groundMask:
     serializedVersion: 2
     m_Bits: 256
+--- !u!114 &1285482479806762412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8862055015753606068}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba896aaad0758cb4eb7740d61216a2a9, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: BlockEscape.Runtime::BlockEscape.Player.PlayerHealth
+  _maxHp: 3
+  _iFrameSeconds: 1.2
+  _flashIntervalSeconds: 0.1
+  _spriteRenderer: {fileID: 840619637010080741}

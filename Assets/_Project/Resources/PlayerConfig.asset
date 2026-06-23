@@ -20,3 +20,7 @@ MonoBehaviour:
   variableJumpMultiplier: 0.5
   groundCheckSize: {x: 0.58, y: 0.08}
   groundCheckOffsetY: -0.78
+  standingColliderSize: {x: 0.72, y: 1.45}
+  standingColliderOffset: {x: 0, y: -0.02}
+  crouchColliderSize: {x: 0.72, y: 0.82}
+  crouchColliderOffset: {x: 0, y: -0.335}

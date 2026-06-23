@@ -17,15 +17,19 @@ namespace BlockEscape.Player
         private float _lastGroundedTime = float.NegativeInfinity;
         private float _lastJumpPressedTime = float.NegativeInfinity;
         private bool _jumpReleasedThisFrame;
+        private bool _wantsCrouch;
+        private Animator _animator;
 
         public PlayerConfig Config => _config;
         public bool IsGrounded { get; private set; }
+        public bool IsCrouching { get; private set; }
         public Vector2 Velocity => _body != null ? _body.linearVelocity : Vector2.zero;
 
         private void Awake()
         {
             _body = GetComponent<Rigidbody2D>();
             _collider = GetComponent<CapsuleCollider2D>();
+            _animator = GetComponentInChildren<Animator>();
             _input = InputService.Current;
 
             if (_config == null)
@@ -38,6 +42,8 @@ namespace BlockEscape.Player
                 _groundMask = LayerMask.GetMask("World");
 
             _body.freezeRotation = true;
+            if (_config != null)
+                ApplyCollider(_config.standingColliderSize, _config.standingColliderOffset);
         }
 
         private void OnEnable()
@@ -57,10 +63,12 @@ namespace BlockEscape.Player
             {
                 _moveInput = 0f;
                 _jumpReleasedThisFrame = false;
+                _wantsCrouch = false;
                 return;
             }
 
             _moveInput = Mathf.Clamp(_input.PlayerMove.ReadValue<float>(), -1f, 1f);
+            _wantsCrouch = _input.PlayerCrouch.IsPressed();
 
             if (_input.PlayerJump.WasPressedThisFrame())
                 _lastJumpPressedTime = Time.time;
@@ -74,6 +82,7 @@ namespace BlockEscape.Player
                 return;
 
             UpdateGroundedState();
+            UpdateCrouchState();
 
             var velocity = _body.linearVelocity;
             velocity.x = _moveInput * _config.moveSpeed;
@@ -118,6 +127,56 @@ namespace BlockEscape.Player
             IsGrounded = Physics2D.OverlapBox(center, _config.groundCheckSize, 0f, _groundMask) != null;
             if (IsGrounded)
                 _lastGroundedTime = Time.time;
+        }
+
+        private void UpdateCrouchState()
+        {
+            if (_wantsCrouch)
+            {
+                SetCrouching(true);
+                return;
+            }
+
+            if (IsCrouching && !CanStand())
+                return;
+
+            SetCrouching(false);
+        }
+
+        private bool CanStand()
+        {
+            var crouchTop = _config.crouchColliderOffset.y + _config.crouchColliderSize.y * 0.5f;
+            var standingTop = _config.standingColliderOffset.y + _config.standingColliderSize.y * 0.5f;
+            var headroomHeight = Mathf.Max(0.02f, standingTop - crouchTop);
+            var centerY = crouchTop + headroomHeight * 0.5f;
+            var center = (Vector2)transform.position + Vector2.up * centerY;
+            var size = new Vector2(_config.standingColliderSize.x, headroomHeight);
+            var hit = Physics2D.OverlapBox(center, size, 0f, _groundMask);
+            return hit == null || hit.attachedRigidbody == _body;
+        }
+
+        private void SetCrouching(bool crouching)
+        {
+            if (IsCrouching == crouching)
+                return;
+
+            IsCrouching = crouching;
+            if (crouching)
+                ApplyCollider(_config.crouchColliderSize, _config.crouchColliderOffset);
+            else
+                ApplyCollider(_config.standingColliderSize, _config.standingColliderOffset);
+
+            if (_animator != null)
+                _animator.SetBool("IsCrouching", IsCrouching);
+        }
+
+        private void ApplyCollider(Vector2 size, Vector2 offset)
+        {
+            if (_collider == null)
+                return;
+
+            _collider.size = size;
+            _collider.offset = offset;
         }
 
         private void OnDrawGizmosSelected()

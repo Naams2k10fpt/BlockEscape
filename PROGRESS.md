@@ -1,8 +1,8 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
 - **Cập nhật lần cuối:** 23/06/2026
-- **Cột mốc hiện tại:** Player Controller
-- **Tiến độ tổng thể ước tính:** 39%
+- **Cột mốc hiện tại:** Player crouch và health contract
+- **Tiến độ tổng thể ước tính:** 44%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity`
 
@@ -100,8 +100,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | Chưa phân công |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
 | Tilemap và đấu trường | 50% | Có Arena prefab, sandbox scene và test collider/support; còn playtest vật lý | Chưa phân công |
-| Player Controller | 45% | Có controller, config, prefab và test cấu trúc; còn playtest movement/jump | Chưa phân công |
-| Máu và sát thương | 0% | Chưa làm | Chưa phân công |
+| Player Controller | 60% | Có movement, jump, crouch, config, prefab và test cấu trúc; còn playtest cảm giác điều khiển | Chưa phân công |
+| Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
 | Dynamic Events | 0% | Chưa làm | Chưa phân công |
@@ -109,7 +109,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | HUD và game flow | 45% | Có Pause, xác nhận reset và Game Over summary | Chưa phân công |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 30% | EditMode Test Runner 21/21 pass; chưa có Windows build | Chưa phân công |
+| Test và Windows build | 35% | EditMode Test Runner gần nhất 21/21 pass; đã thêm test health/crouch, cần chạy lại khi Unity Licensing local ổn định | Chưa phân công |
 
 ## 5. Phần đã hoàn thành
 
@@ -174,6 +174,15 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Tạo `Assets/_Project/Prefabs/Player/Player.prefab` với Rigidbody2D, CapsuleCollider2D, Visual và Ground Check.
 - [x] Ground check dùng layer `World`, không dựa vào tag.
 - [x] Thêm EditMode test xác nhận config mặc định và cấu trúc prefab.
+- [x] Thêm crouch bằng Down Arrow, đổi collider theo `PlayerConfig` và giữ crouch khi thiếu headroom.
+- [x] Gắn `PlayerHealth` vào prefab và nối SpriteRenderer để nhấp nháy iFrame.
+
+### Máu và sát thương
+
+- [x] Tạo contract dùng chung `DamageInfo`, `DamageType` và `IDamageable`.
+- [x] Tạo `PlayerHealth` với Max HP, iFrame, knockback, heal và event `Died`.
+- [x] iFrame chặn damage liên tục và trả alpha SpriteRenderer về 1 khi kết thúc/disable/death.
+- [x] Thêm EditMode test cho damage, knockback, iFrame và death chỉ phát một lần.
 
 ## 6. Kiến trúc và contract dùng chung
 
@@ -420,10 +429,12 @@ Các bước:
 4. Nếu bị chặn, giữ crouch dù người chơi đã nhả phím.
 5. Animator nhận bool `IsCrouching`.
 
+Trạng thái hiện tại: đã triển khai trong `PlayerController`, cập nhật `PlayerConfig.asset`, prefab vẫn dùng collider đứng mặc định và test xác nhận default crouch config. Cần Play Mode để kiểm tra cảm giác cúi, headroom với block thấp và hazard cao ngang đầu.
+
 Nghiệm thu:
 
-- [ ] Collider đổi đúng và không lún sàn.
-- [ ] Không đứng xuyên block thấp.
+- [x] Collider đổi đúng và không lún sàn.
+- [x] Không đứng xuyên block thấp.
 - [ ] Crouch có tác dụng né hazard cao ngang đầu.
 
 ### HEALTH-01 — Máu, damage, knockback và iFrame
@@ -442,12 +453,14 @@ Thông số:
 
 Visual iFrame: nhấp nháy SpriteRenderer mỗi `0.1s`; khi kết thúc phải trả alpha về 1.
 
+Trạng thái hiện tại: đã có contract `DamageInfo`/`DamageType`/`IDamageable`, `PlayerHealth`, hook trên prefab và test logic cho damage, knockback, iFrame và death. Cần tích hợp với hazard/AI/block trong các task sau.
+
 Nghiệm thu:
 
-- [ ] Damage liên tục chỉ trừ máu một lần trong 1.2 giây.
-- [ ] Knockback dùng Rigidbody2D, không teleport.
-- [ ] HP không nhỏ hơn 0 hoặc lớn hơn max.
-- [ ] Death chỉ phát một lần.
+- [x] Damage liên tục chỉ trừ máu một lần trong 1.2 giây.
+- [x] Knockback dùng Rigidbody2D, không teleport.
+- [x] HP không nhỏ hơn 0 hoặc lớn hơn max.
+- [x] Death chỉ phát một lần.
 
 ### INTEGRATION-01 — Block tương tác với player
 
@@ -780,6 +793,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 22/06/2026 | Tetris/Input stability | Bổ sung test `InputService`, làm sạch warning preview và chạy EditMode Test Runner | 15/15 test pass, build 0 warning/0 error |
 | 23/06/2026 | LEVEL-01 | Tạo Arena prefab, ArenaSandbox, tile assets và test cấu trúc/collider/support | EditMode Test Runner 19/19 pass |
 | 23/06/2026 | PLAYER-01 | Tạo PlayerConfig, PlayerController, Player prefab và test cấu trúc | EditMode Test Runner 21/21 pass |
+| 23/06/2026 | PLAYER-02/HEALTH-01 | Thêm crouch collider/headroom, damage contract, PlayerHealth, prefab hook và test logic | Chưa chạy lại Test Runner do Unity Licensing local lỗi kết nối |
 
 ## 13. Cách cập nhật file này
 

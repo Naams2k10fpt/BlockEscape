@@ -40,8 +40,8 @@ namespace BlockEscape.Editor
 
             var collider = player.AddComponent<CapsuleCollider2D>();
             collider.direction = CapsuleDirection2D.Vertical;
-            collider.size = new Vector2(0.72f, 1.45f);
-            collider.offset = new Vector2(0f, -0.02f);
+            collider.size = config.standingColliderSize;
+            collider.offset = config.standingColliderOffset;
 
             var visual = new GameObject("Visual");
             visual.transform.SetParent(player.transform, false);
@@ -62,6 +62,11 @@ namespace BlockEscape.Editor
             controllerData.FindProperty("_groundCheck").objectReferenceValue = groundCheck.transform;
             controllerData.FindProperty("_groundMask").intValue = LayerMask.GetMask("World");
             controllerData.ApplyModifiedPropertiesWithoutUndo();
+
+            var health = player.AddComponent<PlayerHealth>();
+            var healthData = new SerializedObject(health);
+            healthData.FindProperty("_spriteRenderer").objectReferenceValue = renderer;
+            healthData.ApplyModifiedPropertiesWithoutUndo();
 
             return player;
         }

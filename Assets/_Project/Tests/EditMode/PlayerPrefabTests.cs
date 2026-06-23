@@ -1,3 +1,4 @@
+using BlockEscape.Core;
 using BlockEscape.Player;
 using NUnit.Framework;
 using UnityEditor;
@@ -22,6 +23,10 @@ namespace BlockEscape.Tetris.Tests
             Assert.That(config.jumpBufferTime, Is.EqualTo(0.12f));
             Assert.That(config.maxFallSpeed, Is.EqualTo(18f));
             Assert.That(config.variableJumpMultiplier, Is.EqualTo(0.5f));
+            Assert.That(config.standingColliderSize, Is.EqualTo(new Vector2(0.72f, 1.45f)));
+            Assert.That(config.standingColliderOffset, Is.EqualTo(new Vector2(0f, -0.02f)));
+            Assert.That(config.crouchColliderSize, Is.EqualTo(new Vector2(0.72f, 0.82f)));
+            Assert.That(config.crouchColliderOffset, Is.EqualTo(new Vector2(0f, -0.335f)));
         }
 
         [Test]
@@ -43,12 +48,67 @@ namespace BlockEscape.Tetris.Tests
             Assert.That(controller, Is.Not.Null);
             Assert.That(controller.Config, Is.Not.Null);
 
+            var health = player.GetComponent<PlayerHealth>();
+            Assert.That(health, Is.Not.Null);
+
             var visual = player.transform.Find("Visual");
             Assert.That(visual, Is.Not.Null);
             Assert.That(visual.GetComponent<SpriteRenderer>(), Is.Not.Null);
             Assert.That(visual.GetComponent<Animator>(), Is.Not.Null);
 
             Assert.That(player.transform.Find("Ground Check"), Is.Not.Null);
+        }
+
+        [Test]
+        public void PlayerHealth_AppliesDamageKnockbackAndInvulnerability()
+        {
+            var player = new GameObject("Health Test");
+            try
+            {
+                var body = player.AddComponent<Rigidbody2D>();
+                var health = player.AddComponent<PlayerHealth>();
+
+                var accepted = health.TakeDamage(new DamageInfo(1, new Vector2(2f, 3f), null, DamageType.Enemy));
+
+                Assert.That(accepted, Is.True);
+                Assert.That(health.CurrentHp, Is.EqualTo(2));
+                Assert.That(health.IsInvulnerable, Is.True);
+                Assert.That(body.linearVelocity, Is.EqualTo(new Vector2(2f, 3f)));
+
+                var blocked = health.TakeDamage(new DamageInfo(1, Vector2.zero, null, DamageType.Enemy));
+                Assert.That(blocked, Is.False);
+                Assert.That(health.CurrentHp, Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
+        public void PlayerHealth_DiesOnceAndRejectsFurtherDamage()
+        {
+            var player = new GameObject("Health Death Test");
+            try
+            {
+                player.AddComponent<Rigidbody2D>();
+                var health = player.AddComponent<PlayerHealth>();
+                var deathCount = 0;
+                health.Died += () => deathCount++;
+
+                var accepted = health.TakeDamage(new DamageInfo(3, Vector2.zero, null, DamageType.Hazard));
+                var afterDeath = health.TakeDamage(new DamageInfo(1, Vector2.zero, null, DamageType.Hazard));
+
+                Assert.That(accepted, Is.True);
+                Assert.That(afterDeath, Is.False);
+                Assert.That(health.CurrentHp, Is.EqualTo(0));
+                Assert.That(health.IsDead, Is.True);
+                Assert.That(deathCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
         }
     }
 }
