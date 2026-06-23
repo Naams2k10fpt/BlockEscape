@@ -1,8 +1,8 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
-- **Cập nhật lần cuối:** 22/06/2026
-- **Cột mốc hiện tại:** Khóa Tetris Core và Input System
-- **Tiến độ tổng thể ước tính:** 32%
+- **Cập nhật lần cuối:** 23/06/2026
+- **Cột mốc hiện tại:** Tilemap và đấu trường tĩnh
+- **Tiến độ tổng thể ước tính:** 35%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity`
 
@@ -99,7 +99,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 |---|---:|---|---|
 | Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | Chưa phân công |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
-| Tilemap và đấu trường | 5% | Chưa làm | Chưa phân công |
+| Tilemap và đấu trường | 50% | Có Arena prefab, sandbox scene và test collider/support; còn playtest vật lý | Chưa phân công |
 | Player Controller | 0% | Chưa làm | Chưa phân công |
 | Máu và sát thương | 0% | Chưa làm | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
@@ -109,7 +109,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | HUD và game flow | 45% | Có Pause, xác nhận reset và Game Over summary | Chưa phân công |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 25% | EditMode Test Runner 15/15 pass; chưa có Windows build | Chưa phân công |
+| Test và Windows build | 28% | EditMode Test Runner 19/19 pass; chưa có Windows build | Chưa phân công |
 
 ## 5. Phần đã hoàn thành
 
@@ -157,6 +157,15 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Tổng kết hiển thị nguyên nhân thua, block đã thả, hàng đã xóa, điểm và seed.
 - [x] Game Over có nút Chơi lại và Main Menu.
 - [x] Pause Menu có nút trở về Main Menu và yêu cầu xác nhận trước khi rời lượt.
+
+### Tilemap và đấu trường
+
+- [x] Tạo `Assets/_Project/Prefabs/Arena/Arena.prefab` với `Grid`, bốn Tilemap và spawn points.
+- [x] Tạo `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` để kiểm tra đấu trường độc lập.
+- [x] Ground/Platform dùng `TilemapCollider2D`, `CompositeCollider2D` và Static `Rigidbody2D`.
+- [x] Obstacle dùng trigger collider riêng; Decoration Tilemap không có collider.
+- [x] Thêm layer mục tiêu `Player`, `Enemy`, `Hazard`, `Pickup`, `Sensor` vào `TagManager`.
+- [x] Test xác nhận Player Spawn có ground support bên dưới trên layer `World`.
 
 ## 6. Kiến trúc và contract dùng chung
 
@@ -335,12 +344,14 @@ Quy tắc:
 - Không đặt platform tĩnh chắn toàn bộ chiều ngang vùng Tetris vì sẽ phá quy tắc rơi/xóa hàng.
 - Board Tetris giữ kích thước 14×20 và origin thống nhất với `BlockBoard`.
 
+Trạng thái hiện tại: đã có builder `BlockEscapeArenaSetup`, prefab `Arena`, scene `ArenaSandbox`, tile assets và EditMode test kiểm tra cấu trúc/collider/support dưới Player Spawn. Cần mở Play Mode để xác nhận player placeholder đứng không rung và falling block tương tác vật lý đúng với terrain tĩnh.
+
 Nghiệm thu:
 
 - [ ] Player placeholder có thể đứng trên ground/platform mà không rung.
 - [ ] Falling block không xuyên terrain tĩnh.
-- [ ] Decoration không có collider thừa.
-- [ ] Prefab Arena hoạt động độc lập trong sandbox.
+- [x] Decoration không có collider thừa.
+- [x] Prefab Arena hoạt động độc lập trong sandbox.
 
 ### PLAYER-01 — Di chuyển và nhảy
 
@@ -757,6 +768,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 20/06/2026 | Bugfix UI Input | Thay `AssignDefaultActions` bằng UI action asset riêng | Builder tạo liên tiếp hai scene không còn exception |
 | 20/06/2026 | Pause Flow | Thêm xác nhận trước khi trở về Main Menu | Tránh người chơi làm mất lượt do bấm nhầm |
 | 22/06/2026 | Tetris/Input stability | Bổ sung test `InputService`, làm sạch warning preview và chạy EditMode Test Runner | 15/15 test pass, build 0 warning/0 error |
+| 23/06/2026 | LEVEL-01 | Tạo Arena prefab, ArenaSandbox, tile assets và test cấu trúc/collider/support | EditMode Test Runner 19/19 pass |
 
 ## 13. Cách cập nhật file này
 
