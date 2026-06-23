@@ -1,5 +1,8 @@
+using BlockEscape.Core;
+using BlockEscape.Player;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -8,6 +11,7 @@ namespace BlockEscape.Tetris.Tests
     public sealed class ArenaPrefabTests
     {
         private const string ArenaPrefabPath = "Assets/_Project/Prefabs/Arena/Arena.prefab";
+        private const string ArenaSandboxScenePath = "Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity";
 
         [Test]
         public void ArenaPrefab_HasRequiredTilemapsAndSpawnPoints()
@@ -91,6 +95,23 @@ namespace BlockEscape.Tetris.Tests
                 Object.DestroyImmediate(player);
                 Object.DestroyImmediate(arena);
             }
+        }
+
+        [Test]
+        public void ArenaSandbox_ContainsPlayablePlayerAndInputService()
+        {
+            var scene = EditorSceneManager.OpenScene(ArenaSandboxScenePath, OpenSceneMode.Single);
+            Assert.That(scene.IsValid(), Is.True, $"Arena sandbox scene is missing at {ArenaSandboxScenePath}.");
+
+            var inputService = Object.FindFirstObjectByType<InputService>();
+            Assert.That(inputService, Is.Not.Null);
+
+            var player = Object.FindFirstObjectByType<PlayerController>();
+            Assert.That(player, Is.Not.Null);
+            Assert.That(player.GetComponent<PlayerHealth>(), Is.Not.Null);
+            Assert.That(player.GetComponent<Rigidbody2D>(), Is.Not.Null);
+            Assert.That(player.GetComponent<CapsuleCollider2D>(), Is.Not.Null);
+            Assert.That(player.Config, Is.Not.Null);
         }
 
         private static void AssertStaticCompositeCollider(Transform tilemapTransform)

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BlockEscape.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -11,6 +12,7 @@ namespace BlockEscape.Editor
     {
         private const string ScenePath = "Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity";
         private const string PrefabPath = "Assets/_Project/Prefabs/Arena/Arena.prefab";
+        private const string PlayerPrefabPath = "Assets/_Project/Prefabs/Player/Player.prefab";
         private const string SquareAssetPath = "Assets/_Project/Art/GeneratedSquare.asset";
         private const string GroundTilePath = "Assets/_Project/Tilemaps/Tiles/ArenaGroundTile.asset";
         private const string PlatformTilePath = "Assets/_Project/Tilemaps/Tiles/ArenaPlatformTile.asset";
@@ -35,13 +37,34 @@ namespace BlockEscape.Editor
 
             var arena = CreateArena(groundTile, platformTile, obstacleTile, decorationTile);
             PrefabUtility.SaveAsPrefabAssetAndConnect(arena, PrefabPath, InteractionMode.AutomatedAction);
-            CreatePhysicsPlayerPlaceholder(arena.transform.Find("Spawn Points/Player Spawn"));
+            CreateInputService();
+            CreatePlayablePlayer(arena.transform.Find("Spawn Points/Player Spawn"));
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Selection.activeGameObject = arena;
             Debug.Log($"Arena sandbox built successfully: {ScenePath}");
+        }
+
+        private static void CreateInputService()
+        {
+            var inputObject = new GameObject("Input Service (Persistent)");
+            inputObject.AddComponent<InputService>();
+        }
+
+        private static void CreatePlayablePlayer(Transform spawn)
+        {
+            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            if (playerPrefab == null)
+            {
+                CreatePhysicsPlayerPlaceholder(spawn);
+                return;
+            }
+
+            var player = (GameObject)PrefabUtility.InstantiatePrefab(playerPrefab);
+            player.name = "Player";
+            player.transform.position = spawn != null ? spawn.position + Vector3.up : new Vector3(-8f, -7f, 0f);
         }
 
         private static GameObject CreateArena(TileBase groundTile, TileBase platformTile, TileBase obstacleTile, TileBase decorationTile)

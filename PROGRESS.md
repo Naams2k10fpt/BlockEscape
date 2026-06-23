@@ -1,10 +1,10 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
 - **Cập nhật lần cuối:** 23/06/2026
-- **Cột mốc hiện tại:** Player crouch và health contract
-- **Tiến độ tổng thể ước tính:** 44%
+- **Cột mốc hiện tại:** Player sandbox playable
+- **Tiến độ tổng thể ước tính:** 46%
 - **Unity bắt buộc:** `6000.4.4f1`
-- **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity`
+- **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity` cho Tetris; `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` cho player sandbox
 
 > Đây là nguồn thông tin chung của cả team. Thành viên phải đọc phần **Quyết định kỹ thuật**, task mình nhận và **Checklist trước khi merge** trước khi bắt đầu code.
 
@@ -99,8 +99,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 |---|---:|---|---|
 | Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | Chưa phân công |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
-| Tilemap và đấu trường | 50% | Có Arena prefab, sandbox scene và test collider/support; còn playtest vật lý | Chưa phân công |
-| Player Controller | 60% | Có movement, jump, crouch, config, prefab và test cấu trúc; còn playtest cảm giác điều khiển | Chưa phân công |
+| Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | Chưa phân công |
+| Player Controller | 68% | Có movement, jump, crouch, config, prefab, sandbox integration và test cấu trúc; còn playtest cảm giác điều khiển | Chưa phân công |
 | Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
@@ -109,7 +109,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | HUD và game flow | 45% | Có Pause, xác nhận reset và Game Over summary | Chưa phân công |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 35% | EditMode Test Runner gần nhất 21/21 pass; đã thêm test health/crouch, cần chạy lại khi Unity Licensing local ổn định | Chưa phân công |
+| Test và Windows build | 36% | EditMode Test Runner gần nhất 21/21 pass; đã thêm test health/crouch/sandbox player, cần chạy lại khi Unity Licensing local ổn định | Chưa phân công |
 
 ## 5. Phần đã hoàn thành
 
@@ -166,6 +166,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Obstacle dùng trigger collider riêng; Decoration Tilemap không có collider.
 - [x] Thêm layer mục tiêu `Player`, `Enemy`, `Hazard`, `Pickup`, `Sensor` vào `TagManager`.
 - [x] Test xác nhận Player Spawn có ground support bên dưới trên layer `World`.
+- [x] ArenaSandbox có `InputService` và player thật được instantiate từ `Player.prefab` tại Player Spawn.
 
 ### Player Controller
 
@@ -176,6 +177,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Thêm EditMode test xác nhận config mặc định và cấu trúc prefab.
 - [x] Thêm crouch bằng Down Arrow, đổi collider theo `PlayerConfig` và giữ crouch khi thiếu headroom.
 - [x] Gắn `PlayerHealth` vào prefab và nối SpriteRenderer để nhấp nháy iFrame.
+- [x] Đưa `Player.prefab` vào `ArenaSandbox` để playtest bằng Left/Right/Up/Down Arrow.
 
 ### Máu và sát thương
 
@@ -406,7 +408,7 @@ Quy tắc implementation:
 - Không gán `transform.position` mỗi frame cho Dynamic Rigidbody2D.
 - Player không điều khiển được khi GameSession không ở `Playing`.
 
-Trạng thái hiện tại: đã có `PlayerConfig`, `PlayerController`, prefab `Player` và EditMode test cho default config/cấu trúc prefab. Cần playtest trong sandbox để xác nhận cảm giác di chuyển, coyote time, jump buffer và tương tác trên block tĩnh.
+Trạng thái hiện tại: đã có `PlayerConfig`, `PlayerController`, prefab `Player`, player thật trong `ArenaSandbox` và EditMode test cho default config/cấu trúc prefab/sandbox. Cần playtest trong Unity để xác nhận cảm giác di chuyển, coyote time, jump buffer và tương tác trên block tĩnh.
 
 Nghiệm thu:
 
@@ -794,6 +796,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 23/06/2026 | LEVEL-01 | Tạo Arena prefab, ArenaSandbox, tile assets và test cấu trúc/collider/support | EditMode Test Runner 19/19 pass |
 | 23/06/2026 | PLAYER-01 | Tạo PlayerConfig, PlayerController, Player prefab và test cấu trúc | EditMode Test Runner 21/21 pass |
 | 23/06/2026 | PLAYER-02/HEALTH-01 | Thêm crouch collider/headroom, damage contract, PlayerHealth, prefab hook và test logic | Chưa chạy lại Test Runner do Unity Licensing local lỗi kết nối |
+| 23/06/2026 | PLAYER sandbox | Thay placeholder bằng `Player.prefab`, thêm `InputService` vào ArenaSandbox và test scene có player thật | Sẵn sàng mở `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` để playtest |
 
 ## 13. Cách cập nhật file này
 
