@@ -1,4 +1,5 @@
 using BlockEscape.Core;
+using BlockEscape.Player;
 using BlockEscape.Tetris;
 using BlockEscape.UI;
 using UnityEngine;
@@ -34,6 +35,9 @@ namespace BlockEscape.Bootstrap
         private TetrominoKind _lastSpawned;
         private bool _paused;
         private bool _gameOver;
+        private Transform _player;
+
+        private static readonly Vector3 PlayerSpawnPosition = new(-11f, -6.8f, 0f);
 
         private void Awake()
         {
@@ -49,6 +53,7 @@ namespace BlockEscape.Bootstrap
             InitializeInput();
             if (_arenaVisuals == null)
                 CreateArenaVisuals();
+            EnsurePlayerTestRig();
             if (_statsText == null || _statusText == null || _overflowFill == null)
                 CreateHud();
             else
@@ -100,6 +105,14 @@ namespace BlockEscape.Bootstrap
                 _gameOverMenu.RestartRequested -= ResetDemo;
                 _gameOverMenu.MainMenuRequested -= ReturnToMainMenu;
             }
+            if (_board != null)
+            {
+                _board.PieceLocked -= OnPieceLocked;
+                _board.RowsCleared -= OnRowsCleared;
+                _board.OverflowChanged -= OnOverflowChanged;
+                _board.Overflowed -= OnOverflowed;
+                _board.PlayerCrushed -= OnPlayerCrushed;
+            }
             Time.timeScale = 1f;
         }
 
@@ -119,6 +132,7 @@ namespace BlockEscape.Bootstrap
             _board.RowsCleared += OnRowsCleared;
             _board.OverflowChanged += OnOverflowChanged;
             _board.Overflowed += OnOverflowed;
+            _board.PlayerCrushed += OnPlayerCrushed;
 
             _spawner.PieceSpawned += kind => _lastSpawned = kind;
             _spawner.NextPieceChanged += OnNextPieceChanged;
@@ -135,6 +149,11 @@ namespace BlockEscape.Bootstrap
             {
                 var arenaObject = GameObject.Find("Arena Visuals");
                 if (arenaObject != null) _arenaVisuals = arenaObject.transform;
+            }
+            if (_player == null)
+            {
+                var player = FindAnyObjectByType<PlayerController>();
+                if (player != null) _player = player.transform;
             }
 
             var canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include);
@@ -230,6 +249,69 @@ namespace BlockEscape.Bootstrap
             RuntimeVisuals.CreateQuad("Border Bottom", root, new Vector3(center.x, origin.y - 0.08f, 0f), new Vector2(_config.boardWidth + 0.2f, 0.16f), borderColor, 5);
         }
 
+        private void EnsurePlayerTestRig()
+        {
+            var platform = GameObject.Find("Player Test Platform");
+            if (platform == null)
+            {
+                platform = RuntimeVisuals.CreateQuad(
+                    "Player Test Platform",
+                    transform,
+                    new Vector3(-11f, -7.85f, 0f),
+                    new Vector2(4f, 0.3f),
+                    new Color(0.30f, 0.50f, 0.42f),
+                    6);
+                var worldLayer = LayerMask.NameToLayer("World");
+                if (worldLayer >= 0)
+                    platform.layer = worldLayer;
+                platform.AddComponent<BoxCollider2D>();
+            }
+
+            var player = FindAnyObjectByType<PlayerController>();
+            if (player != null)
+            {
+                _player = player.transform;
+                _player.position = PlayerSpawnPosition;
+                return;
+            }
+
+            _player = CreateRuntimePlayer().transform;
+        }
+
+        private static GameObject CreateRuntimePlayer()
+        {
+            var player = new GameObject("Player");
+            var playerLayer = LayerMask.NameToLayer("Player");
+            if (playerLayer >= 0)
+                player.layer = playerLayer;
+            player.transform.position = PlayerSpawnPosition;
+
+            var body = player.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Dynamic;
+            body.gravityScale = 1f;
+            body.freezeRotation = true;
+            body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
+
+            var collider = player.AddComponent<CapsuleCollider2D>();
+            collider.direction = CapsuleDirection2D.Vertical;
+            collider.size = new Vector2(0.72f, 1.45f);
+            collider.offset = new Vector2(0f, -0.02f);
+
+            var visual = new GameObject("Visual");
+            visual.transform.SetParent(player.transform, false);
+            visual.transform.localScale = new Vector3(0.72f, 1.45f, 1f);
+            var renderer = visual.AddComponent<SpriteRenderer>();
+            renderer.sprite = RuntimeVisuals.Square;
+            renderer.color = new Color(0.95f, 0.86f, 0.30f);
+            renderer.sortingOrder = 25;
+            visual.AddComponent<Animator>();
+
+            player.AddComponent<PlayerController>();
+            player.AddComponent<PlayerHealth>();
+            return player;
+        }
+
         private void CreateHud()
         {
             var canvasObject = new GameObject("Tetris Demo HUD");
@@ -305,6 +387,8 @@ namespace BlockEscape.Bootstrap
             _rowsCleared = 0;
             _lineScore = 0;
             _board.ResetBoard();
+            if (_player != null)
+                _player.position = PlayerSpawnPosition;
             _spawner.Restart();
             _statusText.text = "RUNNING";
             _statusText.color = Color.white;
@@ -447,10 +531,24 @@ namespace BlockEscape.Bootstrap
 
         private void OnOverflowed()
         {
+            EndRun("BLOCK CHẠM VÙNG NGUY HIỂM");
+        }
+
+        private void OnPlayerCrushed()
+        {
+            EndRun("PLAYER BỊ BLOCK ĐÈ");
+        }
+
+        private void EndRun(string reason)
+        {
+            if (_gameOver)
+                return;
+
             _gameOver = true;
             _paused = false;
             Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
+            if (_spawner != null) _spawner.Stop();
             if (_pauseMenu != null) _pauseMenu.HideAll();
             if (_gameOverMenu != null && _spawner != null)
             {
@@ -459,7 +557,7 @@ namespace BlockEscape.Bootstrap
                     _rowsCleared,
                     _lineScore,
                     _spawner.Seed,
-                    "BLOCK CHẠM VÙNG NGUY HIỂM");
+                    reason);
             }
             if (_statusText == null)
                 return;

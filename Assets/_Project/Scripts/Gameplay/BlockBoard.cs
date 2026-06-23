@@ -22,6 +22,7 @@ namespace BlockEscape.Tetris
         public event Action<int[]> RowsCleared;
         public event Action<bool, float> OverflowChanged;
         public event Action Overflowed;
+        public event Action PlayerCrushed;
 
         public TetrisBalanceConfig Config => _config;
         public BoardModel Model => _model;
@@ -97,6 +98,9 @@ namespace BlockEscape.Tetris
             }
 
             PieceLocked?.Invoke(kind);
+            if (DetectPlayerCrush(localCells, origin))
+                PlayerCrushed?.Invoke();
+
             if (aboveTop)
             {
                 TriggerOverflow();
@@ -107,6 +111,28 @@ namespace BlockEscape.Tetris
             if (fullRows.Count > 0)
                 _resolveRoutine = StartCoroutine(ResolveRowsRoutine(fullRows));
             return true;
+        }
+
+        private bool DetectPlayerCrush(IReadOnlyList<Vector2Int> localCells, Vector2Int origin)
+        {
+            var playerMask = LayerMask.GetMask("Player");
+            if (playerMask == 0)
+                return false;
+
+            Physics2D.SyncTransforms();
+            foreach (var localCell in localCells)
+            {
+                var cell = origin + localCell;
+                if (cell.y < 0 || cell.y >= Height)
+                    continue;
+
+                var hits = Physics2D.OverlapBoxAll(WorldForCell(cell), new Vector2(0.96f, 0.96f), 0f, playerMask);
+                foreach (var hit in hits)
+                    if (hit != null && hit.enabled && !hit.isTrigger)
+                        return true;
+            }
+
+            return false;
         }
 
         public bool ForceClearRow(int row)

@@ -100,7 +100,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | Chưa phân công |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | Chưa phân công |
-| Player Controller | 70% | Có movement, jump, crouch, config, prefab, sandbox integration và TetrisDemo builder hook; còn playtest cảm giác điều khiển | Chưa phân công |
+| Player Controller | 74% | Có movement, jump, crouch, config, prefab, sandbox integration và runtime spawn trong TetrisDemo; còn playtest cảm giác điều khiển | Chưa phân công |
+| Block tương tác với player | 15% | `BlockBoard` phát hiện cell lock đè player và TetrisDemo chuyển Game Over | Chưa phân công |
 | Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
@@ -179,6 +180,9 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Gắn `PlayerHealth` vào prefab và nối SpriteRenderer để nhấp nháy iFrame.
 - [x] Đưa `Player.prefab` vào `ArenaSandbox` để playtest bằng Left/Right/Up/Down Arrow.
 - [x] TetrisDemo builder tạo `Player Test Rig` với platform layer `World` và instantiate `Player.prefab` cạnh board.
+- [x] `TetrisDemoBootstrap` tự spawn player/platform khi Play nếu scene chưa có player.
+- [x] `BlockBoard` phát hiện locked cell overlap player và phát event crush.
+- [x] TetrisDemo chuyển Game Over với lý do player bị block đè.
 
 ### Máu và sát thương
 
@@ -409,7 +413,7 @@ Quy tắc implementation:
 - Không gán `transform.position` mỗi frame cho Dynamic Rigidbody2D.
 - Player không điều khiển được khi GameSession không ở `Playing`.
 
-Trạng thái hiện tại: đã có `PlayerConfig`, `PlayerController`, prefab `Player`, player thật trong `ArenaSandbox`, và builder của `TetrisDemo` đã biết tạo `Player Test Rig` cạnh board. Cần rebuild/playtest trong Unity để xác nhận cảm giác di chuyển, coyote time, jump buffer và tương tác trên block tĩnh.
+Trạng thái hiện tại: đã có `PlayerConfig`, `PlayerController`, prefab `Player`, player thật trong `ArenaSandbox`, và `TetrisDemoBootstrap` tự spawn player/platform khi Play nếu scene thiếu player. Cần playtest cảm giác di chuyển, coyote time, jump buffer và tương tác trên block tĩnh.
 
 Nghiệm thu:
 
@@ -798,7 +802,9 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 23/06/2026 | PLAYER-01 | Tạo PlayerConfig, PlayerController, Player prefab và test cấu trúc | EditMode Test Runner 21/21 pass |
 | 23/06/2026 | PLAYER-02/HEALTH-01 | Thêm crouch collider/headroom, damage contract, PlayerHealth, prefab hook và test logic | Chưa chạy lại Test Runner do Unity Licensing local lỗi kết nối |
 | 23/06/2026 | PLAYER sandbox | Thay placeholder bằng `Player.prefab`, thêm `InputService` vào ArenaSandbox và test scene có player thật | Sẵn sàng mở `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` để playtest |
-| 23/06/2026 | PLAYER demo hook | TetrisDemo builder tạo platform test và instantiate `Player.prefab` cạnh board | Cần rebuild TetrisDemo khi Unity Licensing local chạy ổn định |
+| 23/06/2026 | PLAYER demo hook | TetrisDemo builder tạo platform test và instantiate `Player.prefab` cạnh board | Đã có hook khi rebuild scene |
+| 23/06/2026 | PLAYER visible in demo | TetrisDemo runtime tự tạo player/platform nếu scene thiếu player | Bấm Play trong TetrisDemo là thấy nhân vật cạnh board |
+| 23/06/2026 | PLAYER crush game over | Locked block overlap player sẽ phát `PlayerCrushed` và mở Game Over | Có EditMode test cho crush detection |
 
 ## 13. Cách cập nhật file này
 

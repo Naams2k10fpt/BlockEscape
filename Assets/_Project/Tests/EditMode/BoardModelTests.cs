@@ -115,5 +115,41 @@ namespace BlockEscape.Tetris.Tests
             Assert.That(board.HighestOccupiedRow(), Is.EqualTo(18));
         }
 
+        [Test]
+        public void BlockBoard_RaisesPlayerCrushedWhenLockedCellOverlapsPlayer()
+        {
+            var boardObject = new GameObject("Board");
+            var player = new GameObject("Player Probe");
+            try
+            {
+                boardObject.transform.position = Vector3.zero;
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+                config.rowClearWarningSeconds = 0f;
+                config.rowCollapseSeconds = 0f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = board.WorldForCell(new Vector2Int(1, 0));
+                var collider = player.AddComponent<CapsuleCollider2D>();
+                collider.size = new Vector2(0.72f, 1.45f);
+                Physics2D.SyncTransforms();
+
+                var crushed = false;
+                board.PlayerCrushed += () => crushed = true;
+
+                Assert.That(board.CommitPiece(TetrominoKind.O, 0, Vector2Int.zero), Is.True);
+                Assert.That(crushed, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
     }
 }
