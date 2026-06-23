@@ -1,0 +1,32 @@
+using UnityEngine;
+
+namespace BlockEscape.Player
+{
+    [CreateAssetMenu(menuName = "Block Escape/Player Config", fileName = "PlayerConfig")]
+    public sealed class PlayerConfig : ScriptableObject
+    {
+        [Header("Movement")]
+        [Min(0f)] public float moveSpeed = 7f;
+        [Min(0f)] public float jumpVelocity = 11f;
+        [Min(0f)] public float coyoteTime = 0.10f;
+        [Min(0f)] public float jumpBufferTime = 0.12f;
+        [Min(0f)] public float maxFallSpeed = 18f;
+        [Range(0.1f, 1f)] public float variableJumpMultiplier = 0.5f;
+
+        [Header("Ground check")]
+        public Vector2 groundCheckSize = new Vector2(0.58f, 0.08f);
+        public float groundCheckOffsetY = -0.78f;
+
+        public void Sanitize()
+        {
+            moveSpeed = Mathf.Max(0f, moveSpeed);
+            jumpVelocity = Mathf.Max(0f, jumpVelocity);
+            coyoteTime = Mathf.Max(0f, coyoteTime);
+            jumpBufferTime = Mathf.Max(0f, jumpBufferTime);
+            maxFallSpeed = Mathf.Max(0f, maxFallSpeed);
+            variableJumpMultiplier = Mathf.Clamp(variableJumpMultiplier, 0.1f, 1f);
+            groundCheckSize.x = Mathf.Max(0.05f, groundCheckSize.x);
+            groundCheckSize.y = Mathf.Max(0.02f, groundCheckSize.y);
+        }
+    }
+}

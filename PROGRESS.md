@@ -1,8 +1,8 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
 - **Cập nhật lần cuối:** 23/06/2026
-- **Cột mốc hiện tại:** Tilemap và đấu trường tĩnh
-- **Tiến độ tổng thể ước tính:** 35%
+- **Cột mốc hiện tại:** Player Controller
+- **Tiến độ tổng thể ước tính:** 39%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity`
 
@@ -100,7 +100,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | Chưa phân công |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
 | Tilemap và đấu trường | 50% | Có Arena prefab, sandbox scene và test collider/support; còn playtest vật lý | Chưa phân công |
-| Player Controller | 0% | Chưa làm | Chưa phân công |
+| Player Controller | 45% | Có controller, config, prefab và test cấu trúc; còn playtest movement/jump | Chưa phân công |
 | Máu và sát thương | 0% | Chưa làm | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
@@ -109,7 +109,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | HUD và game flow | 45% | Có Pause, xác nhận reset và Game Over summary | Chưa phân công |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 28% | EditMode Test Runner 19/19 pass; chưa có Windows build | Chưa phân công |
+| Test và Windows build | 30% | EditMode Test Runner 21/21 pass; chưa có Windows build | Chưa phân công |
 
 ## 5. Phần đã hoàn thành
 
@@ -166,6 +166,14 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Obstacle dùng trigger collider riêng; Decoration Tilemap không có collider.
 - [x] Thêm layer mục tiêu `Player`, `Enemy`, `Hazard`, `Pickup`, `Sensor` vào `TagManager`.
 - [x] Test xác nhận Player Spawn có ground support bên dưới trên layer `World`.
+
+### Player Controller
+
+- [x] Tạo `PlayerConfig` với thông số mặc định đã thống nhất.
+- [x] Tạo `PlayerController` đọc input trong `Update` và áp vận tốc Rigidbody trong `FixedUpdate`.
+- [x] Tạo `Assets/_Project/Prefabs/Player/Player.prefab` với Rigidbody2D, CapsuleCollider2D, Visual và Ground Check.
+- [x] Ground check dùng layer `World`, không dựa vào tag.
+- [x] Thêm EditMode test xác nhận config mặc định và cấu trúc prefab.
 
 ## 6. Kiến trúc và contract dùng chung
 
@@ -388,6 +396,8 @@ Quy tắc implementation:
 - Ground check dùng `Physics2D.OverlapBox` hoặc cast với layer `World`; không dựa vào tag.
 - Không gán `transform.position` mỗi frame cho Dynamic Rigidbody2D.
 - Player không điều khiển được khi GameSession không ở `Playing`.
+
+Trạng thái hiện tại: đã có `PlayerConfig`, `PlayerController`, prefab `Player` và EditMode test cho default config/cấu trúc prefab. Cần playtest trong sandbox để xác nhận cảm giác di chuyển, coyote time, jump buffer và tương tác trên block tĩnh.
 
 Nghiệm thu:
 
@@ -769,6 +779,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 20/06/2026 | Pause Flow | Thêm xác nhận trước khi trở về Main Menu | Tránh người chơi làm mất lượt do bấm nhầm |
 | 22/06/2026 | Tetris/Input stability | Bổ sung test `InputService`, làm sạch warning preview và chạy EditMode Test Runner | 15/15 test pass, build 0 warning/0 error |
 | 23/06/2026 | LEVEL-01 | Tạo Arena prefab, ArenaSandbox, tile assets và test cấu trúc/collider/support | EditMode Test Runner 19/19 pass |
+| 23/06/2026 | PLAYER-01 | Tạo PlayerConfig, PlayerController, Player prefab và test cấu trúc | EditMode Test Runner 21/21 pass |
 
 ## 13. Cách cập nhật file này
 
