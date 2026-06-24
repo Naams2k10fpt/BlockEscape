@@ -8,8 +8,8 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 
 ## Trạng thái hiện tại
 
-**Cột mốc:** Tetris Core  
-**Tiến độ tổng thể ước tính:** 25%
+**Cột mốc:** Player sandbox playable
+**Tiến độ tổng thể ước tính:** 46%
 
 Đã có:
 
@@ -24,10 +24,14 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Main Menu có nút Bắt đầu/Thoát và màn Game Over tổng kết lượt chơi.
 - Pause Menu có nút trở về Main Menu với hộp xác nhận để tránh mất lượt nhầm.
 - Input System được tách thành ba map `Tetris`, `Player`, `System` và quản lý tập trung qua `InputService`.
+- Player runtime spawn trong `TetrisDemo`, có di chuyển, nhảy, cúi, health, iFrame và death event.
+- Player có thể rơi xuống đáy đấu trường; tường trái/phải/đáy có collider layer `World` để không lọt khỏi map.
+- Falling tetromino dùng solid collider để chặn player ngay khi đang rơi.
+- Locked block đè player sẽ mở Game Over.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.
 
-Player platform, Drone AI, event, pickup, menu hoàn chỉnh, save data, art và audio chưa được triển khai.
+Drone AI, dynamic event, pickup, menu hoàn chỉnh, save data, art và audio chưa được triển khai.
 
 ## Yêu cầu
 
@@ -67,12 +71,27 @@ Công cụ trên tạo đồng thời `MainMenu` và `TetrisDemo`, đồng thờ
 | `A / D` | Di chuyển tetromino trái/phải |
 | `W` | Xoay tetromino theo chiều kim đồng hồ |
 | `S` | Soft drop |
+| `Left / Right Arrow` | Di chuyển player |
+| `Up Arrow` | Player nhảy |
+| `Down Arrow` | Player cúi |
 | `Esc` | Mở/đóng Pause Menu |
 | `R` | Mở hộp xác nhận reset lượt chơi |
 
-Nhân vật platform sau này sẽ sử dụng các phím mũi tên để không xung đột với điều khiển Tetris.
+Tetris dùng WASD, player dùng phím mũi tên để hai hệ điều khiển không xung đột.
 
 Không đọc `Keyboard.current` trực tiếp trong script gameplay mới. Thành viên phải lấy action tương ứng từ `InputService` để Pause có thể vô hiệu hóa gameplay thống nhất.
+
+## InputService là gì?
+
+`InputService` là service trung tâm trong `BlockEscape.Core` dùng để quản lý toàn bộ input của game. Nó giữ một `InputActionAsset`, tìm ba action map chính và bật/tắt chúng đúng lúc:
+
+| Action Map | Dùng cho | Binding hiện tại |
+|---|---|---|
+| `Tetris` | Điều khiển tetromino | `A/D`, `W`, `S` |
+| `Player` | Điều khiển nhân vật | `Left/Right/Up/Down Arrow` |
+| `System` | Lệnh hệ thống | `Esc`, `R` |
+
+Khi Pause, Game Over hoặc reset confirmation, gameplay input có thể bị tắt bằng một lệnh chung thay vì từng script tự xử lý phím. Script gameplay mới nên lấy input qua `InputService.Current`, ví dụ `InputService.Current.PlayerMove`, `PlayerJump`, `TetrisMove`, `Pause`.
 
 ## Cấu trúc project
 
@@ -89,6 +108,7 @@ Assets/_Project/
 │   ├── Bootstrap/    Khởi tạo và kết nối scene
 │   ├── Core/         Hệ thống dùng chung
 │   ├── Gameplay/     Board, tetromino và gameplay
+│   ├── Player/       Player controller, config và health
 │   └── UI/           HUD và preview
 ├── Tests/            EditMode và PlayMode tests
 └── Tilemaps/         Tile và Tilemap của đấu trường
@@ -113,8 +133,8 @@ Row Clear + HUD
 - `BoardModel` chỉ quản lý dữ liệu lưới, không phụ thuộc scene.
 - `BlockBoard` đồng bộ dữ liệu với block hiển thị và collider.
 - `TetrominoSpawner` quản lý 7-bag, piece hiện tại và piece tiếp theo.
-- `ActiveTetromino` xử lý input WASD và chuyển động từng ô.
-- `TetrisDemoBootstrap` kết nối các object đã được tạo sẵn trong scene.
+- `ActiveTetromino` xử lý input WASD, chuyển động từng ô và dùng solid collider để chặn player.
+- `TetrisDemoBootstrap` kết nối scene, tự spawn player khi cần, tạo collider biên đấu trường và mở Game Over khi player bị block đè.
 
 ## Quy trình làm việc nhóm
 
