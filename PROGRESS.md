@@ -104,12 +104,12 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Block tương tác với player | 42% | Falling block pre-check vị trí kế tiếp để không xuyên/đẩy player; player nhảy lên bị bật xuống; Game Over chỉ khi bị đè và hết đường thoát ngang | NguyenNgu2005 |
 | Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | NguyenNgu2005 |
 | Game Session và scoring | 40% | Có `GameSession`, `ScoreService`, survival score, row score và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
-| Drone AI | 0% | Chưa làm | NguyenNgu2005 |
-| Dynamic Events | 0% | Chưa làm | NguyenNgu2005 |
-| Pickup và power-up | 0% | Chưa làm | NguyenNgu2005 |
+| Drone AI | 0% | Chưa làm | Chưa phân công |
+| Dynamic Events | 0% | Chưa làm | Chưa phân công |
+| Pickup và power-up | 0% | Chưa làm | Chưa phân công |
 | HUD và game flow | 50% | HUD/Pause/Game Over đọc cùng session score và hiển thị thời gian sống sót | NguyenNgu2005 |
-| Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | NguyenNgu2005 |
-| Art, animation và audio | 5% | Placeholder | NguyenNgu2005 |
+| Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
+| Art, animation và audio | 5% | Placeholder | Chưa phân công |
 | Test và Windows build | 37% | EditMode Test Runner gần nhất 21/21 pass; có thêm test session/score, cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
 
 ## 5. Phần đã hoàn thành

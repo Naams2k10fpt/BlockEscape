@@ -218,10 +218,9 @@ Cập nhật bảng này khi nhóm chốt thành viên:
 
 | Thành viên | Phụ trách |
 |---|---|
-| NguyenNgu2005 | Tetris và hệ thống gameplay |
-| NguyenNgu2005 | Player, health và animation |
-| NguyenNgu2005 | UI, save và scene flow |
-| NguyenNgu2005 | Art, audio và kiểm thử |
+| NguyenNgu2005 | Các phần đã sửa trong branch hiện tại: gameplay, player, input, HUD/session và test |
+| Chưa phân công | Drone AI, dynamic events, pickup và power-up |
+| Chưa phân công | Options, save data, art, animation và audio |
 
 ## License và asset bên ngoài
 
