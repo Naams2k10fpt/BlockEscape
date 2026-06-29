@@ -28,7 +28,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Player có thể rơi xuống đáy đấu trường; tường trái/phải/đáy có collider layer `World` để không lọt khỏi map.
 - Falling tetromino dùng solid collider để chặn player ngay khi đang rơi.
 - Player, falling block và biên đấu trường dùng frictionless physics material để giảm lỗi bám tường.
-- Active falling block đè player từ trên xuống hoặc locked block đè player đều mở Game Over.
+- Active/locked block chỉ mở Game Over khi player bị đè và không còn đường thoát ngang; nhảy đụng block thì bị chặn, không chết ngay.
 - TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.
@@ -136,7 +136,7 @@ Row Clear + HUD
 - `BlockBoard` đồng bộ dữ liệu với block hiển thị và collider.
 - `TetrominoSpawner` quản lý 7-bag, piece hiện tại và piece tiếp theo.
 - `ActiveTetromino` xử lý input WASD, chuyển động từng ô và dùng solid collider để chặn player.
-- `TetrisDemoBootstrap` kết nối scene, tự spawn player khi cần, tạo collider biên đấu trường, clamp player trong arena và mở Game Over khi player bị block đè.
+- `TetrisDemoBootstrap` kết nối scene, tự spawn player khi cần, tạo collider biên đấu trường, clamp player trong arena và mở Game Over khi player bị block đè mà không còn đường thoát.
 
 ## Quy trình làm việc nhóm
 

@@ -128,7 +128,10 @@ namespace BlockEscape.Tetris
 
                 var hits = Physics2D.OverlapBoxAll(WorldForCell(cell), new Vector2(0.96f, 0.96f), 0f, playerMask);
                 foreach (var hit in hits)
-                    if (hit != null && hit.enabled && !hit.isTrigger)
+                    if (hit != null &&
+                        hit.enabled &&
+                        !hit.isTrigger &&
+                        PlayerCrushEscape.ShouldCrush(hit, WorldForCell(cell), this, ignoreRisingPlayer: false))
                         return true;
             }
 
@@ -266,6 +269,111 @@ namespace BlockEscape.Tetris
                 return;
             _overflowTriggered = true;
             Overflowed?.Invoke();
+        }
+    }
+
+    internal static class PlayerCrushEscape
+    {
+        private const float EscapeStep = 1f;
+        private const float ProbeSkin = 0.04f;
+        private const float MinimumCrushOverlapX = 0.12f;
+        private const float RisingVelocityThreshold = 0.05f;
+
+        private static readonly Vector2[] EscapeOffsets =
+        {
+            Vector2.left * EscapeStep,
+            Vector2.right * EscapeStep,
+            Vector2.left * EscapeStep * 2f,
+            Vector2.right * EscapeStep * 2f
+        };
+
+        public static bool ShouldCrush(
+            Collider2D playerCollider,
+            Vector2 crushSourceCenter,
+            BlockBoard board,
+            bool ignoreRisingPlayer)
+        {
+            if (playerCollider == null || board == null)
+                return false;
+
+            var playerBounds = playerCollider.bounds;
+            if (!IsCrushingFromAbove(crushSourceCenter, playerBounds))
+                return false;
+
+            if (ignoreRisingPlayer && IsPlayerMovingUp(playerCollider))
+                return false;
+
+            return !HasEscapeSpace(playerCollider, board);
+        }
+
+        private static bool IsCrushingFromAbove(Vector2 blockCenter, Bounds playerBounds)
+        {
+            var halfCell = 0.47f;
+            var blockMinX = blockCenter.x - halfCell;
+            var blockMaxX = blockCenter.x + halfCell;
+            var horizontalOverlap = Mathf.Min(blockMaxX, playerBounds.max.x) - Mathf.Max(blockMinX, playerBounds.min.x);
+            if (horizontalOverlap < MinimumCrushOverlapX)
+                return false;
+
+            return blockCenter.y > playerBounds.center.y;
+        }
+
+        private static bool IsPlayerMovingUp(Collider2D playerCollider)
+        {
+            var body = playerCollider.attachedRigidbody;
+            return body != null && body.linearVelocity.y > RisingVelocityThreshold;
+        }
+
+        private static bool HasEscapeSpace(Collider2D playerCollider, BlockBoard board)
+        {
+            var bounds = playerCollider.bounds;
+            var probeSize = new Vector2(
+                Mathf.Max(0.05f, bounds.size.x - ProbeSkin),
+                Mathf.Max(0.05f, bounds.size.y - ProbeSkin));
+            var blockingMask = LayerMask.GetMask("World", "FallingBlock");
+
+            foreach (var offset in EscapeOffsets)
+            {
+                var center = (Vector2)bounds.center + offset;
+                if (!IsInsideBoard(center, probeSize, board))
+                    continue;
+                if (!OverlapsBlockingCollider(center, probeSize, blockingMask, playerCollider))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsInsideBoard(Vector2 center, Vector2 size, BlockBoard board)
+        {
+            var half = size * 0.5f;
+            var boardOrigin = (Vector2)board.transform.position;
+            return center.x - half.x >= boardOrigin.x &&
+                   center.x + half.x <= boardOrigin.x + board.Width &&
+                   center.y - half.y >= boardOrigin.y &&
+                   center.y + half.y <= boardOrigin.y + board.Height;
+        }
+
+        private static bool OverlapsBlockingCollider(
+            Vector2 center,
+            Vector2 size,
+            int blockingMask,
+            Collider2D playerCollider)
+        {
+            if (blockingMask == 0)
+                return false;
+
+            var hits = Physics2D.OverlapBoxAll(center, size, 0f, blockingMask);
+            foreach (var hit in hits)
+            {
+                if (hit == null || !hit.enabled || hit.isTrigger || hit == playerCollider)
+                    continue;
+                if (hit.transform.IsChildOf(playerCollider.transform))
+                    continue;
+                return true;
+            }
+
+            return false;
         }
     }
 }

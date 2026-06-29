@@ -35,7 +35,6 @@ namespace BlockEscape.Tetris
         private const float SoftDropRepeatInterval = 0.06f;
         private const float GhostAlpha = 0.10f;
         private const float CellColliderSize = 0.94f;
-        private const float MinimumCrushOverlapX = 0.12f;
 
         public event System.Action PlayerCrushed;
 
@@ -228,24 +227,12 @@ namespace BlockEscape.Tetris
                 {
                     if (hit == null || !hit.enabled || hit.isTrigger)
                         continue;
-                    if (IsCrushingFromAbove(center, hit.bounds))
+                    if (PlayerCrushEscape.ShouldCrush(hit, center, _board, ignoreRisingPlayer: true))
                         return true;
                 }
             }
 
             return false;
-        }
-
-        private static bool IsCrushingFromAbove(Vector2 blockCenter, Bounds playerBounds)
-        {
-            var halfCell = CellColliderSize * 0.5f;
-            var blockMinX = blockCenter.x - halfCell;
-            var blockMaxX = blockCenter.x + halfCell;
-            var horizontalOverlap = Mathf.Min(blockMaxX, playerBounds.max.x) - Mathf.Max(blockMinX, playerBounds.min.x);
-            if (horizontalOverlap < MinimumCrushOverlapX)
-                return false;
-
-            return blockCenter.y > playerBounds.center.y;
         }
 
         private void BuildGhostCells()
