@@ -29,6 +29,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Falling tetromino dùng solid collider để chặn player ngay khi đang rơi.
 - Player, falling block và biên đấu trường dùng frictionless physics material để giảm lỗi bám tường.
 - Active/locked block chỉ mở Game Over khi player bị đè và không còn đường thoát ngang; nhảy đụng block thì bị chặn, không chết ngay.
+- Falling block kiểm tra vị trí kế tiếp trước khi bước xuống/rotate để không xuyên qua hoặc húc player văng ngang khi soft drop.
 - TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -303,6 +304,90 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void ActiveTetromino_DownStepStopsBeforeOverlappingPlayerWithSideEscape()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Step Stop Test Piece");
+            var player = new GameObject("Player Step Probe");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                var startOrigin = new Vector2Int(1, 3);
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, startOrigin, 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.False);
+                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin));
+                Assert.That(crushed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_DownStepCrushesWhenPlayerHasNoSideEscape()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Step Crush Test Piece");
+            var player = new GameObject("Player Step Crush Probe");
+            var leftBlocker = new GameObject("Left Escape Blocker");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 3;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                CreateBlockingBox(leftBlocker, new Vector2(0.5f, 1.75f), new Vector2(0.96f, 1.6f));
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                var startOrigin = new Vector2Int(1, 3);
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, startOrigin, 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.False);
+                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin));
+                Assert.That(crushed, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(leftBlocker);
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
         public void ActiveTetromino_DoesNotCrushWhenPlayerJumpsIntoBlock()
         {
             var boardObject = new GameObject("Board");
@@ -354,6 +439,13 @@ namespace BlockEscape.Tetris.Tests
             gameObject.transform.position = center;
             var collider = gameObject.AddComponent<BoxCollider2D>();
             collider.size = size;
+        }
+
+        private static bool InvokeTryMove(ActiveTetromino piece, Vector2Int offset)
+        {
+            var method = typeof(ActiveTetromino).GetMethod("TryMove", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (bool)method.Invoke(piece, new object[] { offset });
         }
 
     }

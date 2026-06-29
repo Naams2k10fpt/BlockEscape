@@ -101,7 +101,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | Chưa phân công |
 | Player Controller | 75% | Có movement, jump, crouch, config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | Chưa phân công |
-| Block tương tác với player | 38% | Falling block chặn player bằng solid collider; active/locked block chỉ Game Over khi player bị đè và không còn đường thoát ngang | Chưa phân công |
+| Block tương tác với player | 40% | Falling block pre-check vị trí kế tiếp để không xuyên/đẩy player; active/locked block chỉ Game Over khi bị đè và không còn đường thoát ngang | Chưa phân công |
 | Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
@@ -189,6 +189,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] TetrisDemo clamp player trong biên board nếu physics bị ép vượt khỏi arena.
 - [x] Active/locked block chỉ phát crush Game Over khi player bị đè và không còn đường thoát ngang.
 - [x] Player nhảy đụng mặt dưới falling block sẽ bị chặn bởi collider, không bị tính là crush.
+- [x] Falling tetromino kiểm tra player tại vị trí kế tiếp trước khi move/rotate để tránh xuyên qua hoặc đẩy player văng ngang khi soft drop.
 
 ### Máu và sát thương
 
@@ -814,6 +815,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 23/06/2026 | Falling block collision | Đổi collider của active tetromino từ trigger sang solid để chặn player khi đang rơi | Có EditMode test khóa collider không trigger |
 | 29/06/2026 | Block-player collision bugfix | Thêm frictionless physics material, clamp player trong arena và active falling crush event | Sửa lỗi bám tường/văng khỏi đấu trường khi block đè; đã thêm EditMode test logic |
 | 29/06/2026 | Crush escape rule | Chỉ Game Over khi player bị block đè mà không còn đường thoát ngang; nhảy đụng block chỉ bị chặn | Đã thêm EditMode test cho side escape và jump contact |
+| 29/06/2026 | Soft drop collision guard | Falling block pre-check vị trí kế tiếp trước khi move/rotate vào player | Chặn lỗi soft drop xuyên qua player hoặc đẩy player văng ngang |
 
 ## 13. Cách cập nhật file này
 

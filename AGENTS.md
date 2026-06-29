@@ -49,6 +49,8 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 - Player is spawned in the lower-center of `TetrisDemo` at runtime if missing.
 - Arena left/right/bottom borders have `World` colliders at runtime.
 - Falling blocks use solid `BoxCollider2D` and can block the player.
+- Active tetromino movement/rotation must pre-check player overlap before
+  applying the new grid origin, especially during soft drop.
 - Active/locked block crush only triggers Game Over when the player is pinned
   from above and has no horizontal escape space.
 - If the player jumps into the underside of a falling block, the collider

@@ -135,10 +135,11 @@ namespace BlockEscape.Tetris
                     return;
 
                 _fallStepTimer -= stepInterval;
-                _origin = nextOrigin;
-                _rigidbody.position = _board.WorldForCell(_origin);
-                UpdateGhostPiece();
-                CheckPlayerCrush();
+                if (!TryMove(Vector2Int.down))
+                {
+                    _fallStepTimer = 0f;
+                    return;
+                }
                 return;
             }
 
@@ -203,7 +204,15 @@ namespace BlockEscape.Tetris
 
         public bool CheckPlayerCrush()
         {
-            if (_playerCrushRaised || !DetectPlayerCrush())
+            if (!DetectPlayerCrush())
+                return false;
+
+            return RaisePlayerCrush();
+        }
+
+        private bool RaisePlayerCrush()
+        {
+            if (_playerCrushRaised)
                 return false;
 
             _playerCrushRaised = true;
@@ -227,7 +236,14 @@ namespace BlockEscape.Tetris
                 {
                     if (hit == null || !hit.enabled || hit.isTrigger)
                         continue;
-                    if (PlayerCrushEscape.ShouldCrush(hit, center, _board, ignoreRisingPlayer: true))
+                    if (PlayerCrushEscape.ShouldCrush(
+                            hit,
+                            center,
+                            _board,
+                            ignoreRisingPlayer: true,
+                            _localCells,
+                            _origin,
+                            new Vector2(CellColliderSize, CellColliderSize)))
                         return true;
                 }
             }
@@ -340,6 +356,18 @@ namespace BlockEscape.Tetris
             var candidate = _origin + offset;
             if (!_board.CanPlace(_localCells, candidate))
                 return false;
+            if (PlayerCrushEscape.TryEvaluateCellOverlap(
+                    _localCells,
+                    candidate,
+                    _board,
+                    new Vector2(CellColliderSize, CellColliderSize),
+                    ignoreRisingPlayer: true,
+                    out var shouldCrush))
+            {
+                if (offset.y < 0 && shouldCrush)
+                    RaisePlayerCrush();
+                return false;
+            }
 
             _origin = candidate;
             _rigidbody.position = _board.WorldForCell(_origin);
@@ -361,6 +389,14 @@ namespace BlockEscape.Tetris
             {
                 var candidateOrigin = _origin + new Vector2Int(kick, 0);
                 if (!_board.CanPlace(candidateCells, candidateOrigin))
+                    continue;
+                if (PlayerCrushEscape.TryEvaluateCellOverlap(
+                        candidateCells,
+                        candidateOrigin,
+                        _board,
+                        new Vector2(CellColliderSize, CellColliderSize),
+                        ignoreRisingPlayer: true,
+                        out _))
                     continue;
 
                 _rotation = candidateRotation;

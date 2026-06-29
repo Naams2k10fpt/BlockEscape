@@ -287,11 +287,51 @@ namespace BlockEscape.Tetris
             Vector2.right * EscapeStep * 2f
         };
 
+        public static bool TryEvaluateCellOverlap(
+            IReadOnlyList<Vector2Int> localCells,
+            Vector2Int origin,
+            BlockBoard board,
+            Vector2 probeSize,
+            bool ignoreRisingPlayer,
+            out bool shouldCrush)
+        {
+            shouldCrush = false;
+            var playerMask = LayerMask.GetMask("Player");
+            if (playerMask == 0 || localCells == null || board == null)
+                return false;
+
+            var blockedByPlayer = false;
+            Physics2D.SyncTransforms();
+            foreach (var localCell in localCells)
+            {
+                var cell = origin + localCell;
+                if (cell.y < 0 || cell.y >= board.Height)
+                    continue;
+
+                var center = board.WorldForCell(cell);
+                var hits = Physics2D.OverlapBoxAll(center, probeSize, 0f, playerMask);
+                foreach (var hit in hits)
+                {
+                    if (hit == null || !hit.enabled || hit.isTrigger)
+                        continue;
+
+                    blockedByPlayer = true;
+                    if (ShouldCrush(hit, center, board, ignoreRisingPlayer, localCells, origin, probeSize))
+                        shouldCrush = true;
+                }
+            }
+
+            return blockedByPlayer;
+        }
+
         public static bool ShouldCrush(
             Collider2D playerCollider,
             Vector2 crushSourceCenter,
             BlockBoard board,
-            bool ignoreRisingPlayer)
+            bool ignoreRisingPlayer,
+            IReadOnlyList<Vector2Int> predictedCells = null,
+            Vector2Int predictedOrigin = default,
+            Vector2 predictedCellSize = default)
         {
             if (playerCollider == null || board == null)
                 return false;
@@ -303,7 +343,7 @@ namespace BlockEscape.Tetris
             if (ignoreRisingPlayer && IsPlayerMovingUp(playerCollider))
                 return false;
 
-            return !HasEscapeSpace(playerCollider, board);
+            return !HasEscapeSpace(playerCollider, board, predictedCells, predictedOrigin, predictedCellSize);
         }
 
         private static bool IsCrushingFromAbove(Vector2 blockCenter, Bounds playerBounds)
@@ -324,7 +364,12 @@ namespace BlockEscape.Tetris
             return body != null && body.linearVelocity.y > RisingVelocityThreshold;
         }
 
-        private static bool HasEscapeSpace(Collider2D playerCollider, BlockBoard board)
+        private static bool HasEscapeSpace(
+            Collider2D playerCollider,
+            BlockBoard board,
+            IReadOnlyList<Vector2Int> predictedCells,
+            Vector2Int predictedOrigin,
+            Vector2 predictedCellSize)
         {
             var bounds = playerCollider.bounds;
             var probeSize = new Vector2(
@@ -337,11 +382,47 @@ namespace BlockEscape.Tetris
                 var center = (Vector2)bounds.center + offset;
                 if (!IsInsideBoard(center, probeSize, board))
                     continue;
+                if (OverlapsPredictedCells(center, probeSize, predictedCells, predictedOrigin, predictedCellSize, board))
+                    continue;
                 if (!OverlapsBlockingCollider(center, probeSize, blockingMask, playerCollider))
                     return true;
             }
 
             return false;
+        }
+
+        private static bool OverlapsPredictedCells(
+            Vector2 center,
+            Vector2 size,
+            IReadOnlyList<Vector2Int> predictedCells,
+            Vector2Int predictedOrigin,
+            Vector2 predictedCellSize,
+            BlockBoard board)
+        {
+            if (predictedCells == null || predictedCells.Count == 0)
+                return false;
+
+            if (predictedCellSize == default)
+                predictedCellSize = new Vector2(0.96f, 0.96f);
+
+            foreach (var localCell in predictedCells)
+            {
+                var cell = predictedOrigin + localCell;
+                if (cell.y < 0 || cell.y >= board.Height)
+                    continue;
+
+                var cellCenter = (Vector2)board.WorldForCell(cell);
+                if (BoxesOverlap(center, size, cellCenter, predictedCellSize))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool BoxesOverlap(Vector2 aCenter, Vector2 aSize, Vector2 bCenter, Vector2 bSize)
+        {
+            return Mathf.Abs(aCenter.x - bCenter.x) * 2f < aSize.x + bSize.x &&
+                   Mathf.Abs(aCenter.y - bCenter.y) * 2f < aSize.y + bSize.y;
         }
 
         private static bool IsInsideBoard(Vector2 center, Vector2 size, BlockBoard board)
