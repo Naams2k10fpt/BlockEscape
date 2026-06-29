@@ -6,7 +6,7 @@ or `PROGRESS.md` only when a task needs details not covered here.
 ## Project Snapshot
 
 - Unity project: `BlockEscape`, Unity `6000.4.4f1`, Windows.
-- Current branch used by Codex work: `codex/player-crouch-health`.
+- Current branch used by Codex work: `feature/player-crouch-health`.
 - Current milestone: Player sandbox playable, about 49%.
 - Main playable/demo scenes:
   - `Assets/_Project/Scenes/TetrisDemo.unity`
