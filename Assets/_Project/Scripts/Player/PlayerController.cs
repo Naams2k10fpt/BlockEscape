@@ -44,7 +44,10 @@ namespace BlockEscape.Player
             _body.freezeRotation = true;
             _collider.sharedMaterial = PhysicsMaterialLibrary.Frictionless;
             if (_config != null)
+            {
+                _body.gravityScale = _config.gravityScale;
                 ApplyCollider(_config.standingColliderSize, _config.standingColliderOffset);
+            }
         }
 
         private void OnEnable()

@@ -2,7 +2,7 @@
 
 - **Cập nhật lần cuối:** 29/06/2026
 - **Cột mốc hiện tại:** Player sandbox playable
-- **Tiến độ tổng thể ước tính:** 49%
+- **Tiến độ tổng thể ước tính:** 51%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity` cho Tetris; `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` cho player sandbox
 
@@ -100,17 +100,17 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | NguyenNgu2005 |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | NguyenNgu2005 |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | NguyenNgu2005 |
-| Player Controller | 75% | Có movement, jump, crouch, config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
+| Player Controller | 78% | Có movement, jump, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
 | Block tương tác với player | 42% | Falling block pre-check vị trí kế tiếp để không xuyên/đẩy player; player nhảy lên bị bật xuống; Game Over chỉ khi bị đè và hết đường thoát ngang | NguyenNgu2005 |
-| Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | NguyenNgu2005 |
-| Game Session và scoring | 40% | Có `GameSession`, `ScoreService`, survival score, row score và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
+| Máu và sát thương | 60% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, prefab hook và HP 0 kết thúc run trong TetrisDemo; còn tích hợp hazard/AI | NguyenNgu2005 |
+| Game Session và scoring | 55% | Có `GameSession`, `ScoreService`, survival score, row score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
 | Dynamic Events | 0% | Chưa làm | Chưa phân công |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
-| HUD và game flow | 50% | HUD/Pause/Game Over đọc cùng session score và hiển thị thời gian sống sót | NguyenNgu2005 |
+| HUD và game flow | 55% | HUD/Pause/Game Over đọc cùng session score, hiển thị HP, phase và thời gian sống sót | NguyenNgu2005 |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 37% | EditMode Test Runner gần nhất 21/21 pass; có thêm test session/score, cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
+| Test và Windows build | 39% | Build .NET runtime/test/editor xanh; có thêm test gravity, health reset, session phase và phase speed config; cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
 
 ## 5. Phần đã hoàn thành
 
@@ -176,6 +176,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Tạo `PlayerConfig` với thông số mặc định đã thống nhất.
 - [x] Tạo `PlayerController` đọc input trong `Update` và áp vận tốc Rigidbody trong `FixedUpdate`.
 - [x] Tạo `Assets/_Project/Prefabs/Player/Player.prefab` với Rigidbody2D, CapsuleCollider2D, Visual và Ground Check.
+- [x] Gravity của player được đưa vào `PlayerConfig` và đặt mặc định `gravityScale = 3` để rơi chắc hơn.
 - [x] Ground check dùng layer `World`, không dựa vào tag.
 - [x] Thêm EditMode test xác nhận config mặc định và cấu trúc prefab.
 - [x] Thêm crouch bằng Down Arrow, đổi collider theo `PlayerConfig` và giữ crouch khi thiếu headroom.
@@ -199,6 +200,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 - [x] Tạo contract dùng chung `DamageInfo`, `DamageType` và `IDamageable`.
 - [x] Tạo `PlayerHealth` với Max HP, iFrame, knockback, heal và event `Died`.
+- [x] `PlayerHealth.ResetHealth()` hồi HP và trạng thái death/iFrame khi restart run.
+- [x] TetrisDemo lắng nghe `PlayerHealth.Died` để HP 0 mở Game Over.
 - [x] iFrame chặn damage liên tục và trả alpha SpriteRenderer về 1 khi kết thúc/disable/death.
 - [x] Thêm EditMode test cho damage, knockback, iFrame và death chỉ phát một lần.
 
@@ -265,7 +268,7 @@ Countdown → Playing ↔ Paused → GameOver
 
 - Tetris, AI, event và score chỉ chạy khi state là `Playing`.
 - UI gửi yêu cầu Pause/Restart; bootstrap đồng bộ `GameSession`, input map và `Time.timeScale` tại một chỗ.
-- `GameSession` phát event `StateChanged` và `RunEnded`.
+- `GameSession` phát event `StateChanged`, `PhaseChanged` và `RunEnded`.
 
 ### Layer và collision matrix mục tiêu
 
@@ -424,7 +427,7 @@ Quy tắc implementation:
 - Không gán `transform.position` mỗi frame cho Dynamic Rigidbody2D.
 - Player không điều khiển được khi GameSession không ở `Playing`.
 
-Trạng thái hiện tại: đã có `PlayerConfig`, `PlayerController`, prefab `Player`, player thật trong `ArenaSandbox`, và `TetrisDemoBootstrap` tự spawn player/platform khi Play nếu scene thiếu player. Cần playtest cảm giác di chuyển, coyote time, jump buffer và tương tác trên block tĩnh.
+Trạng thái hiện tại: đã có `PlayerConfig`, `PlayerController`, prefab `Player`, player thật trong `ArenaSandbox`, `TetrisDemoBootstrap` tự spawn player khi Play nếu scene thiếu player và gravity được chỉnh qua config. Cần playtest cảm giác di chuyển, coyote time, jump buffer và tương tác trên block tĩnh.
 
 Nghiệm thu:
 
@@ -536,9 +539,10 @@ Difficulty:
 Nghiệm thu:
 
 - [ ] Pause chỉ được quản lý tại GameSession.
-- [ ] Timer/score không tăng khi Pause hoặc GameOver.
-- [ ] HP 0 hoặc overflow đều tạo `RunResult` và GameOver.
-- [ ] Phase đổi đúng mốc và cập nhật config của spawner/event.
+- [x] Timer/score không tăng khi Pause hoặc GameOver.
+- [x] HP 0 hoặc overflow đều tạo `RunResult` và GameOver.
+- [x] Phase đổi đúng mốc và cập nhật config của spawner.
+- [ ] Phase cập nhật config/event director khi AI/Event được triển khai.
 
 ### AI-01 — Drone AI
 
@@ -822,6 +826,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 29/06/2026 | Soft drop collision guard | Falling block pre-check vị trí kế tiếp trước khi move/rotate vào player | Chặn lỗi soft drop xuyên qua player hoặc đẩy player văng ngang |
 | 29/06/2026 | Jump bounce under block | Bounce player xuống khi nhảy vào block đang rơi, và chỉ crush sau khi block đã xuống | Tránh block bị đứng yên hoặc Game Over quá sớm |
 | 29/06/2026 | Game Session scoring | Thêm `GameSession`/`ScoreService`, survival score, row score và nối HUD/Pause/Game Over | Score và thời gian sống sót thống nhất trong TetrisDemo |
+| 29/06/2026 | Player gravity + session phase | Đưa gravity vào `PlayerConfig`, thêm HP death Game Over và phase tăng tốc piece mới | Build runtime/test/editor xanh, session sẵn sàng hơn cho AI/Event/Pickup |
 
 ## 13. Cách cập nhật file này
 

@@ -136,12 +136,13 @@ namespace BlockEscape.Core
 
     internal readonly struct RunResult
     {
-        public RunResult(int piecesSpawned, int rowsCleared, int score, float survivalTime, int seed, string reason)
+        public RunResult(int piecesSpawned, int rowsCleared, int score, float survivalTime, int phase, int seed, string reason)
         {
             PiecesSpawned = piecesSpawned;
             RowsCleared = rowsCleared;
             Score = score;
             SurvivalTime = survivalTime;
+            Phase = phase;
             Seed = seed;
             Reason = reason;
         }
@@ -150,6 +151,7 @@ namespace BlockEscape.Core
         public int RowsCleared { get; }
         public int Score { get; }
         public float SurvivalTime { get; }
+        public int Phase { get; }
         public int Seed { get; }
         public string Reason { get; }
     }
@@ -204,20 +206,32 @@ namespace BlockEscape.Core
     internal sealed class GameSession
     {
         private readonly ScoreService _scoreService = new();
+        private float _phaseDurationSeconds = 45f;
 
         public event Action<GameSessionState> StateChanged;
+        public event Action<int> PhaseChanged;
         public event Action<RunResult> RunEnded;
 
         public GameSessionState State { get; private set; } = GameSessionState.Countdown;
         public int Score => _scoreService.Score;
         public int RowsCleared => _scoreService.RowsCleared;
         public float SurvivalTime { get; private set; }
+        public int Phase { get; private set; } = 1;
+        public float TimeUntilNextPhase { get; private set; } = 45f;
         public RunResult LastResult { get; private set; }
 
         public void StartRun()
         {
+            StartRun(_phaseDurationSeconds);
+        }
+
+        public void StartRun(float phaseDurationSeconds)
+        {
             _scoreService.Reset();
+            _phaseDurationSeconds = Mathf.Max(1f, phaseDurationSeconds);
             SurvivalTime = 0f;
+            Phase = 1;
+            TimeUntilNextPhase = _phaseDurationSeconds;
             LastResult = default;
             SetState(GameSessionState.Playing);
         }
@@ -229,6 +243,7 @@ namespace BlockEscape.Core
 
             SurvivalTime += deltaTime;
             _scoreService.AddSurvivalTime(deltaTime);
+            UpdatePhase();
         }
 
         public int AddRowsCleared(int rowCount)
@@ -256,10 +271,20 @@ namespace BlockEscape.Core
             if (State == GameSessionState.GameOver)
                 return LastResult;
 
-            LastResult = new RunResult(piecesSpawned, RowsCleared, Score, SurvivalTime, seed, reason);
+            LastResult = new RunResult(piecesSpawned, RowsCleared, Score, SurvivalTime, Phase, seed, reason);
             SetState(GameSessionState.GameOver);
             RunEnded?.Invoke(LastResult);
             return LastResult;
+        }
+
+        private void UpdatePhase()
+        {
+            var previousPhase = Phase;
+            Phase = Mathf.FloorToInt(SurvivalTime / _phaseDurationSeconds) + 1;
+            var nextPhaseAt = Phase * _phaseDurationSeconds;
+            TimeUntilNextPhase = Mathf.Max(0f, nextPhaseAt - SurvivalTime);
+            if (Phase != previousPhase)
+                PhaseChanged?.Invoke(Phase);
         }
 
         private void SetState(GameSessionState state)

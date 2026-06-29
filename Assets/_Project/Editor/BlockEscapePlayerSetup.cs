@@ -33,7 +33,7 @@ namespace BlockEscape.Editor
 
             var body = player.AddComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Dynamic;
-            body.gravityScale = 1f;
+            body.gravityScale = config.gravityScale;
             body.freezeRotation = true;
             body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             body.interpolation = RigidbodyInterpolation2D.Interpolate;

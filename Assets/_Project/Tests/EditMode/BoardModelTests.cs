@@ -67,6 +67,28 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void TetrisBalanceConfig_IncreasesFallSpeedByPhaseAndClampsToMax()
+        {
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            try
+            {
+                config.fallSpeedCellsPerSecond = 2f;
+                config.fallSpeedIncreasePerPhase = 0.5f;
+                config.maxFallSpeedCellsPerSecond = 3f;
+
+                config.Sanitize();
+
+                Assert.That(config.GetFallSpeedForPhase(1), Is.EqualTo(2f));
+                Assert.That(config.GetFallSpeedForPhase(2), Is.EqualTo(2.5f));
+                Assert.That(config.GetFallSpeedForPhase(10), Is.EqualTo(3f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
         public void SevenBag_ContainsAllSevenKindsBeforeRepeatingBag()
         {
             var bag = new SevenBag(12345);

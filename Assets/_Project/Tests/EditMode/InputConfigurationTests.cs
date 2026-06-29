@@ -102,8 +102,24 @@ namespace BlockEscape.Tetris.Tests
             Assert.That((int)resultType.GetProperty("PiecesSpawned").GetValue(result), Is.EqualTo(5));
             Assert.That((int)resultType.GetProperty("RowsCleared").GetValue(result), Is.EqualTo(2));
             Assert.That((int)resultType.GetProperty("Score").GetValue(result), Is.EqualTo(610));
+            Assert.That((int)resultType.GetProperty("Phase").GetValue(result), Is.EqualTo(1));
             Assert.That((int)resultType.GetProperty("Seed").GetValue(result), Is.EqualTo(1234));
             Assert.That((string)resultType.GetProperty("Reason").GetValue(result), Is.EqualTo("TEST END"));
+        }
+
+        [Test]
+        public void GameSession_AdvancesPhaseBySurvivalTime()
+        {
+            var sessionType = typeof(InputService).Assembly.GetType("BlockEscape.Core.GameSession");
+            Assert.That(sessionType, Is.Not.Null);
+
+            var session = Activator.CreateInstance(sessionType);
+            sessionType.GetMethod("StartRun", BindingFlags.Instance | BindingFlags.Public, null, new[] { typeof(float) }, null)
+                .Invoke(session, new object[] { 1f });
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 2.2f });
+
+            Assert.That((int)sessionType.GetProperty("Phase").GetValue(session), Is.EqualTo(3));
+            Assert.That((float)sessionType.GetProperty("TimeUntilNextPhase").GetValue(session), Is.EqualTo(0.8f).Within(0.001f));
         }
 
         private static void AssertAction(InputActionMap map, string actionName, params string[] expectedPaths)

@@ -19,6 +19,7 @@ namespace BlockEscape.Tetris.Tests
 
             Assert.That(config.moveSpeed, Is.EqualTo(7f));
             Assert.That(config.jumpVelocity, Is.EqualTo(11f));
+            Assert.That(config.gravityScale, Is.EqualTo(3f));
             Assert.That(config.coyoteTime, Is.EqualTo(0.10f));
             Assert.That(config.jumpBufferTime, Is.EqualTo(0.12f));
             Assert.That(config.maxFallSpeed, Is.EqualTo(18f));
@@ -38,6 +39,7 @@ namespace BlockEscape.Tetris.Tests
             var body = player.GetComponent<Rigidbody2D>();
             Assert.That(body, Is.Not.Null);
             Assert.That(body.bodyType, Is.EqualTo(RigidbodyType2D.Dynamic));
+            Assert.That(body.gravityScale, Is.EqualTo(player.GetComponent<PlayerController>().Config.gravityScale));
             Assert.That(body.freezeRotation, Is.True);
 
             var collider = player.GetComponent<CapsuleCollider2D>();
@@ -124,6 +126,29 @@ namespace BlockEscape.Tetris.Tests
                 Assert.That(health.CurrentHp, Is.EqualTo(0));
                 Assert.That(health.IsDead, Is.True);
                 Assert.That(deathCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
+        public void PlayerHealth_ResetHealthRestoresHpAndAllowsDamageAgain()
+        {
+            var player = new GameObject("Health Reset Test");
+            try
+            {
+                player.AddComponent<Rigidbody2D>();
+                var health = player.AddComponent<PlayerHealth>();
+
+                health.TakeDamage(new DamageInfo(3, Vector2.zero, null, DamageType.Hazard));
+                health.ResetHealth();
+                var accepted = health.TakeDamage(new DamageInfo(1, Vector2.zero, null, DamageType.Enemy));
+
+                Assert.That(health.CurrentHp, Is.EqualTo(2));
+                Assert.That(health.IsDead, Is.False);
+                Assert.That(accepted, Is.True);
             }
             finally
             {

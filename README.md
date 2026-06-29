@@ -9,7 +9,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 ## Trạng thái hiện tại
 
 **Cột mốc:** Player sandbox playable
-**Tiến độ tổng thể ước tính:** 49%
+**Tiến độ tổng thể ước tính:** 51%
 
 Đã có:
 
@@ -24,9 +24,11 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Main Menu có nút Bắt đầu/Thoát và màn Game Over tổng kết lượt chơi.
 - Pause Menu có nút trở về Main Menu với hộp xác nhận để tránh mất lượt nhầm.
 - Input System được tách thành ba map `Tetris`, `Player`, `System` và quản lý tập trung qua `InputService`.
-- Game session runtime quản lý trạng thái Playing/Paused/Game Over, thời gian sống sót, điểm theo thời gian và điểm xóa hàng.
+- Game session runtime quản lý trạng thái Playing/Paused/Game Over, thời gian sống sót, phase độ khó, điểm theo thời gian và điểm xóa hàng.
 - HUD, Pause Menu và Game Over summary đọc cùng một nguồn session/score nên số liệu không bị lệch nhau.
+- Phase độ khó tăng theo thời gian sống và làm piece mới rơi nhanh dần theo config.
 - Player runtime spawn trong `TetrisDemo`, có di chuyển, nhảy, cúi, health, iFrame và death event.
+- Player gravity được quản lý trong `PlayerConfig` và đang đặt `gravityScale = 3` để giảm cảm giác rơi lơ lửng.
 - Player có thể rơi xuống đáy đấu trường; tường trái/phải/đáy có collider layer `World` để không lọt khỏi map.
 - Falling tetromino dùng solid collider để chặn player ngay khi đang rơi.
 - Player, falling block và biên đấu trường dùng frictionless physics material để giảm lỗi bám tường.
@@ -142,7 +144,7 @@ GameSession + Score
 - `TetrominoSpawner` quản lý 7-bag, piece hiện tại và piece tiếp theo.
 - `ActiveTetromino` xử lý input WASD, chuyển động từng ô và dùng solid collider để chặn player.
 - `TetrisDemoBootstrap` kết nối scene, tự spawn player khi cần, tạo collider biên đấu trường, clamp player trong arena và mở Game Over khi player bị block đè mà không còn đường thoát.
-- `GameSession` giữ trạng thái lượt chơi, thời gian sống sót, tổng hàng đã xóa, điểm và kết quả cuối để HUD/menu dùng thống nhất.
+- `GameSession` giữ trạng thái lượt chơi, thời gian sống sót, phase, tổng hàng đã xóa, điểm và kết quả cuối để HUD/menu dùng thống nhất.
 
 ## Quy trình làm việc nhóm
 

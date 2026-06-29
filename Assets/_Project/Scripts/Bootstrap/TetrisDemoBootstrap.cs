@@ -35,6 +35,7 @@ namespace BlockEscape.Bootstrap
         private bool _paused;
         private bool _gameOver;
         private Transform _player;
+        private PlayerHealth _playerHealth;
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
 
@@ -70,7 +71,9 @@ namespace BlockEscape.Bootstrap
                 }
             }
             InitializeSystems();
-            _session.StartRun();
+            _session.PhaseChanged += OnSessionPhaseChanged;
+            _session.StartRun(_config.phaseDurationSeconds);
+            ApplySessionPhase();
             if (_statusText != null)
             {
                 _statusText.text = "RUNNING";
@@ -117,6 +120,8 @@ namespace BlockEscape.Bootstrap
             }
             if (_spawner != null)
                 _spawner.PlayerCrushed -= OnPlayerCrushed;
+            _session.PhaseChanged -= OnSessionPhaseChanged;
+            UnbindPlayerHealth();
             Time.timeScale = 1f;
         }
 
@@ -294,13 +299,13 @@ namespace BlockEscape.Bootstrap
             var player = FindAnyObjectByType<PlayerController>();
             if (player != null)
             {
-                _player = player.transform;
+                SetPlayer(player.transform);
                 _player.position = PlayerSpawnPosition;
                 EnsurePlayerPhysicsSetup(_player.gameObject);
                 return;
             }
 
-            _player = CreateRuntimePlayer().transform;
+            SetPlayer(CreateRuntimePlayer().transform);
         }
 
         private static void EnsurePlayerPhysicsSetup(GameObject player)
@@ -328,7 +333,8 @@ namespace BlockEscape.Bootstrap
 
             var body = player.AddComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Dynamic;
-            body.gravityScale = 1f;
+            var playerConfig = Resources.Load<PlayerConfig>("PlayerConfig");
+            body.gravityScale = playerConfig != null ? playerConfig.gravityScale : 3f;
             body.freezeRotation = true;
             body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             body.interpolation = RigidbodyInterpolation2D.Interpolate;
@@ -411,6 +417,8 @@ namespace BlockEscape.Bootstrap
             _statsText.text =
                 $"SEED       {_spawner.Seed}\n" +
                 $"TIME       {FormatTime(_session.SurvivalTime)}\n" +
+                $"PHASE      {_session.Phase} ({FormatTime(_session.TimeUntilNextPhase)})\n" +
+                $"HP         {FormatHealth()}\n" +
                 $"SPAWNED    {_spawner.PiecesSpawned}\n" +
                 $"LAST PIECE {_lastSpawned}\n" +
                 $"LOCKED     {_board.Model.OccupiedCount} CELLS\n" +
@@ -426,10 +434,13 @@ namespace BlockEscape.Bootstrap
             if (_inputService != null) _inputService.SetGameplayEnabled(true);
             if (_pauseMenu != null) _pauseMenu.HideAll();
             if (_gameOverMenu != null) _gameOverMenu.Hide();
-            _session.StartRun();
+            _session.StartRun(_config != null ? _config.phaseDurationSeconds : 45f);
+            ApplySessionPhase();
             _board.ResetBoard();
             if (_player != null)
                 _player.position = PlayerSpawnPosition;
+            if (_playerHealth != null)
+                _playerHealth.ResetHealth();
             ClampPlayerToArena();
             _spawner.Restart();
             _statusText.text = "RUNNING";
@@ -580,7 +591,8 @@ namespace BlockEscape.Bootstrap
                 _session.RowsCleared,
                 _session.Score,
                 _spawner.Seed,
-                _session.SurvivalTime);
+                _session.SurvivalTime,
+                _session.Phase);
         }
 
         private void OnPieceLocked(TetrominoKind kind)
@@ -625,6 +637,21 @@ namespace BlockEscape.Bootstrap
             EndRun("PLAYER BỊ BLOCK ĐÈ");
         }
 
+        private void OnPlayerDied()
+        {
+            EndRun("PLAYER HẾT MÁU");
+        }
+
+        private void OnSessionPhaseChanged(int phase)
+        {
+            ApplySessionPhase();
+            if (_statusText != null && !_paused && !_gameOver)
+            {
+                _statusText.text = $"PHASE {phase}";
+                _statusText.color = new Color(1f, 0.75f, 0.25f);
+            }
+        }
+
         private void EndRun(string reason)
         {
             if (_gameOver)
@@ -648,7 +675,8 @@ namespace BlockEscape.Bootstrap
                     result.Score,
                     result.Seed,
                     result.Reason,
-                    result.SurvivalTime);
+                    result.SurvivalTime,
+                    result.Phase);
             }
             if (_statusText == null)
                 return;
@@ -666,6 +694,33 @@ namespace BlockEscape.Bootstrap
         {
             var totalSeconds = Mathf.Max(0, Mathf.FloorToInt(seconds));
             return $"{totalSeconds / 60:00}:{totalSeconds % 60:00}";
+        }
+
+        private string FormatHealth()
+        {
+            return _playerHealth != null ? $"{_playerHealth.CurrentHp}/{_playerHealth.MaxHp}" : "--/--";
+        }
+
+        private void ApplySessionPhase()
+        {
+            if (_spawner != null)
+                _spawner.ApplyDifficultyPhase(_session.Phase);
+        }
+
+        private void SetPlayer(Transform player)
+        {
+            UnbindPlayerHealth();
+            _player = player;
+            _playerHealth = _player != null ? _player.GetComponent<PlayerHealth>() : null;
+            if (_playerHealth != null)
+                _playerHealth.Died += OnPlayerDied;
+        }
+
+        private void UnbindPlayerHealth()
+        {
+            if (_playerHealth != null)
+                _playerHealth.Died -= OnPlayerDied;
+            _playerHealth = null;
         }
 
         private static TetrisPauseMenu CreatePauseMenu(Transform canvasRoot)

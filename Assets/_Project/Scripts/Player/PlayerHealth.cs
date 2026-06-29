@@ -74,6 +74,16 @@ namespace BlockEscape.Player
                 HealthChanged?.Invoke(CurrentHp, _maxHp);
         }
 
+        public void ResetHealth()
+        {
+            _maxHp = Mathf.Max(1, _maxHp);
+            StopIFrameRoutine();
+            _isDead = false;
+            CurrentHp = _maxHp;
+            SetSpriteAlpha(1f);
+            HealthChanged?.Invoke(CurrentHp, _maxHp);
+        }
+
         private void Die()
         {
             if (_isDead)

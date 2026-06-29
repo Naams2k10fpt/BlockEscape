@@ -15,6 +15,7 @@ namespace BlockEscape.Tetris
         private Coroutine _spawnRoutine;
         private ActiveTetromino _activePiece;
         private TetrominoKind _nextKind;
+        private float _currentFallSpeed;
         private bool _stopped;
 
         public event Action<TetrominoKind> PieceSpawned;
@@ -35,6 +36,7 @@ namespace BlockEscape.Tetris
             _bag = new SevenBag(Seed);
             _random = new System.Random(Seed ^ 0x5f3759df);
             _nextKind = _bag.Next();
+            _currentFallSpeed = _config.GetFallSpeedForPhase(1);
             _board.Overflowed += Stop;
             NextPieceChanged?.Invoke(_nextKind);
             StartSpawning();
@@ -73,8 +75,17 @@ namespace BlockEscape.Tetris
             _bag.Reset(Seed);
             _random = new System.Random(Seed ^ 0x5f3759df);
             _nextKind = _bag.Next();
+            _currentFallSpeed = _config.GetFallSpeedForPhase(1);
             NextPieceChanged?.Invoke(_nextKind);
             StartSpawning();
+        }
+
+        public void ApplyDifficultyPhase(int phase)
+        {
+            if (_config == null)
+                return;
+
+            _currentFallSpeed = _config.GetFallSpeedForPhase(phase);
         }
 
         public void NotifyPieceFinished(ActiveTetromino piece)
@@ -127,7 +138,7 @@ namespace BlockEscape.Tetris
                 kind,
                 rotation,
                 origin,
-                _config.fallSpeedCellsPerSecond,
+                _currentFallSpeed,
                 _config.telegraphSeconds,
                 _config.lockDelaySeconds);
 

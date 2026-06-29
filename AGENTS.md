@@ -7,7 +7,7 @@ or `PROGRESS.md` only when a task needs details not covered here.
 
 - Unity project: `BlockEscape`, Unity `6000.4.4f1`, Windows.
 - Current branch used by Codex work: `feature/player-crouch-health`.
-- Current milestone: Player sandbox playable, about 49%.
+- Current milestone: Player sandbox playable, about 51%.
 - Main playable/demo scenes:
   - `Assets/_Project/Scenes/TetrisDemo.unity`
   - `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity`
@@ -47,9 +47,13 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 - Player controls: arrow keys move/jump/crouch.
 - `InputService` owns `Tetris`, `Player`, and `System` maps.
 - `GameSession`/`ScoreService` live in `BlockEscape.Core` and track
-  Playing/Paused/GameOver, survival time, row score, total score, and run result.
+  Playing/Paused/GameOver, survival time, phase, row score, total score, and run result.
 - `TetrisDemoBootstrap` is the integration point for session state, time scale,
   input enable/disable, HUD, Pause Menu, and Game Over summary.
+- Player gravity is configured through `PlayerConfig.gravityScale`, currently 3.
+- HP reaching 0 fires `PlayerHealth.Died`, and `TetrisDemoBootstrap` ends the run.
+- Session phase advances by survival time and updates new-piece fall speed through
+  `TetrominoSpawner.ApplyDifficultyPhase`.
 - Player is spawned in the lower-center of `TetrisDemo` at runtime if missing.
 - Arena left/right/bottom borders have `World` colliders at runtime.
 - Falling blocks use solid `BoxCollider2D` and can block the player.

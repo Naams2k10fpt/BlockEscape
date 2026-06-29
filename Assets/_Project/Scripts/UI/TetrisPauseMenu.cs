@@ -75,7 +75,7 @@ namespace BlockEscape.UI
             if (isActiveAndEnabled) BindButtons();
         }
 
-        public void SetRunStatistics(int piecesSpawned, int rowsCleared, int score, int seed, float survivalTime = 0f)
+        public void SetRunStatistics(int piecesSpawned, int rowsCleared, int score, int seed, float survivalTime = 0f, int phase = 1)
         {
             if (_runStatsText == null)
                 return;
@@ -83,6 +83,7 @@ namespace BlockEscape.UI
             _runStatsText.text =
                 $"BLOCK ĐÃ THẢ  {piecesSpawned}\n" +
                 $"THỜI GIAN  {FormatTime(survivalTime)}\n" +
+                $"PHASE  {phase}\n" +
                 $"HÀNG ĐÃ XÓA  {rowsCleared}     ĐIỂM  {score}\n" +
                 $"SEED  {seed}";
         }

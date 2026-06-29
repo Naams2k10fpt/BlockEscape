@@ -36,7 +36,7 @@ namespace BlockEscape.UI
             if (isActiveAndEnabled) BindButtons();
         }
 
-        public void Show(int piecesSpawned, int rowsCleared, int score, int seed, string reason, float survivalTime = 0f)
+        public void Show(int piecesSpawned, int rowsCleared, int score, int seed, string reason, float survivalTime = 0f, int phase = 1)
         {
             if (_summaryText != null)
             {
@@ -44,6 +44,7 @@ namespace BlockEscape.UI
                     $"LÝ DO: {reason}\n\n" +
                     $"BLOCK ĐÃ THẢ  {piecesSpawned}\n" +
                     $"THỜI GIAN  {FormatTime(survivalTime)}\n" +
+                    $"PHASE  {phase}\n" +
                     $"HÀNG ĐÃ XÓA  {rowsCleared}\n" +
                     $"TỔNG ĐIỂM  {score}\n" +
                     $"SEED  {seed}";
