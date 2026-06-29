@@ -2,7 +2,7 @@
 
 - **Cập nhật lần cuối:** 29/06/2026
 - **Cột mốc hiện tại:** Player sandbox playable
-- **Tiến độ tổng thể ước tính:** 51%
+- **Tiến độ tổng thể ước tính:** 52%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity` cho Tetris; `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` cho player sandbox
 
@@ -101,13 +101,13 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | NguyenNgu2005 |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | NguyenNgu2005 |
 | Player Controller | 78% | Có movement, jump, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
-| Block tương tác với player | 45% | Falling block pre-check vị trí kế tiếp; block vẫn rơi nếu player còn đường thoát; player nhảy lên bị bật xuống; Game Over chỉ khi bị đè và hết đường thoát ngang | NguyenNgu2005 |
-| Máu và sát thương | 60% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, prefab hook và HP 0 kết thúc run trong TetrisDemo; còn tích hợp hazard/AI | NguyenNgu2005 |
+| Block tương tác với player | 47% | Falling block pre-check vị trí kế tiếp; block vẫn rơi nếu player còn đường thoát; crush trừ tim và respawn nếu còn mạng | NguyenNgu2005 |
+| Máu và sát thương | 62% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, prefab hook, crush damage và HP 0 kết thúc run trong TetrisDemo; còn tích hợp hazard/AI | NguyenNgu2005 |
 | Game Session và scoring | 55% | Có `GameSession`, `ScoreService`, survival score, row score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
 | Dynamic Events | 0% | Chưa làm | Chưa phân công |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
-| HUD và game flow | 56% | HUD/Pause/Game Over đọc cùng session score, hiển thị 3 tim, phase và thời gian sống sót | NguyenNgu2005 |
+| HUD và game flow | 57% | HUD/Pause/Game Over đọc cùng session score, hiển thị 3 tim, phase, respawn crush và thời gian sống sót | NguyenNgu2005 |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
 | Test và Windows build | 39% | Build .NET runtime/test/editor xanh; có thêm test gravity, health reset, session phase và phase speed config; cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
@@ -190,7 +190,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Falling tetromino dùng solid `BoxCollider2D`, không còn trigger để player đi xuyên qua.
 - [x] Player và collider block/biên arena dùng frictionless material để hạn chế dính tường.
 - [x] TetrisDemo clamp player trong biên board nếu physics bị ép vượt khỏi arena.
-- [x] Active/locked block chỉ phát crush Game Over khi player bị đè và không còn đường thoát ngang.
+- [x] Active/locked block chỉ phát crush damage khi player bị đè và không còn đường thoát ngang.
+- [x] Crush không kết thúc ngay nếu player còn tim; player mất 1 tim rồi respawn cao hơn block đã khóa cao nhất 5 đơn vị Y.
 - [x] Player nhảy đụng mặt dưới falling block sẽ bị chặn bởi collider, không bị tính là crush.
 - [x] Falling tetromino kiểm tra player tại vị trí kế tiếp trước khi move/rotate để tránh xuyên qua hoặc đẩy player văng ngang khi soft drop.
 - [x] Player đang nhảy lên vào block đang xuống sẽ bị bounce xuống, block vẫn tiếp tục rơi.
@@ -202,7 +203,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Tạo contract dùng chung `DamageInfo`, `DamageType` và `IDamageable`.
 - [x] Tạo `PlayerHealth` với Max HP, iFrame, knockback, heal và event `Died`.
 - [x] `PlayerHealth.ResetHealth()` hồi HP và trạng thái death/iFrame khi restart run.
-- [x] TetrisDemo lắng nghe `PlayerHealth.Died` để HP 0 mở Game Over.
+- [x] TetrisDemo dùng crush damage trừ tim, respawn nếu còn tim và lắng nghe `PlayerHealth.Died` để HP 0 mở Game Over.
 - [x] iFrame chặn damage liên tục và trả alpha SpriteRenderer về 1 khi kết thúc/disable/death.
 - [x] Thêm EditMode test cho damage, knockback, iFrame và death chỉ phát một lần.
 
@@ -829,6 +830,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 29/06/2026 | Game Session scoring | Thêm `GameSession`/`ScoreService`, survival score, row score và nối HUD/Pause/Game Over | Score và thời gian sống sót thống nhất trong TetrisDemo |
 | 29/06/2026 | Player gravity + session phase | Đưa gravity vào `PlayerConfig`, thêm HP death Game Over và phase tăng tốc piece mới | Build runtime/test/editor xanh, session sẵn sàng hơn cho AI/Event/Pickup |
 | 29/06/2026 | Gravity/hearts/block fall bugfix | Tăng gravity lên 4, đổi HUD HP sang 3 tim và cho block tiếp tục rơi khi player còn đường thoát | Sửa lỗi block đứng giữa không trung cạnh/dưới player |
+| 29/06/2026 | Crush life respawn | Crush trừ 1 tim và respawn player cao hơn block đã khóa cao nhất 5Y nếu còn tim | Chỉ hết 3 tim mới Game Over do hết máu |
 
 ## 13. Cách cập nhật file này
 

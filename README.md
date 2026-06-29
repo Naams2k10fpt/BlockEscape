@@ -34,6 +34,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Falling tetromino dùng solid collider để chặn player ngay khi đang rơi.
 - Player, falling block và biên đấu trường dùng frictionless physics material để giảm lỗi bám tường.
 - Active/locked block chỉ mở Game Over khi player bị đè và không còn đường thoát ngang; nhảy đụng block thì bị chặn, không chết ngay.
+- Khi bị block đè mà còn tim, player mất 1 tim rồi respawn ở giữa arena, cao hơn block đã khóa cao nhất 5 đơn vị Y; chỉ hết tim mới Game Over.
 - Falling block vẫn tiếp tục rơi khi player đứng cạnh/đứng dưới nhưng còn đường thoát, tránh kẹt piece giữa không trung.
 - Falling block kiểm tra vị trí kế tiếp trước khi bước xuống/rotate để không xuyên qua hoặc húc player văng ngang khi soft drop.
 - Nếu player nhảy lên vào block đang xuống, player bị bật ngược xuống và block vẫn tiếp tục rơi.

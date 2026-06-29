@@ -60,8 +60,10 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 - Falling blocks use solid `BoxCollider2D` and can block the player.
 - Active tetromino movement/rotation must pre-check player overlap before
   applying the new grid origin, especially during soft drop.
-- Active/locked block crush only triggers Game Over when the player is pinned
-  from above and has no horizontal escape space.
+- Active/locked block crush only applies damage when the player is pinned from
+  above and has no horizontal escape space.
+- Crush damage removes one heart and respawns the player at arena center,
+  5 world units above the highest locked block. HP reaching 0 ends the run.
 - If a falling block overlaps the player but the player still has side escape,
   keep the block falling instead of stopping the active piece in midair.
 - If the player jumps into a falling block's path, bounce the player downward

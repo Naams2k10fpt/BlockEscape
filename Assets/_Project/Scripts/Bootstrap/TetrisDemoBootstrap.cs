@@ -38,6 +38,7 @@ namespace BlockEscape.Bootstrap
         private PlayerHealth _playerHealth;
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
+        private const float CrushRespawnHeightAboveHighestBlock = 5f;
 
         private void Awake()
         {
@@ -634,7 +635,17 @@ namespace BlockEscape.Bootstrap
 
         private void OnPlayerCrushed()
         {
-            EndRun("PLAYER BỊ BLOCK ĐÈ");
+            if (_playerHealth == null)
+            {
+                EndRun("PLAYER BỊ BLOCK ĐÈ");
+                return;
+            }
+
+            var accepted = _playerHealth.TakeDamage(new DamageInfo(1, Vector2.zero, _board != null ? _board.gameObject : null, DamageType.Crush));
+            if (!accepted || _playerHealth.IsDead)
+                return;
+
+            RespawnPlayerAfterCrush();
         }
 
         private void OnPlayerDied()
@@ -705,6 +716,43 @@ namespace BlockEscape.Bootstrap
             for (var i = 0; i < _playerHealth.MaxHp; i++)
                 hearts += i < _playerHealth.CurrentHp ? "♥" : "♡";
             return hearts;
+        }
+
+        private void RespawnPlayerAfterCrush()
+        {
+            if (_player == null || _board == null)
+                return;
+
+            var target = GetCrushRespawnPosition();
+            var body = _player.GetComponent<Rigidbody2D>();
+            if (body != null)
+            {
+                body.linearVelocity = Vector2.zero;
+                body.angularVelocity = 0f;
+                body.position = target;
+            }
+            else
+            {
+                _player.position = new Vector3(target.x, target.y, _player.position.z);
+            }
+
+            if (_statusText != null && !_gameOver)
+            {
+                _statusText.text = "PLAYER RESPAWN";
+                _statusText.color = new Color(1f, 0.75f, 0.25f);
+            }
+        }
+
+        private Vector2 GetCrushRespawnPosition()
+        {
+            var boardOrigin = (Vector2)_board.transform.position;
+            var x = boardOrigin.x + _board.Width * 0.5f;
+            var y = PlayerSpawnPosition.y;
+            var highestRow = _board.Model != null ? _board.Model.HighestOccupiedRow() : -1;
+            if (highestRow >= 0)
+                y = _board.WorldForCell(new Vector2Int(_board.Width / 2, highestRow)).y + CrushRespawnHeightAboveHighestBlock;
+
+            return new Vector2(x, y);
         }
 
         private void ApplySessionPhase()
