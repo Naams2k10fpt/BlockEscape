@@ -1,8 +1,8 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
-- **Cập nhật lần cuối:** 23/06/2026
+- **Cập nhật lần cuối:** 29/06/2026
 - **Cột mốc hiện tại:** Player sandbox playable
-- **Tiến độ tổng thể ước tính:** 46%
+- **Tiến độ tổng thể ước tính:** 47%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity` cho Tetris; `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` cho player sandbox
 
@@ -100,8 +100,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | Chưa phân công |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | Chưa phân công |
-| Player Controller | 74% | Có movement, jump, crouch, config, prefab, sandbox integration và runtime spawn trong TetrisDemo; còn playtest cảm giác điều khiển | Chưa phân công |
-| Block tương tác với player | 25% | Falling block chặn player bằng solid collider; locked cell đè player sẽ Game Over | Chưa phân công |
+| Player Controller | 75% | Có movement, jump, crouch, config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | Chưa phân công |
+| Block tương tác với player | 35% | Falling block chặn player bằng solid collider, dùng frictionless material, active falling crush và locked cell đè player đều Game Over | Chưa phân công |
 | Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
@@ -185,6 +185,9 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] `BlockBoard` phát hiện locked cell overlap player và phát event crush.
 - [x] TetrisDemo chuyển Game Over với lý do player bị block đè.
 - [x] Falling tetromino dùng solid `BoxCollider2D`, không còn trigger để player đi xuyên qua.
+- [x] Player và collider block/biên arena dùng frictionless material để hạn chế dính tường.
+- [x] TetrisDemo clamp player trong biên board nếu physics bị ép vượt khỏi arena.
+- [x] Active falling tetromino phát crush event khi block đè player từ trên xuống, Game Over ngay thay vì chờ lock.
 
 ### Máu và sát thương
 
@@ -808,6 +811,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 23/06/2026 | PLAYER visible in demo | TetrisDemo runtime tự tạo player/platform nếu scene thiếu player | Bấm Play trong TetrisDemo là thấy nhân vật cạnh board |
 | 23/06/2026 | PLAYER crush game over | Locked block overlap player sẽ phát `PlayerCrushed` và mở Game Over | Có EditMode test cho crush detection |
 | 23/06/2026 | Falling block collision | Đổi collider của active tetromino từ trigger sang solid để chặn player khi đang rơi | Có EditMode test khóa collider không trigger |
+| 29/06/2026 | Block-player collision bugfix | Thêm frictionless physics material, clamp player trong arena và active falling crush event | Sửa lỗi bám tường/văng khỏi đấu trường khi block đè; đã thêm EditMode test logic |
 
 ## 13. Cách cập nhật file này
 

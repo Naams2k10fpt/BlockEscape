@@ -17,4 +17,25 @@ namespace BlockEscape.Core
             Type = type;
         }
     }
+
+    internal static class PhysicsMaterialLibrary
+    {
+        private static PhysicsMaterial2D _frictionless;
+
+        public static PhysicsMaterial2D Frictionless
+        {
+            get
+            {
+                if (_frictionless != null)
+                    return _frictionless;
+
+                _frictionless = new PhysicsMaterial2D("Runtime Frictionless")
+                {
+                    friction = 0f,
+                    bounciness = 0f
+                };
+                return _frictionless;
+            }
+        }
+    }
 }

@@ -114,7 +114,15 @@ namespace BlockEscape.Bootstrap
                 _board.Overflowed -= OnOverflowed;
                 _board.PlayerCrushed -= OnPlayerCrushed;
             }
+            if (_spawner != null)
+                _spawner.PlayerCrushed -= OnPlayerCrushed;
             Time.timeScale = 1f;
+        }
+
+        private void FixedUpdate()
+        {
+            if (!_gameOver)
+                ClampPlayerToArena();
         }
 
         private void InitializeSystems()
@@ -137,6 +145,7 @@ namespace BlockEscape.Bootstrap
 
             _spawner.PieceSpawned += kind => _lastSpawned = kind;
             _spawner.NextPieceChanged += OnNextPieceChanged;
+            _spawner.PlayerCrushed += OnPlayerCrushed;
             _spawner.Initialize(_board, _config, _inputService);
         }
 
@@ -269,8 +278,10 @@ namespace BlockEscape.Bootstrap
             if (worldLayer >= 0)
                 gameObject.layer = worldLayer;
 
-            if (gameObject.GetComponent<BoxCollider2D>() == null)
-                gameObject.AddComponent<BoxCollider2D>();
+            var collider = gameObject.GetComponent<BoxCollider2D>();
+            if (collider == null)
+                collider = gameObject.AddComponent<BoxCollider2D>();
+            collider.sharedMaterial = PhysicsMaterialLibrary.Frictionless;
         }
 
         private void EnsurePlayerTestRig()
@@ -284,10 +295,26 @@ namespace BlockEscape.Bootstrap
             {
                 _player = player.transform;
                 _player.position = PlayerSpawnPosition;
+                EnsurePlayerPhysicsSetup(_player.gameObject);
                 return;
             }
 
             _player = CreateRuntimePlayer().transform;
+        }
+
+        private static void EnsurePlayerPhysicsSetup(GameObject player)
+        {
+            var collider = player.GetComponent<Collider2D>();
+            if (collider != null)
+                collider.sharedMaterial = PhysicsMaterialLibrary.Frictionless;
+
+            var body = player.GetComponent<Rigidbody2D>();
+            if (body == null)
+                return;
+
+            body.freezeRotation = true;
+            body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
         }
 
         private static GameObject CreateRuntimePlayer()
@@ -309,6 +336,7 @@ namespace BlockEscape.Bootstrap
             collider.direction = CapsuleDirection2D.Vertical;
             collider.size = new Vector2(0.72f, 1.45f);
             collider.offset = new Vector2(0f, -0.02f);
+            collider.sharedMaterial = PhysicsMaterialLibrary.Frictionless;
 
             var visual = new GameObject("Visual");
             visual.transform.SetParent(player.transform, false);
@@ -401,9 +429,55 @@ namespace BlockEscape.Bootstrap
             _board.ResetBoard();
             if (_player != null)
                 _player.position = PlayerSpawnPosition;
+            ClampPlayerToArena();
             _spawner.Restart();
             _statusText.text = "RUNNING";
             _statusText.color = Color.white;
+        }
+
+        private void ClampPlayerToArena()
+        {
+            if (_player == null || _board == null)
+                return;
+
+            var collider = _player.GetComponent<Collider2D>();
+            if (collider == null)
+                return;
+
+            var boardOrigin = _board.transform.position;
+            var left = boardOrigin.x;
+            var right = boardOrigin.x + _board.Width;
+            var bottom = boardOrigin.y;
+            var bounds = collider.bounds;
+            var delta = Vector2.zero;
+            const float skin = 0.01f;
+
+            if (bounds.min.x < left)
+                delta.x = left - bounds.min.x + skin;
+            else if (bounds.max.x > right)
+                delta.x = right - bounds.max.x - skin;
+
+            if (bounds.min.y < bottom)
+                delta.y = bottom - bounds.min.y + skin;
+
+            if (delta == Vector2.zero)
+                return;
+
+            var target = (Vector2)_player.position + delta;
+            var body = _player.GetComponent<Rigidbody2D>();
+            if (body != null)
+            {
+                var velocity = body.linearVelocity;
+                if ((delta.x < 0f && velocity.x > 0f) || (delta.x > 0f && velocity.x < 0f))
+                    velocity.x = 0f;
+                if (delta.y > 0f && velocity.y < 0f)
+                    velocity.y = 0f;
+                body.linearVelocity = velocity;
+                body.position = target;
+                return;
+            }
+
+            _player.position = new Vector3(target.x, target.y, _player.position.z);
         }
 
         private void InitializePauseFlow()

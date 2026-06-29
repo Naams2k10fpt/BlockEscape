@@ -19,6 +19,7 @@ namespace BlockEscape.Tetris
 
         public event Action<TetrominoKind> PieceSpawned;
         public event Action<TetrominoKind> NextPieceChanged;
+        public event Action PlayerCrushed;
 
         public ActiveTetromino ActivePiece => _activePiece;
         public int Seed { get; private set; }
@@ -43,6 +44,8 @@ namespace BlockEscape.Tetris
         {
             if (_board != null)
                 _board.Overflowed -= Stop;
+            if (_activePiece != null)
+                _activePiece.PlayerCrushed -= OnActivePiecePlayerCrushed;
         }
 
         public void StartSpawning()
@@ -61,7 +64,10 @@ namespace BlockEscape.Tetris
         public void Restart()
         {
             if (_activePiece != null)
+            {
+                _activePiece.PlayerCrushed -= OnActivePiecePlayerCrushed;
                 _activePiece.Cancel();
+            }
             _activePiece = null;
             PiecesSpawned = 0;
             _bag.Reset(Seed);
@@ -73,6 +79,7 @@ namespace BlockEscape.Tetris
 
         public void NotifyPieceFinished(ActiveTetromino piece)
         {
+            piece.PlayerCrushed -= OnActivePiecePlayerCrushed;
             if (_activePiece == piece)
                 _activePiece = null;
         }
@@ -112,6 +119,7 @@ namespace BlockEscape.Tetris
             gameObject.transform.position = _board.WorldForCell(origin);
             gameObject.transform.SetParent(_board.transform, true);
             _activePiece = gameObject.AddComponent<ActiveTetromino>();
+            _activePiece.PlayerCrushed += OnActivePiecePlayerCrushed;
             _activePiece.Initialize(
                 _board,
                 this,
@@ -126,6 +134,11 @@ namespace BlockEscape.Tetris
             PiecesSpawned++;
             PieceSpawned?.Invoke(kind);
             NextPieceChanged?.Invoke(_nextKind);
+        }
+
+        private void OnActivePiecePlayerCrushed()
+        {
+            PlayerCrushed?.Invoke();
         }
 
         private void StopRoutineOnly()

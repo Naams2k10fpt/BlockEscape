@@ -172,10 +172,53 @@ namespace BlockEscape.Tetris.Tests
                 var colliders = pieceObject.GetComponentsInChildren<BoxCollider2D>();
                 Assert.That(colliders.Length, Is.EqualTo(4));
                 foreach (var collider in colliders)
+                {
                     Assert.That(collider.isTrigger, Is.False);
+                    Assert.That(collider.sharedMaterial, Is.Not.Null);
+                    Assert.That(collider.sharedMaterial.friction, Is.EqualTo(0f));
+                }
             }
             finally
             {
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_RaisesPlayerCrushedWhenFallingBlockOverlapsPlayerFromAbove()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Crush Test Piece");
+            var player = new GameObject("Player Crush Probe");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 6;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, new Vector2Int(1, 2), 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(piece.CheckPlayerCrush(), Is.True);
+                Assert.That(crushed, Is.True);
+                Assert.That(piece.CheckPlayerCrush(), Is.False, "A single falling piece should only raise crush once.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
                 Object.DestroyImmediate(pieceObject);
                 Object.DestroyImmediate(boardObject);
             }

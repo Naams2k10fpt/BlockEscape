@@ -60,6 +60,26 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void PlayerController_AssignsFrictionlessColliderMaterialAtRuntime()
+        {
+            var player = new GameObject("Frictionless Player Test");
+            try
+            {
+                player.AddComponent<Rigidbody2D>();
+                var collider = player.AddComponent<CapsuleCollider2D>();
+                player.AddComponent<PlayerController>();
+
+                Assert.That(collider.sharedMaterial, Is.Not.Null);
+                Assert.That(collider.sharedMaterial.friction, Is.EqualTo(0f));
+                Assert.That(collider.sharedMaterial.bounciness, Is.EqualTo(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
         public void PlayerHealth_AppliesDamageKnockbackAndInvulnerability()
         {
             var player = new GameObject("Health Test");

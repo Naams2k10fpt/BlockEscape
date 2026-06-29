@@ -42,6 +42,7 @@ namespace BlockEscape.Player
                 _groundMask = LayerMask.GetMask("World");
 
             _body.freezeRotation = true;
+            _collider.sharedMaterial = PhysicsMaterialLibrary.Frictionless;
             if (_config != null)
                 ApplyCollider(_config.standingColliderSize, _config.standingColliderOffset);
         }

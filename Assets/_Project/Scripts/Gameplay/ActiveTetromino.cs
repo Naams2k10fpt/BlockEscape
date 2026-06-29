@@ -24,6 +24,7 @@ namespace BlockEscape.Tetris
         private Transform _ghostRoot;
         private SpriteRenderer[] _ghostRenderers;
         private GameObject _warningBar;
+        private bool _playerCrushRaised;
         private int _heldDirection;
         private float _horizontalHoldTime;
         private float _horizontalRepeatTime;
@@ -33,6 +34,10 @@ namespace BlockEscape.Tetris
         private const float HorizontalRepeatInterval = 0.07f;
         private const float SoftDropRepeatInterval = 0.06f;
         private const float GhostAlpha = 0.10f;
+        private const float CellColliderSize = 0.94f;
+        private const float MinimumCrushOverlapX = 0.12f;
+
+        public event System.Action PlayerCrushed;
 
         public TetrominoKind Kind => _kind;
         public int Rotation => _rotation;
@@ -134,12 +139,14 @@ namespace BlockEscape.Tetris
                 _origin = nextOrigin;
                 _rigidbody.position = _board.WorldForCell(_origin);
                 UpdateGhostPiece();
+                CheckPlayerCrush();
                 return;
             }
 
             _fallStepTimer = 0f;
             var restingPosition = (Vector2)_board.WorldForCell(_origin);
             _rigidbody.position = restingPosition;
+            CheckPlayerCrush();
             _lockTimer += Time.fixedDeltaTime;
             if (_lockTimer >= _lockDelay)
                 LockIntoBoard();
@@ -189,9 +196,56 @@ namespace BlockEscape.Tetris
                 _renderers[i] = renderer;
 
                 var collider = cell.AddComponent<BoxCollider2D>();
-                collider.size = new Vector2(0.94f, 0.94f);
+                collider.size = new Vector2(CellColliderSize, CellColliderSize);
                 collider.isTrigger = false;
+                collider.sharedMaterial = PhysicsMaterialLibrary.Frictionless;
             }
+        }
+
+        public bool CheckPlayerCrush()
+        {
+            if (_playerCrushRaised || !DetectPlayerCrush())
+                return false;
+
+            _playerCrushRaised = true;
+            PlayerCrushed?.Invoke();
+            return true;
+        }
+
+        private bool DetectPlayerCrush()
+        {
+            var playerMask = LayerMask.GetMask("Player");
+            if (playerMask == 0 || _localCells == null)
+                return false;
+
+            Physics2D.SyncTransforms();
+            var rootPosition = _rigidbody != null ? _rigidbody.position : (Vector2)transform.position;
+            foreach (var localCell in _localCells)
+            {
+                var center = rootPosition + localCell;
+                var hits = Physics2D.OverlapBoxAll(center, new Vector2(CellColliderSize, CellColliderSize), 0f, playerMask);
+                foreach (var hit in hits)
+                {
+                    if (hit == null || !hit.enabled || hit.isTrigger)
+                        continue;
+                    if (IsCrushingFromAbove(center, hit.bounds))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsCrushingFromAbove(Vector2 blockCenter, Bounds playerBounds)
+        {
+            var halfCell = CellColliderSize * 0.5f;
+            var blockMinX = blockCenter.x - halfCell;
+            var blockMaxX = blockCenter.x + halfCell;
+            var horizontalOverlap = Mathf.Min(blockMaxX, playerBounds.max.x) - Mathf.Max(blockMinX, playerBounds.min.x);
+            if (horizontalOverlap < MinimumCrushOverlapX)
+                return false;
+
+            return blockCenter.y > playerBounds.center.y;
         }
 
         private void BuildGhostCells()
@@ -306,6 +360,7 @@ namespace BlockEscape.Tetris
             if (offset.y < 0)
                 _fallStepTimer = 0f;
             UpdateGhostPiece();
+            CheckPlayerCrush();
             return true;
         }
 
@@ -329,8 +384,19 @@ namespace BlockEscape.Tetris
                     _renderers[i].transform.localPosition = new Vector3(_localCells[i].x, _localCells[i].y, 0f);
                 _lockTimer = 0f;
                 UpdateGhostPiece();
+                CheckPlayerCrush();
                 return;
             }
+        }
+
+        private void OnCollisionEnter2D(Collision2D collision)
+        {
+            CheckPlayerCrush();
+        }
+
+        private void OnCollisionStay2D(Collision2D collision)
+        {
+            CheckPlayerCrush();
         }
 
         private void LockIntoBoard()
