@@ -30,8 +30,7 @@ namespace BlockEscape.Bootstrap
         [SerializeField] private TetrisPauseMenu _pauseMenu;
         [SerializeField] private TetrisGameOverMenu _gameOverMenu;
 
-        private int _rowsCleared;
-        private int _lineScore;
+        private readonly GameSession _session = new();
         private TetrominoKind _lastSpawned;
         private bool _paused;
         private bool _gameOver;
@@ -71,6 +70,7 @@ namespace BlockEscape.Bootstrap
                 }
             }
             InitializeSystems();
+            _session.StartRun();
             if (_statusText != null)
             {
                 _statusText.text = "RUNNING";
@@ -90,6 +90,7 @@ namespace BlockEscape.Bootstrap
                     HandleEscape();
             }
 
+            _session.Tick(Time.deltaTime);
             UpdateHud();
         }
 
@@ -409,11 +410,12 @@ namespace BlockEscape.Bootstrap
 
             _statsText.text =
                 $"SEED       {_spawner.Seed}\n" +
+                $"TIME       {FormatTime(_session.SurvivalTime)}\n" +
                 $"SPAWNED    {_spawner.PiecesSpawned}\n" +
                 $"LAST PIECE {_lastSpawned}\n" +
                 $"LOCKED     {_board.Model.OccupiedCount} CELLS\n" +
-                $"ROWS       {_rowsCleared}\n" +
-                $"LINE SCORE {_lineScore}";
+                $"ROWS       {_session.RowsCleared}\n" +
+                $"SCORE      {_session.Score}";
         }
 
         private void ResetDemo()
@@ -424,8 +426,7 @@ namespace BlockEscape.Bootstrap
             if (_inputService != null) _inputService.SetGameplayEnabled(true);
             if (_pauseMenu != null) _pauseMenu.HideAll();
             if (_gameOverMenu != null) _gameOverMenu.Hide();
-            _rowsCleared = 0;
-            _lineScore = 0;
+            _session.StartRun();
             _board.ResetBoard();
             if (_player != null)
                 _player.position = PlayerSpawnPosition;
@@ -520,6 +521,7 @@ namespace BlockEscape.Bootstrap
         private void PauseGame()
         {
             _paused = true;
+            _session.Pause();
             Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
             if (_pauseMenu != null)
@@ -537,6 +539,7 @@ namespace BlockEscape.Bootstrap
         private void ResumeGame()
         {
             _paused = false;
+            _session.Resume();
             Time.timeScale = 1f;
             if (_inputService != null)
                 _inputService.SetGameplayEnabled(_board != null && !_board.IsOverflowed);
@@ -553,6 +556,7 @@ namespace BlockEscape.Bootstrap
         private void OpenResetConfirmation()
         {
             _paused = true;
+            _session.Pause();
             Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
             if (_statusText != null)
@@ -573,9 +577,10 @@ namespace BlockEscape.Bootstrap
 
             _pauseMenu.SetRunStatistics(
                 _spawner.PiecesSpawned,
-                _rowsCleared,
-                _lineScore,
-                _spawner.Seed);
+                _session.RowsCleared,
+                _session.Score,
+                _spawner.Seed,
+                _session.SurvivalTime);
         }
 
         private void OnPieceLocked(TetrominoKind kind)
@@ -592,16 +597,11 @@ namespace BlockEscape.Bootstrap
 
         private void OnRowsCleared(int[] rows)
         {
-            _rowsCleared += rows.Length;
-            _lineScore += rows.Length switch
-            {
-                1 => 250,
-                2 => 600,
-                3 => 1000,
-                _ => 1500
-            };
+            var points = _session.AddRowsCleared(rows.Length);
             _statusText.text = $"{rows.Length} ROW{(rows.Length > 1 ? "S" : string.Empty)} CLEARED";
             _statusText.color = new Color(0.35f, 1f, 0.55f);
+            if (points > 0)
+                _statusText.text += $" +{points}";
         }
 
         private void OnOverflowChanged(bool dangerous, float normalized)
@@ -636,14 +636,19 @@ namespace BlockEscape.Bootstrap
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
             if (_spawner != null) _spawner.Stop();
             if (_pauseMenu != null) _pauseMenu.HideAll();
+            var result = _session.EndRun(
+                reason,
+                _spawner != null ? _spawner.PiecesSpawned : 0,
+                _spawner != null ? _spawner.Seed : 0);
             if (_gameOverMenu != null && _spawner != null)
             {
                 _gameOverMenu.Show(
-                    _spawner.PiecesSpawned,
-                    _rowsCleared,
-                    _lineScore,
-                    _spawner.Seed,
-                    reason);
+                    result.PiecesSpawned,
+                    result.RowsCleared,
+                    result.Score,
+                    result.Seed,
+                    result.Reason,
+                    result.SurvivalTime);
             }
             if (_statusText == null)
                 return;
@@ -655,6 +660,12 @@ namespace BlockEscape.Bootstrap
         {
             Time.timeScale = 1f;
             SceneManager.LoadScene("MainMenu");
+        }
+
+        private static string FormatTime(float seconds)
+        {
+            var totalSeconds = Mathf.Max(0, Mathf.FloorToInt(seconds));
+            return $"{totalSeconds / 60:00}:{totalSeconds % 60:00}";
         }
 
         private static TetrisPauseMenu CreatePauseMenu(Transform canvasRoot)

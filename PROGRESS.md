@@ -2,7 +2,7 @@
 
 - **Cập nhật lần cuối:** 29/06/2026
 - **Cột mốc hiện tại:** Player sandbox playable
-- **Tiến độ tổng thể ước tính:** 47%
+- **Tiến độ tổng thể ước tính:** 49%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity` cho Tetris; `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` cho player sandbox
 
@@ -103,14 +103,14 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Player Controller | 75% | Có movement, jump, crouch, config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | Chưa phân công |
 | Block tương tác với player | 42% | Falling block pre-check vị trí kế tiếp để không xuyên/đẩy player; player nhảy lên bị bật xuống; Game Over chỉ khi bị đè và hết đường thoát ngang | Chưa phân công |
 | Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | Chưa phân công |
-| Game Session và scoring | 5% | Chưa làm | Chưa phân công |
+| Game Session và scoring | 40% | Có `GameSession`, `ScoreService`, survival score, row score và kết quả cuối nối vào TetrisDemo | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
 | Dynamic Events | 0% | Chưa làm | Chưa phân công |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
-| HUD và game flow | 45% | Có Pause, xác nhận reset và Game Over summary | Chưa phân công |
+| HUD và game flow | 50% | HUD/Pause/Game Over đọc cùng session score và hiển thị thời gian sống sót | Chưa phân công |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 36% | EditMode Test Runner gần nhất 21/21 pass; đã thêm test health/crouch/sandbox player, cần chạy lại khi Unity Licensing local ổn định | Chưa phân công |
+| Test và Windows build | 37% | EditMode Test Runner gần nhất 21/21 pass; có thêm test session/score, cần chạy lại Unity Test Runner khi local ổn định | Chưa phân công |
 
 ## 5. Phần đã hoàn thành
 
@@ -158,6 +158,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Tổng kết hiển thị nguyên nhân thua, block đã thả, hàng đã xóa, điểm và seed.
 - [x] Game Over có nút Chơi lại và Main Menu.
 - [x] Pause Menu có nút trở về Main Menu và yêu cầu xác nhận trước khi rời lượt.
+- [x] `GameSession` quản lý trạng thái lượt chơi, thời gian sống sót, điểm theo giây và điểm xóa hàng.
+- [x] HUD, Pause Menu và Game Over summary hiển thị score/thời gian từ cùng một session.
 
 ### Tilemap và đấu trường
 
@@ -262,7 +264,7 @@ Countdown → Playing ↔ Paused → GameOver
 ```
 
 - Tetris, AI, event và score chỉ chạy khi state là `Playing`.
-- UI gửi yêu cầu Pause/Restart; UI không tự đổi `Time.timeScale` ngoài `GameSession`.
+- UI gửi yêu cầu Pause/Restart; bootstrap đồng bộ `GameSession`, input map và `Time.timeScale` tại một chỗ.
 - `GameSession` phát event `StateChanged` và `RunEnded`.
 
 ### Layer và collision matrix mục tiêu
@@ -819,6 +821,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 29/06/2026 | Crush escape rule | Chỉ Game Over khi player bị block đè mà không còn đường thoát ngang; nhảy đụng block chỉ bị chặn | Đã thêm EditMode test cho side escape và jump contact |
 | 29/06/2026 | Soft drop collision guard | Falling block pre-check vị trí kế tiếp trước khi move/rotate vào player | Chặn lỗi soft drop xuyên qua player hoặc đẩy player văng ngang |
 | 29/06/2026 | Jump bounce under block | Bounce player xuống khi nhảy vào block đang rơi, và chỉ crush sau khi block đã xuống | Tránh block bị đứng yên hoặc Game Over quá sớm |
+| 29/06/2026 | Game Session scoring | Thêm `GameSession`/`ScoreService`, survival score, row score và nối HUD/Pause/Game Over | Score và thời gian sống sót thống nhất trong TetrisDemo |
 
 ## 13. Cách cập nhật file này
 

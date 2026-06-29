@@ -36,13 +36,14 @@ namespace BlockEscape.UI
             if (isActiveAndEnabled) BindButtons();
         }
 
-        public void Show(int piecesSpawned, int rowsCleared, int score, int seed, string reason)
+        public void Show(int piecesSpawned, int rowsCleared, int score, int seed, string reason, float survivalTime = 0f)
         {
             if (_summaryText != null)
             {
                 _summaryText.text =
                     $"LÝ DO: {reason}\n\n" +
                     $"BLOCK ĐÃ THẢ  {piecesSpawned}\n" +
+                    $"THỜI GIAN  {FormatTime(survivalTime)}\n" +
                     $"HÀNG ĐÃ XÓA  {rowsCleared}\n" +
                     $"TỔNG ĐIỂM  {score}\n" +
                     $"SEED  {seed}";
@@ -55,6 +56,12 @@ namespace BlockEscape.UI
         public void Hide()
         {
             if (_panel != null) _panel.SetActive(false);
+        }
+
+        private static string FormatTime(float seconds)
+        {
+            var totalSeconds = Mathf.Max(0, Mathf.FloorToInt(seconds));
+            return $"{totalSeconds / 60:00}:{totalSeconds % 60:00}";
         }
 
         private void BindButtons()

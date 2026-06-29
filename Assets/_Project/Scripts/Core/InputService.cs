@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -122,6 +123,152 @@ namespace BlockEscape.Core
             system.AddAction("ResetRun", InputActionType.Button, "<Keyboard>/r");
 
             return asset;
+        }
+    }
+
+    internal enum GameSessionState
+    {
+        Countdown,
+        Playing,
+        Paused,
+        GameOver
+    }
+
+    internal readonly struct RunResult
+    {
+        public RunResult(int piecesSpawned, int rowsCleared, int score, float survivalTime, int seed, string reason)
+        {
+            PiecesSpawned = piecesSpawned;
+            RowsCleared = rowsCleared;
+            Score = score;
+            SurvivalTime = survivalTime;
+            Seed = seed;
+            Reason = reason;
+        }
+
+        public int PiecesSpawned { get; }
+        public int RowsCleared { get; }
+        public int Score { get; }
+        public float SurvivalTime { get; }
+        public int Seed { get; }
+        public string Reason { get; }
+    }
+
+    internal sealed class ScoreService
+    {
+        private const int SurvivalScorePerSecond = 10;
+        private float _survivalScoreAccumulator;
+
+        public int Score { get; private set; }
+        public int RowsCleared { get; private set; }
+
+        public void Reset()
+        {
+            Score = 0;
+            RowsCleared = 0;
+            _survivalScoreAccumulator = 0f;
+        }
+
+        public void AddSurvivalTime(float deltaTime)
+        {
+            if (deltaTime <= 0f)
+                return;
+
+            _survivalScoreAccumulator += deltaTime;
+            var wholeSeconds = Mathf.FloorToInt(_survivalScoreAccumulator);
+            if (wholeSeconds <= 0)
+                return;
+
+            Score += wholeSeconds * SurvivalScorePerSecond;
+            _survivalScoreAccumulator -= wholeSeconds;
+        }
+
+        public int AddRowsCleared(int rowCount)
+        {
+            if (rowCount <= 0)
+                return 0;
+
+            RowsCleared += rowCount;
+            var points = rowCount switch
+            {
+                1 => 250,
+                2 => 600,
+                3 => 1000,
+                _ => 1500
+            };
+            Score += points;
+            return points;
+        }
+    }
+
+    internal sealed class GameSession
+    {
+        private readonly ScoreService _scoreService = new();
+
+        public event Action<GameSessionState> StateChanged;
+        public event Action<RunResult> RunEnded;
+
+        public GameSessionState State { get; private set; } = GameSessionState.Countdown;
+        public int Score => _scoreService.Score;
+        public int RowsCleared => _scoreService.RowsCleared;
+        public float SurvivalTime { get; private set; }
+        public RunResult LastResult { get; private set; }
+
+        public void StartRun()
+        {
+            _scoreService.Reset();
+            SurvivalTime = 0f;
+            LastResult = default;
+            SetState(GameSessionState.Playing);
+        }
+
+        public void Tick(float deltaTime)
+        {
+            if (State != GameSessionState.Playing || deltaTime <= 0f)
+                return;
+
+            SurvivalTime += deltaTime;
+            _scoreService.AddSurvivalTime(deltaTime);
+        }
+
+        public int AddRowsCleared(int rowCount)
+        {
+            if (State == GameSessionState.GameOver)
+                return 0;
+
+            return _scoreService.AddRowsCleared(rowCount);
+        }
+
+        public void Pause()
+        {
+            if (State == GameSessionState.Playing)
+                SetState(GameSessionState.Paused);
+        }
+
+        public void Resume()
+        {
+            if (State == GameSessionState.Paused)
+                SetState(GameSessionState.Playing);
+        }
+
+        public RunResult EndRun(string reason, int piecesSpawned, int seed)
+        {
+            if (State == GameSessionState.GameOver)
+                return LastResult;
+
+            LastResult = new RunResult(piecesSpawned, RowsCleared, Score, SurvivalTime, seed, reason);
+            SetState(GameSessionState.GameOver);
+            RunEnded?.Invoke(LastResult);
+            return LastResult;
+        }
+
+        private void SetState(GameSessionState state)
+        {
+            if (State == state)
+                return;
+
+            State = state;
+            StateChanged?.Invoke(State);
         }
     }
 }

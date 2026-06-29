@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using System.Reflection;
 using BlockEscape.Core;
 using NUnit.Framework;
 using UnityEditor;
@@ -71,8 +73,37 @@ namespace BlockEscape.Tetris.Tests
             }
             finally
             {
-                Object.DestroyImmediate(serviceObject);
+                UnityEngine.Object.DestroyImmediate(serviceObject);
             }
+        }
+
+        [Test]
+        public void GameSession_TracksSurvivalRowsAndFinalResult()
+        {
+            var sessionType = typeof(InputService).Assembly.GetType("BlockEscape.Core.GameSession");
+            Assert.That(sessionType, Is.Not.Null);
+
+            var session = Activator.CreateInstance(sessionType);
+            sessionType.GetMethod("StartRun", BindingFlags.Instance | BindingFlags.Public).Invoke(session, null);
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 1.1f });
+            var rowPoints = (int)sessionType
+                .GetMethod("AddRowsCleared", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(session, new object[] { 2 });
+            var result = sessionType
+                .GetMethod("EndRun", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(session, new object[] { "TEST END", 5, 1234 });
+
+            Assert.That(rowPoints, Is.EqualTo(600));
+            Assert.That((int)sessionType.GetProperty("RowsCleared").GetValue(session), Is.EqualTo(2));
+            Assert.That((int)sessionType.GetProperty("Score").GetValue(session), Is.EqualTo(610));
+            Assert.That((float)sessionType.GetProperty("SurvivalTime").GetValue(session), Is.EqualTo(1.1f).Within(0.001f));
+
+            var resultType = result.GetType();
+            Assert.That((int)resultType.GetProperty("PiecesSpawned").GetValue(result), Is.EqualTo(5));
+            Assert.That((int)resultType.GetProperty("RowsCleared").GetValue(result), Is.EqualTo(2));
+            Assert.That((int)resultType.GetProperty("Score").GetValue(result), Is.EqualTo(610));
+            Assert.That((int)resultType.GetProperty("Seed").GetValue(result), Is.EqualTo(1234));
+            Assert.That((string)resultType.GetProperty("Reason").GetValue(result), Is.EqualTo("TEST END"));
         }
 
         private static void AssertAction(InputActionMap map, string actionName, params string[] expectedPaths)

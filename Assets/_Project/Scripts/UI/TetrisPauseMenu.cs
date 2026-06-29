@@ -75,15 +75,22 @@ namespace BlockEscape.UI
             if (isActiveAndEnabled) BindButtons();
         }
 
-        public void SetRunStatistics(int piecesSpawned, int rowsCleared, int score, int seed)
+        public void SetRunStatistics(int piecesSpawned, int rowsCleared, int score, int seed, float survivalTime = 0f)
         {
             if (_runStatsText == null)
                 return;
 
             _runStatsText.text =
                 $"BLOCK ĐÃ THẢ  {piecesSpawned}\n" +
+                $"THỜI GIAN  {FormatTime(survivalTime)}\n" +
                 $"HÀNG ĐÃ XÓA  {rowsCleared}     ĐIỂM  {score}\n" +
                 $"SEED  {seed}";
+        }
+
+        private static string FormatTime(float seconds)
+        {
+            var totalSeconds = Mathf.Max(0, Mathf.FloorToInt(seconds));
+            return $"{totalSeconds / 60:00}:{totalSeconds % 60:00}";
         }
 
         private void BindButtons()
