@@ -101,7 +101,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | Chưa phân công |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | Chưa phân công |
 | Player Controller | 75% | Có movement, jump, crouch, config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | Chưa phân công |
-| Block tương tác với player | 40% | Falling block pre-check vị trí kế tiếp để không xuyên/đẩy player; active/locked block chỉ Game Over khi bị đè và không còn đường thoát ngang | Chưa phân công |
+| Block tương tác với player | 42% | Falling block pre-check vị trí kế tiếp để không xuyên/đẩy player; player nhảy lên bị bật xuống; Game Over chỉ khi bị đè và hết đường thoát ngang | Chưa phân công |
 | Máu và sát thương | 55% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, prefab hook và test logic; còn tích hợp hazard/AI | Chưa phân công |
 | Game Session và scoring | 5% | Chưa làm | Chưa phân công |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
@@ -190,6 +190,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Active/locked block chỉ phát crush Game Over khi player bị đè và không còn đường thoát ngang.
 - [x] Player nhảy đụng mặt dưới falling block sẽ bị chặn bởi collider, không bị tính là crush.
 - [x] Falling tetromino kiểm tra player tại vị trí kế tiếp trước khi move/rotate để tránh xuyên qua hoặc đẩy player văng ngang khi soft drop.
+- [x] Player đang nhảy lên vào block đang xuống sẽ bị bounce xuống, block vẫn tiếp tục rơi.
+- [x] Crush Game Over do falling block chỉ phát sau khi block đã apply vị trí xuống, không chết sớm ở vị trí dự đoán.
 
 ### Máu và sát thương
 
@@ -816,6 +818,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 29/06/2026 | Block-player collision bugfix | Thêm frictionless physics material, clamp player trong arena và active falling crush event | Sửa lỗi bám tường/văng khỏi đấu trường khi block đè; đã thêm EditMode test logic |
 | 29/06/2026 | Crush escape rule | Chỉ Game Over khi player bị block đè mà không còn đường thoát ngang; nhảy đụng block chỉ bị chặn | Đã thêm EditMode test cho side escape và jump contact |
 | 29/06/2026 | Soft drop collision guard | Falling block pre-check vị trí kế tiếp trước khi move/rotate vào player | Chặn lỗi soft drop xuyên qua player hoặc đẩy player văng ngang |
+| 29/06/2026 | Jump bounce under block | Bounce player xuống khi nhảy vào block đang rơi, và chỉ crush sau khi block đã xuống | Tránh block bị đứng yên hoặc Game Over quá sớm |
 
 ## 13. Cách cập nhật file này
 

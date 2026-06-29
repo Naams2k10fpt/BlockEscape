@@ -295,7 +295,27 @@ namespace BlockEscape.Tetris
             bool ignoreRisingPlayer,
             out bool shouldCrush)
         {
+            return TryEvaluateCellOverlap(
+                localCells,
+                origin,
+                board,
+                probeSize,
+                ignoreRisingPlayer,
+                out shouldCrush,
+                out _);
+        }
+
+        public static bool TryEvaluateCellOverlap(
+            IReadOnlyList<Vector2Int> localCells,
+            Vector2Int origin,
+            BlockBoard board,
+            Vector2 probeSize,
+            bool ignoreRisingPlayer,
+            out bool shouldCrush,
+            out bool hasRisingPlayer)
+        {
             shouldCrush = false;
+            hasRisingPlayer = false;
             var playerMask = LayerMask.GetMask("Player");
             if (playerMask == 0 || localCells == null || board == null)
                 return false;
@@ -316,12 +336,49 @@ namespace BlockEscape.Tetris
                         continue;
 
                     blockedByPlayer = true;
+                    if (IsPlayerMovingUp(hit))
+                        hasRisingPlayer = true;
                     if (ShouldCrush(hit, center, board, ignoreRisingPlayer, localCells, origin, probeSize))
                         shouldCrush = true;
                 }
             }
 
             return blockedByPlayer;
+        }
+
+        public static bool BounceRisingPlayersInCells(
+            IReadOnlyList<Vector2Int> localCells,
+            Vector2Int origin,
+            BlockBoard board,
+            Vector2 cellSize,
+            float bounceVelocity,
+            float skin)
+        {
+            var playerMask = LayerMask.GetMask("Player");
+            if (playerMask == 0 || localCells == null || board == null)
+                return false;
+
+            var bounced = false;
+            Physics2D.SyncTransforms();
+            foreach (var localCell in localCells)
+            {
+                var cell = origin + localCell;
+                if (cell.y < 0 || cell.y >= board.Height)
+                    continue;
+
+                var center = board.WorldForCell(cell);
+                var hits = Physics2D.OverlapBoxAll(center, cellSize, 0f, playerMask);
+                foreach (var hit in hits)
+                {
+                    if (hit == null || !hit.enabled || hit.isTrigger || !IsPlayerMovingUp(hit))
+                        continue;
+
+                    BouncePlayerBelowCells(hit, localCells, origin, board, cellSize, bounceVelocity, skin);
+                    bounced = true;
+                }
+            }
+
+            return bounced;
         }
 
         public static bool ShouldCrush(
@@ -362,6 +419,53 @@ namespace BlockEscape.Tetris
         {
             var body = playerCollider.attachedRigidbody;
             return body != null && body.linearVelocity.y > RisingVelocityThreshold;
+        }
+
+        private static void BouncePlayerBelowCells(
+            Collider2D playerCollider,
+            IReadOnlyList<Vector2Int> localCells,
+            Vector2Int origin,
+            BlockBoard board,
+            Vector2 cellSize,
+            float bounceVelocity,
+            float skin)
+        {
+            var body = playerCollider.attachedRigidbody;
+            if (body == null)
+                return;
+
+            var playerBounds = playerCollider.bounds;
+            var targetTop = float.PositiveInfinity;
+            foreach (var localCell in localCells)
+            {
+                var cell = origin + localCell;
+                if (cell.y < 0 || cell.y >= board.Height)
+                    continue;
+
+                var cellCenter = (Vector2)board.WorldForCell(cell);
+                var horizontalOverlap = Mathf.Min(cellCenter.x + cellSize.x * 0.5f, playerBounds.max.x) -
+                                        Mathf.Max(cellCenter.x - cellSize.x * 0.5f, playerBounds.min.x);
+                if (horizontalOverlap <= 0f)
+                    continue;
+
+                targetTop = Mathf.Min(targetTop, cellCenter.y - cellSize.y * 0.5f - skin);
+            }
+
+            var velocity = body.linearVelocity;
+            velocity.y = Mathf.Min(velocity.y, bounceVelocity);
+            body.linearVelocity = velocity;
+
+            if (float.IsPositiveInfinity(targetTop))
+                return;
+
+            var targetCenterY = targetTop - playerBounds.extents.y;
+            var boardBottom = board.transform.position.y;
+            targetCenterY = Mathf.Max(targetCenterY, boardBottom + playerBounds.extents.y + skin);
+            if (targetCenterY >= playerBounds.center.y)
+                return;
+
+            var deltaY = targetCenterY - playerBounds.center.y;
+            body.position += Vector2.up * deltaY;
         }
 
         private static bool HasEscapeSpace(

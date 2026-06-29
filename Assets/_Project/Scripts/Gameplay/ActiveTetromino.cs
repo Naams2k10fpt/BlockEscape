@@ -35,6 +35,8 @@ namespace BlockEscape.Tetris
         private const float SoftDropRepeatInterval = 0.06f;
         private const float GhostAlpha = 0.10f;
         private const float CellColliderSize = 0.94f;
+        private const float PlayerBounceVelocity = -8f;
+        private const float PlayerBounceSkin = 0.03f;
 
         public event System.Action PlayerCrushed;
 
@@ -362,21 +364,43 @@ namespace BlockEscape.Tetris
                     _board,
                     new Vector2(CellColliderSize, CellColliderSize),
                     ignoreRisingPlayer: true,
-                    out var shouldCrush))
+                    out var shouldCrush,
+                    out var hasRisingPlayer))
             {
+                if (offset.y < 0 && hasRisingPlayer)
+                {
+                    PlayerCrushEscape.BounceRisingPlayersInCells(
+                        _localCells,
+                        candidate,
+                        _board,
+                        new Vector2(CellColliderSize, CellColliderSize),
+                        PlayerBounceVelocity,
+                        PlayerBounceSkin);
+                    ApplyMove(candidate, offset);
+                    return true;
+                }
+
                 if (offset.y < 0 && shouldCrush)
+                {
+                    ApplyMove(candidate, offset);
                     RaisePlayerCrush();
+                }
                 return false;
             }
 
-            _origin = candidate;
+            ApplyMove(candidate, offset);
+            return true;
+        }
+
+        private void ApplyMove(Vector2Int origin, Vector2Int offset)
+        {
+            _origin = origin;
             _rigidbody.position = _board.WorldForCell(_origin);
             _lockTimer = 0f;
             if (offset.y < 0)
                 _fallStepTimer = 0f;
             UpdateGhostPiece();
             CheckPlayerCrush();
-            return true;
         }
 
         private void TryRotateClockwise()
@@ -396,6 +420,7 @@ namespace BlockEscape.Tetris
                         _board,
                         new Vector2(CellColliderSize, CellColliderSize),
                         ignoreRisingPlayer: true,
+                        out _,
                         out _))
                     continue;
 
@@ -414,12 +439,25 @@ namespace BlockEscape.Tetris
 
         private void OnCollisionEnter2D(Collision2D collision)
         {
+            BounceRisingPlayersAtCurrentCells();
             CheckPlayerCrush();
         }
 
         private void OnCollisionStay2D(Collision2D collision)
         {
+            BounceRisingPlayersAtCurrentCells();
             CheckPlayerCrush();
+        }
+
+        private void BounceRisingPlayersAtCurrentCells()
+        {
+            PlayerCrushEscape.BounceRisingPlayersInCells(
+                _localCells,
+                _origin,
+                _board,
+                new Vector2(CellColliderSize, CellColliderSize),
+                PlayerBounceVelocity,
+                PlayerBounceSkin);
         }
 
         private void LockIntoBoard()
