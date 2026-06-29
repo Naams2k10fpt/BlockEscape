@@ -39,6 +39,9 @@ namespace BlockEscape.Bootstrap
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
         private const float CrushRespawnHeightAboveHighestBlock = 5f;
+        private const float CrushRespawnInvulnerabilitySeconds = 3f;
+        private const float RespawnProbeStep = 1f;
+        private const int RespawnProbeSteps = 12;
 
         private void Awake()
         {
@@ -641,6 +644,12 @@ namespace BlockEscape.Bootstrap
                 return;
             }
 
+            if (_playerHealth.IsInvulnerable)
+            {
+                RespawnPlayerAfterCrush();
+                return;
+            }
+
             var accepted = _playerHealth.TakeDamage(new DamageInfo(1, Vector2.zero, _board != null ? _board.gameObject : null, DamageType.Crush));
             if (!accepted || _playerHealth.IsDead)
                 return;
@@ -736,9 +745,12 @@ namespace BlockEscape.Bootstrap
                 _player.position = new Vector3(target.x, target.y, _player.position.z);
             }
 
+            _playerHealth?.StartInvulnerability(CrushRespawnInvulnerabilitySeconds);
+            Physics2D.SyncTransforms();
+
             if (_statusText != null && !_gameOver)
             {
-                _statusText.text = "PLAYER RESPAWN";
+                _statusText.text = "PLAYER RESPAWN - INVINCIBLE";
                 _statusText.color = new Color(1f, 0.75f, 0.25f);
             }
         }
@@ -752,7 +764,58 @@ namespace BlockEscape.Bootstrap
             if (highestRow >= 0)
                 y = _board.WorldForCell(new Vector2Int(_board.Width / 2, highestRow)).y + CrushRespawnHeightAboveHighestBlock;
 
-            return new Vector2(x, y);
+            return FindClearRespawnPosition(new Vector2(x, y));
+        }
+
+        private Vector2 FindClearRespawnPosition(Vector2 preferredCenter)
+        {
+            var playerCollider = _player != null ? _player.GetComponent<Collider2D>() : null;
+            if (playerCollider == null || _board == null)
+                return preferredCenter;
+
+            var probeSize = new Vector2(
+                Mathf.Max(0.05f, playerCollider.bounds.size.x - 0.04f),
+                Mathf.Max(0.05f, playerCollider.bounds.size.y - 0.04f));
+            var boardOrigin = (Vector2)_board.transform.position;
+            var centerX = boardOrigin.x + _board.Width * 0.5f;
+            var xOffsets = new[] { 0f, -1f, 1f, -2f, 2f, -3f, 3f };
+
+            for (var step = 0; step <= RespawnProbeSteps; step++)
+            {
+                var y = preferredCenter.y + step * RespawnProbeStep;
+                foreach (var xOffset in xOffsets)
+                {
+                    var x = Mathf.Clamp(
+                        centerX + xOffset,
+                        boardOrigin.x + probeSize.x * 0.5f,
+                        boardOrigin.x + _board.Width - probeSize.x * 0.5f);
+                    var candidate = new Vector2(x, y);
+                    if (IsRespawnPositionClear(candidate, probeSize, playerCollider))
+                        return candidate;
+                }
+            }
+
+            return preferredCenter + Vector2.up * (RespawnProbeSteps + 1) * RespawnProbeStep;
+        }
+
+        private static bool IsRespawnPositionClear(Vector2 center, Vector2 size, Collider2D playerCollider)
+        {
+            var blockingMask = LayerMask.GetMask("World", "FallingBlock");
+            if (blockingMask == 0)
+                return true;
+
+            Physics2D.SyncTransforms();
+            var hits = Physics2D.OverlapBoxAll(center, size, 0f, blockingMask);
+            foreach (var hit in hits)
+            {
+                if (hit == null || !hit.enabled || hit.isTrigger || hit == playerCollider)
+                    continue;
+                if (hit.transform.IsChildOf(playerCollider.transform))
+                    continue;
+                return false;
+            }
+
+            return true;
         }
 
         private void ApplySessionPhase()

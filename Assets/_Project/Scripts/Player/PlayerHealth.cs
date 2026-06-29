@@ -84,6 +84,16 @@ namespace BlockEscape.Player
             HealthChanged?.Invoke(CurrentHp, _maxHp);
         }
 
+        public void StartInvulnerability(float seconds)
+        {
+            if (_isDead)
+                return;
+
+            StopIFrameRoutine();
+            _isInvulnerable = true;
+            _iFrameRoutine = StartCoroutine(IFrameRoutine(Mathf.Max(0f, seconds)));
+        }
+
         private void Die()
         {
             if (_isDead)
@@ -97,14 +107,12 @@ namespace BlockEscape.Player
 
         private void StartIFrames()
         {
-            StopIFrameRoutine();
-            _isInvulnerable = true;
-            _iFrameRoutine = StartCoroutine(IFrameRoutine());
+            StartInvulnerability(_iFrameSeconds);
         }
 
-        private IEnumerator IFrameRoutine()
+        private IEnumerator IFrameRoutine(float seconds)
         {
-            for (var elapsed = 0f; elapsed < _iFrameSeconds; elapsed += _flashIntervalSeconds)
+            for (var elapsed = 0f; elapsed < seconds; elapsed += _flashIntervalSeconds)
             {
                 var alpha = Mathf.Approximately(GetSpriteAlpha(), 1f) ? 0.35f : 1f;
                 SetSpriteAlpha(alpha);

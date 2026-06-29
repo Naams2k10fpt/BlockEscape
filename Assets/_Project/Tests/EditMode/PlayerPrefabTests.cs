@@ -155,5 +155,27 @@ namespace BlockEscape.Tetris.Tests
                 Object.DestroyImmediate(player);
             }
         }
+
+        [Test]
+        public void PlayerHealth_StartInvulnerabilityBlocksDamage()
+        {
+            var player = new GameObject("Health Invulnerability Test");
+            try
+            {
+                player.AddComponent<Rigidbody2D>();
+                var health = player.AddComponent<PlayerHealth>();
+
+                health.StartInvulnerability(3f);
+                var accepted = health.TakeDamage(new DamageInfo(1, Vector2.zero, null, DamageType.Crush));
+
+                Assert.That(health.IsInvulnerable, Is.True);
+                Assert.That(accepted, Is.False);
+                Assert.That(health.CurrentHp, Is.EqualTo(3));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
+        }
     }
 }
