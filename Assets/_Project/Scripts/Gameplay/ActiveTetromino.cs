@@ -384,7 +384,15 @@ namespace BlockEscape.Tetris
                 {
                     ApplyMove(candidate, offset);
                     RaisePlayerCrush();
+                    return false;
                 }
+
+                if (offset.y < 0)
+                {
+                    ApplyMove(candidate, offset);
+                    return true;
+                }
+
                 return false;
             }
 

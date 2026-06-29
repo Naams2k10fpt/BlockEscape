@@ -50,7 +50,8 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   Playing/Paused/GameOver, survival time, phase, row score, total score, and run result.
 - `TetrisDemoBootstrap` is the integration point for session state, time scale,
   input enable/disable, HUD, Pause Menu, and Game Over summary.
-- Player gravity is configured through `PlayerConfig.gravityScale`, currently 3.
+- Player gravity is configured through `PlayerConfig.gravityScale`, currently 4.
+- HUD health is text-rendered as three hearts.
 - HP reaching 0 fires `PlayerHealth.Died`, and `TetrisDemoBootstrap` ends the run.
 - Session phase advances by survival time and updates new-piece fall speed through
   `TetrominoSpawner.ApplyDifficultyPhase`.
@@ -61,6 +62,8 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   applying the new grid origin, especially during soft drop.
 - Active/locked block crush only triggers Game Over when the player is pinned
   from above and has no horizontal escape space.
+- If a falling block overlaps the player but the player still has side escape,
+  keep the block falling instead of stopping the active piece in midair.
 - If the player jumps into a falling block's path, bounce the player downward
   and let the block continue falling; do not trigger Game Over from upward contact.
 - Player/block/border runtime colliders use frictionless material to reduce wall cling.

@@ -326,7 +326,7 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
-        public void ActiveTetromino_DownStepStopsBeforeOverlappingPlayerWithSideEscape()
+        public void ActiveTetromino_DownStepContinuesWhenPlayerHasSideEscape()
         {
             var boardObject = new GameObject("Board");
             var pieceObject = new GameObject("Active Step Stop Test Piece");
@@ -353,8 +353,8 @@ namespace BlockEscape.Tetris.Tests
                 var crushed = false;
                 piece.PlayerCrushed += () => crushed = true;
 
-                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.False);
-                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin));
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.True);
+                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin + Vector2Int.down));
                 Assert.That(crushed, Is.False);
             }
             finally

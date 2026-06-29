@@ -19,7 +19,7 @@ namespace BlockEscape.Tetris.Tests
 
             Assert.That(config.moveSpeed, Is.EqualTo(7f));
             Assert.That(config.jumpVelocity, Is.EqualTo(11f));
-            Assert.That(config.gravityScale, Is.EqualTo(3f));
+            Assert.That(config.gravityScale, Is.EqualTo(4f));
             Assert.That(config.coyoteTime, Is.EqualTo(0.10f));
             Assert.That(config.jumpBufferTime, Is.EqualTo(0.12f));
             Assert.That(config.maxFallSpeed, Is.EqualTo(18f));

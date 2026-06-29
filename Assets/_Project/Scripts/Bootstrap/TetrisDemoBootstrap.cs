@@ -334,7 +334,7 @@ namespace BlockEscape.Bootstrap
             var body = player.AddComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Dynamic;
             var playerConfig = Resources.Load<PlayerConfig>("PlayerConfig");
-            body.gravityScale = playerConfig != null ? playerConfig.gravityScale : 3f;
+            body.gravityScale = playerConfig != null ? playerConfig.gravityScale : 4f;
             body.freezeRotation = true;
             body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             body.interpolation = RigidbodyInterpolation2D.Interpolate;
@@ -698,7 +698,13 @@ namespace BlockEscape.Bootstrap
 
         private string FormatHealth()
         {
-            return _playerHealth != null ? $"{_playerHealth.CurrentHp}/{_playerHealth.MaxHp}" : "--/--";
+            if (_playerHealth == null)
+                return "---";
+
+            var hearts = string.Empty;
+            for (var i = 0; i < _playerHealth.MaxHp; i++)
+                hearts += i < _playerHealth.CurrentHp ? "♥" : "♡";
+            return hearts;
         }
 
         private void ApplySessionPhase()
