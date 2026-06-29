@@ -218,10 +218,10 @@ Cập nhật bảng này khi nhóm chốt thành viên:
 
 | Thành viên | Phụ trách |
 |---|---|
-| Chưa phân công | Tetris và hệ thống gameplay |
-| Chưa phân công | Player, health và animation |
-| Chưa phân công | UI, save và scene flow |
-| Chưa phân công | Art, audio và kiểm thử |
+| NguyenNgu2005 | Tetris và hệ thống gameplay |
+| NguyenNgu2005 | Player, health và animation |
+| NguyenNgu2005 | UI, save và scene flow |
+| NguyenNgu2005 | Art, audio và kiểm thử |
 
 ## License và asset bên ngoài
 
