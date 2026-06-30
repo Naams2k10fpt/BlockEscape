@@ -176,7 +176,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Tạo `PlayerConfig` với thông số mặc định đã thống nhất; `jumpVelocity = 12.5` để nhảy cao hơn.
 - [x] Tạo `PlayerController` đọc input trong `Update` và áp vận tốc Rigidbody trong `FixedUpdate`.
 - [x] Tạo `Assets/_Project/Prefabs/Player/Player.prefab` với Rigidbody2D, CapsuleCollider2D, Visual và Ground Check.
-- [x] Gravity của player được đưa vào `PlayerConfig` và đặt mặc định `gravityScale = 2` để rơi nhẹ hơn.
+- [x] Gravity của player được đưa vào `PlayerConfig` và đặt mặc định `gravityScale = 3` để rơi vừa hơn.
 - [x] Ground check dùng layer `World`, không dựa vào tag.
 - [x] Thêm EditMode test xác nhận config mặc định và cấu trúc prefab.
 - [x] Thêm crouch bằng Down Arrow, đổi collider theo `PlayerConfig` và giữ crouch khi thiếu headroom.
@@ -855,6 +855,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 30/06/2026 | Side climb release + jump tune | Tăng `jumpVelocity` lên 12.5 và tách player ngang khi leo/chạm cạnh falling block | Tránh bị block đang rơi kéo xuống, nhảy cao hơn để leo block dễ hơn |
 | 30/06/2026 | Player gravity tune | Giữ `jumpVelocity = 12.5`, hạ `gravityScale` xuống 2 | Player rơi nhẹ hơn theo yêu cầu playtest |
 | 30/06/2026 | Drone AI + Event Director | Thêm runtime drone phase 2, Enemy damage, falling block phá drone +300 và Block Overdrive event | AI/Event có lát cắt playable đầu tiên trong TetrisDemo |
+| 30/06/2026 | Player gravity retune | Giữ `jumpVelocity = 12.5`, chỉnh `gravityScale` lên 3 | Player rơi nhanh hơn bản gravity 2 nhưng vẫn nhẹ hơn bản 5 |
 
 ## 13. Cách cập nhật file này
 

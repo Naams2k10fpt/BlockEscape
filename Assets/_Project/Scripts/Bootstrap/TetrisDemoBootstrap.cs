@@ -437,7 +437,7 @@ namespace BlockEscape.Bootstrap
             var body = player.AddComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Dynamic;
             var playerConfig = Resources.Load<PlayerConfig>("PlayerConfig");
-            body.gravityScale = playerConfig != null ? playerConfig.gravityScale : 2f;
+            body.gravityScale = playerConfig != null ? playerConfig.gravityScale : 3f;
             body.freezeRotation = true;
             body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             body.interpolation = RigidbodyInterpolation2D.Interpolate;
@@ -939,7 +939,7 @@ namespace BlockEscape.Bootstrap
             var controller = _player != null ? _player.GetComponent<PlayerController>() : null;
             if (controller != null && controller.Config != null)
                 return controller.Config.gravityScale;
-            return 2f;
+            return 3f;
         }
 
         private Vector2 GetCrushRespawnPosition()
