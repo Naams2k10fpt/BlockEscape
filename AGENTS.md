@@ -7,7 +7,7 @@ or `PROGRESS.md` only when a task needs details not covered here.
 
 - Unity project: `BlockEscape`, Unity `6000.4.4f1`, Windows.
 - Current branch used by Codex work: `feature/player-crouch-health`.
-- Current milestone: Player sandbox playable, about 51%.
+- Current milestone: Player sandbox playable, about 52%.
 - Main playable/demo scenes:
   - `Assets/_Project/Scenes/TetrisDemo.unity`
   - `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity`
@@ -50,7 +50,7 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   Playing/Paused/GameOver, survival time, phase, row score, total score, and run result.
 - `TetrisDemoBootstrap` is the integration point for session state, time scale,
   input enable/disable, HUD, Pause Menu, and Game Over summary.
-- Player gravity is configured through `PlayerConfig.gravityScale`, currently 4.
+- Player gravity is configured through `PlayerConfig.gravityScale`, currently 5.
 - HUD health is text-rendered as three hearts.
 - HP reaching 0 fires `PlayerHealth.Died`, and `TetrisDemoBootstrap` ends the run.
 - Session phase advances by survival time and updates new-piece fall speed through
@@ -63,8 +63,9 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 - Active/locked block crush only applies damage when the player is pinned from
   above and has no horizontal escape space.
 - Crush damage removes one heart, finds a clear respawn point near arena center
-  at least 5 world units above the highest locked block, then grants 3 seconds
-  of blinking invulnerability. HP reaching 0 ends the run.
+  at least 5 world units above the highest locked block, holds the player in
+  air for 0.75 seconds, then grants 3 seconds of blinking invulnerability.
+  HP reaching 0 ends the run.
 - If a falling block overlaps the player but the player still has side escape,
   keep the block falling instead of stopping the active piece in midair.
 - If the player jumps into a falling block's path, bounce the player downward

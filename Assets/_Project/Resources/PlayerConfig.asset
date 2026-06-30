@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: BlockEscape.Runtime::BlockEscape.Player.PlayerConfig
   moveSpeed: 7
   jumpVelocity: 11
-  gravityScale: 4
+  gravityScale: 5
   coyoteTime: 0.1
   jumpBufferTime: 0.12
   maxFallSpeed: 18

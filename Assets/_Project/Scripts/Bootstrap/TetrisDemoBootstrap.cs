@@ -1,3 +1,4 @@
+using System.Collections;
 using BlockEscape.Core;
 using BlockEscape.Player;
 using BlockEscape.Tetris;
@@ -36,10 +37,12 @@ namespace BlockEscape.Bootstrap
         private bool _gameOver;
         private Transform _player;
         private PlayerHealth _playerHealth;
+        private Coroutine _respawnHoverRoutine;
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
         private const float CrushRespawnHeightAboveHighestBlock = 5f;
         private const float CrushRespawnInvulnerabilitySeconds = 3f;
+        private const float CrushRespawnHoverSeconds = 0.75f;
         private const float RespawnProbeStep = 1f;
         private const int RespawnProbeSteps = 12;
 
@@ -126,6 +129,7 @@ namespace BlockEscape.Bootstrap
                 _spawner.PlayerCrushed -= OnPlayerCrushed;
             _session.PhaseChanged -= OnSessionPhaseChanged;
             UnbindPlayerHealth();
+            StopRespawnHover(restoreGravity: true);
             Time.timeScale = 1f;
         }
 
@@ -338,7 +342,7 @@ namespace BlockEscape.Bootstrap
             var body = player.AddComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Dynamic;
             var playerConfig = Resources.Load<PlayerConfig>("PlayerConfig");
-            body.gravityScale = playerConfig != null ? playerConfig.gravityScale : 4f;
+            body.gravityScale = playerConfig != null ? playerConfig.gravityScale : 5f;
             body.freezeRotation = true;
             body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             body.interpolation = RigidbodyInterpolation2D.Interpolate;
@@ -435,6 +439,7 @@ namespace BlockEscape.Bootstrap
             Time.timeScale = 1f;
             _paused = false;
             _gameOver = false;
+            StopRespawnHover(restoreGravity: true);
             if (_inputService != null) _inputService.SetGameplayEnabled(true);
             if (_pauseMenu != null) _pauseMenu.HideAll();
             if (_gameOverMenu != null) _gameOverMenu.Hide();
@@ -679,6 +684,7 @@ namespace BlockEscape.Bootstrap
 
             _gameOver = true;
             _paused = false;
+            StopRespawnHover(restoreGravity: true);
             Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
             if (_spawner != null) _spawner.Stop();
@@ -739,6 +745,7 @@ namespace BlockEscape.Bootstrap
                 body.linearVelocity = Vector2.zero;
                 body.angularVelocity = 0f;
                 body.position = target;
+                StartRespawnHover(body);
             }
             else
             {
@@ -753,6 +760,63 @@ namespace BlockEscape.Bootstrap
                 _statusText.text = "PLAYER RESPAWN - INVINCIBLE";
                 _statusText.color = new Color(1f, 0.75f, 0.25f);
             }
+        }
+
+        private void StartRespawnHover(Rigidbody2D body)
+        {
+            if (body == null)
+                return;
+
+            StopRespawnHover(restoreGravity: true);
+            _respawnHoverRoutine = StartCoroutine(RespawnHoverRoutine(body));
+        }
+
+        private IEnumerator RespawnHoverRoutine(Rigidbody2D body)
+        {
+            body.gravityScale = 0f;
+            body.linearVelocity = Vector2.zero;
+
+            var elapsed = 0f;
+            while (elapsed < CrushRespawnHoverSeconds && !_gameOver)
+            {
+                if (body == null)
+                {
+                    _respawnHoverRoutine = null;
+                    yield break;
+                }
+
+                var velocity = body.linearVelocity;
+                velocity.y = 0f;
+                body.linearVelocity = velocity;
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (body != null)
+                body.gravityScale = GetPlayerGravityScale();
+            _respawnHoverRoutine = null;
+        }
+
+        private void StopRespawnHover(bool restoreGravity)
+        {
+            if (_respawnHoverRoutine != null)
+                StopCoroutine(_respawnHoverRoutine);
+            _respawnHoverRoutine = null;
+
+            if (!restoreGravity || _player == null)
+                return;
+
+            var body = _player.GetComponent<Rigidbody2D>();
+            if (body != null)
+                body.gravityScale = GetPlayerGravityScale();
+        }
+
+        private float GetPlayerGravityScale()
+        {
+            var controller = _player != null ? _player.GetComponent<PlayerController>() : null;
+            if (controller != null && controller.Config != null)
+                return controller.Config.gravityScale;
+            return 5f;
         }
 
         private Vector2 GetCrushRespawnPosition()
