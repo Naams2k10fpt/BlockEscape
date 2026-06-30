@@ -158,7 +158,7 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
-        public void EventDirector_UsesPhaseIntervalsAndSkipsPhaseOne()
+        public void EventDirector_UsesEarlyIntervalsFromPhaseOne()
         {
             var eventConfigType = typeof(InputService).Assembly.GetType("BlockEscape.Events.DynamicEventConfig");
             var eventDirectorType = typeof(InputService).Assembly.GetType("BlockEscape.Events.EventDirector");
@@ -168,21 +168,22 @@ namespace BlockEscape.Tetris.Tests
             var config = ScriptableObject.CreateInstance(eventConfigType);
             try
             {
-                eventConfigType.GetField("phase2MinIntervalSeconds").SetValue(config, 25f);
-                eventConfigType.GetField("phase2MaxIntervalSeconds").SetValue(config, 30f);
-                eventConfigType.GetField("phase3MinIntervalSeconds").SetValue(config, 18f);
-                eventConfigType.GetField("phase3MaxIntervalSeconds").SetValue(config, 24f);
-                eventConfigType.GetField("phase4MinIntervalSeconds").SetValue(config, 14f);
-                eventConfigType.GetField("phase4MaxIntervalSeconds").SetValue(config, 20f);
+                eventConfigType.GetField("phase2MinIntervalSeconds").SetValue(config, 4f);
+                eventConfigType.GetField("phase2MaxIntervalSeconds").SetValue(config, 6f);
+                eventConfigType.GetField("phase3MinIntervalSeconds").SetValue(config, 6f);
+                eventConfigType.GetField("phase3MaxIntervalSeconds").SetValue(config, 8f);
+                eventConfigType.GetField("phase4MinIntervalSeconds").SetValue(config, 8f);
+                eventConfigType.GetField("phase4MaxIntervalSeconds").SetValue(config, 10f);
                 eventConfigType.GetMethod("Sanitize").Invoke(config, null);
 
                 var canRunEvents = eventDirectorType.GetMethod("CanRunEvents", BindingFlags.Public | BindingFlags.Static);
                 var getInterval = eventDirectorType.GetMethod("GetNextIntervalForPhase", BindingFlags.Public | BindingFlags.Static);
-                Assert.That((bool)canRunEvents.Invoke(null, new object[] { 1 }), Is.False);
+                Assert.That((bool)canRunEvents.Invoke(null, new object[] { 1 }), Is.True);
                 Assert.That((bool)canRunEvents.Invoke(null, new object[] { 2 }), Is.True);
-                Assert.That((float)getInterval.Invoke(null, new object[] { 2, config, new System.Random(1) }), Is.InRange(25f, 30f));
-                Assert.That((float)getInterval.Invoke(null, new object[] { 3, config, new System.Random(1) }), Is.InRange(18f, 24f));
-                Assert.That((float)getInterval.Invoke(null, new object[] { 4, config, new System.Random(1) }), Is.InRange(14f, 20f));
+                Assert.That((float)getInterval.Invoke(null, new object[] { 1, config, new System.Random(1) }), Is.InRange(4f, 6f));
+                Assert.That((float)getInterval.Invoke(null, new object[] { 2, config, new System.Random(1) }), Is.InRange(4f, 6f));
+                Assert.That((float)getInterval.Invoke(null, new object[] { 3, config, new System.Random(1) }), Is.InRange(6f, 8f));
+                Assert.That((float)getInterval.Invoke(null, new object[] { 4, config, new System.Random(1) }), Is.InRange(8f, 10f));
             }
             finally
             {
@@ -191,7 +192,7 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
-        public void DroneController_EnablesAtPhaseTwoAndDetectsNearbyPlayer()
+        public void DroneController_EnablesAtPhaseOneAndDetectsNearbyPlayer()
         {
             var droneType = typeof(InputService).Assembly.GetType("BlockEscape.AI.DroneController");
             var droneConfigType = typeof(InputService).Assembly.GetType("BlockEscape.AI.DroneConfig");
@@ -223,9 +224,9 @@ namespace BlockEscape.Tetris.Tests
                 droneConfigType.GetField("telegraphSeconds").SetValue(config, 0.8f);
 
                 droneType.GetMethod("Initialize").Invoke(drone, new object[] { config, player.transform, board });
-                Assert.That(droneType.GetProperty("State").GetValue(drone).ToString(), Is.EqualTo("Disabled"));
+                Assert.That(droneType.GetProperty("State").GetValue(drone).ToString(), Is.EqualTo("Patrol"));
 
-                droneType.GetMethod("SetPhase").Invoke(drone, new object[] { 2 });
+                droneType.GetMethod("SetPhase").Invoke(drone, new object[] { 1 });
                 droneType.GetMethod("SetRunning").Invoke(drone, new object[] { true });
                 Assert.That(droneType.GetProperty("State").GetValue(drone).ToString(), Is.EqualTo("Patrol"));
 

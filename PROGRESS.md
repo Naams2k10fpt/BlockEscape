@@ -104,8 +104,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Block tương tác với player | 49% | Falling block pre-check vị trí kế tiếp; block vẫn rơi nếu player còn đường thoát; chạm cạnh block đang rơi được tách ngang; crush trừ tim, tìm điểm respawn trống và cho bất tử 3 giây | NguyenNgu2005 |
 | Máu và sát thương | 63% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, invulnerability public API, crush damage và HP 0 kết thúc run trong TetrisDemo; còn tích hợp hazard/AI | NguyenNgu2005 |
 | Game Session và scoring | 58% | Có `GameSession`, `ScoreService`, survival score, row score, bonus score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
-| Drone AI | 35% | Có runtime drone trong TetrisDemo từ phase 2, state patrol/detect/telegraph/dash/recover, Enemy damage, bị falling block phá và respawn | NguyenNgu2005 |
-| Dynamic Events | 20% | Có Event Director runtime, seed-based schedule và Block Overdrive 3 piece từ phase 2; chưa có Cutter Sweep | NguyenNgu2005 |
+| Drone AI | 42% | Có runtime drone trong TetrisDemo từ phase 1, state patrol/detect/telegraph/dash/recover, Enemy damage, bắn đạn xuống, nổ nhỏ khi chạm block/world, bị falling block phá và respawn | NguyenNgu2005 |
+| Dynamic Events | 25% | Có Event Director runtime, seed-based schedule sớm và Block Overdrive 3 piece từ phase 1; chưa có Cutter Sweep | NguyenNgu2005 |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
 | HUD và game flow | 59% | HUD/Pause/Game Over đọc cùng session score, hiển thị 3 tim, phase, drone/event state, respawn crush và thời gian sống sót | NguyenNgu2005 |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
@@ -198,6 +198,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Falling tetromino kiểm tra player tại vị trí kế tiếp trước khi move/rotate để tránh xuyên qua hoặc đẩy player văng ngang khi soft drop.
 - [x] Player đang nhảy lên vào block đang xuống sẽ bị bounce xuống, block vẫn tiếp tục rơi.
 - [x] Player đang leo/chạm cạnh block đang rơi sẽ được tách ngang, không bị block kéo xuống.
+- [x] Nếu player bị kẹt collider trong block/world, TetrisDemo tự dò điểm trống gần nhất để giải kẹt.
 - [x] Crush Game Over do falling block chỉ phát sau khi block đã apply vị trí xuống, không chết sớm ở vị trí dự đoán.
 - [x] Falling block tiếp tục rơi khi player đứng cạnh/đứng dưới nhưng còn đường thoát, không còn bị kẹt giữa không trung.
 
@@ -214,15 +215,16 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 ### Drone AI
 
 - [x] Thêm runtime drone cho `TetrisDemo`, tự tạo khi Play, không cần sửa scene thủ công.
-- [x] Drone chỉ hoạt động từ phase 2, patrol ở nửa trên arena và dừng khi Pause/GameOver.
+- [x] Drone hoạt động từ phase 1, patrol ở nửa trên arena và dừng khi Pause/GameOver.
 - [x] Drone có state `Disabled`, `Patrol`, `Detect`, `Telegraph`, `Dash`, `Recover`.
 - [x] Dash gây `Enemy` damage và knockback qua contract `IDamageable`.
-- [x] Falling block chạm drone sẽ phá drone, cộng 300 điểm và respawn sau 12 giây.
+- [x] Drone bắn đạn xuống; đạn chạm `World`/`FallingBlock` tạo vụ nổ nhỏ.
+- [x] Falling block chạm drone sẽ phá drone, cộng 300 điểm và respawn sau 6 giây.
 
 ### Dynamic Events
 
 - [x] Thêm runtime Event Director làm nơi duy nhất lập lịch event trong `TetrisDemo`.
-- [x] Block Overdrive chạy từ phase 2, tăng tốc 3 tetromino tiếp theo rồi trả tốc độ phase hiện tại.
+- [x] Block Overdrive chạy từ phase 1 với interval ngắn hơn, tăng tốc 3 tetromino tiếp theo rồi trả tốc độ phase hiện tại.
 - [x] Event schedule dùng seed của spawner để tái hiện interval theo phase.
 - [ ] Cutter Sweep chưa triển khai.
 
@@ -856,6 +858,8 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 30/06/2026 | Player gravity tune | Giữ `jumpVelocity = 12.5`, hạ `gravityScale` xuống 2 | Player rơi nhẹ hơn theo yêu cầu playtest |
 | 30/06/2026 | Drone AI + Event Director | Thêm runtime drone phase 2, Enemy damage, falling block phá drone +300 và Block Overdrive event | AI/Event có lát cắt playable đầu tiên trong TetrisDemo |
 | 30/06/2026 | Player gravity retune | Giữ `jumpVelocity = 12.5`, chỉnh `gravityScale` lên 3 | Player rơi nhanh hơn bản gravity 2 nhưng vẫn nhẹ hơn bản 5 |
+| 30/06/2026 | Early events + drone bullets | Drone/event bật từ phase 1, event interval ngắn hơn, drone bắn đạn xuống và đạn nổ nhỏ khi chạm block/world | Người chơi thấy event sớm hơn và drone có hazard rõ ràng hơn |
+| 30/06/2026 | Player unstuck safety | TetrisDemo tự dò điểm trống khi player bị kẹt collider trong block/world | Giảm lỗi nhân vật kẹt trong cụm block như ảnh playtest |
 
 ## 13. Cách cập nhật file này
 

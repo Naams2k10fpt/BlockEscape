@@ -39,8 +39,9 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Falling block kiểm tra vị trí kế tiếp trước khi bước xuống/rotate để không xuyên qua hoặc húc player văng ngang khi soft drop.
 - Nếu player nhảy lên vào block đang xuống, player bị bật ngược xuống và block vẫn tiếp tục rơi.
 - Nếu player đang leo/chạm cạnh falling block, block sẽ tách player ngang ra thay vì kéo player xuống.
-- Phase 2 trở đi có runtime Drone AI patrol ở nửa trên arena, detect/telegraph/dash gây Enemy damage; falling block phá drone cộng 300 điểm và drone respawn sau 12 giây.
-- Dynamic Event Director đã có Block Overdrive: từ phase 2 trở đi tăng tốc 3 tetromino tiếp theo theo lịch seed-based rồi trả tốc độ phase hiện tại.
+- Nếu player bị kẹt chồng collider vào block/world, TetrisDemo tự tìm điểm trống gần nhất để giải kẹt.
+- Runtime Drone AI xuất hiện từ phase 1, patrol ở nửa trên arena, detect/telegraph/dash gây Enemy damage; drone bắn đạn xuống, đạn chạm block/world tạo vụ nổ nhỏ; falling block phá drone cộng 300 điểm và drone respawn sau 6 giây.
+- Dynamic Event Director đã có Block Overdrive: từ phase 1, sau vài giây sẽ tăng tốc 3 tetromino tiếp theo theo lịch seed-based rồi trả tốc độ phase hiện tại.
 - TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.

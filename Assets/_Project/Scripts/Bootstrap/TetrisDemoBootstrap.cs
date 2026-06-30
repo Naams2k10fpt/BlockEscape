@@ -144,7 +144,10 @@ namespace BlockEscape.Bootstrap
         private void FixedUpdate()
         {
             if (!_gameOver)
+            {
                 ClampPlayerToArena();
+                ResolvePlayerBlockOverlap();
+            }
         }
 
         private void InitializeSystems()
@@ -600,6 +603,84 @@ namespace BlockEscape.Bootstrap
             _player.position = new Vector3(target.x, target.y, _player.position.z);
         }
 
+        private void ResolvePlayerBlockOverlap()
+        {
+            if (_player == null || _board == null)
+                return;
+
+            var playerCollider = _player.GetComponent<Collider2D>();
+            if (playerCollider == null)
+                return;
+
+            var bounds = playerCollider.bounds;
+            var probeSize = new Vector2(
+                Mathf.Max(0.05f, bounds.size.x - 0.04f),
+                Mathf.Max(0.05f, bounds.size.y - 0.04f));
+            if (IsPlayerClearAt(bounds.center, probeSize, playerCollider))
+                return;
+
+            var boardOrigin = (Vector2)_board.transform.position;
+            var minX = boardOrigin.x + probeSize.x * 0.5f;
+            var maxX = boardOrigin.x + _board.Width - probeSize.x * 0.5f;
+            var body = _player.GetComponent<Rigidbody2D>();
+            var offsetsX = new[] { 0f, -1f, 1f, -2f, 2f, -3f, 3f };
+
+            for (var step = 1; step <= RespawnProbeSteps; step++)
+            {
+                var y = bounds.center.y + step * RespawnProbeStep;
+                foreach (var offsetX in offsetsX)
+                {
+                    var candidate = new Vector2(Mathf.Clamp(bounds.center.x + offsetX, minX, maxX), y);
+                    if (!IsPlayerClearAt(candidate, probeSize, playerCollider))
+                        continue;
+
+                    if (body != null)
+                    {
+                        body.linearVelocity = Vector2.zero;
+                        body.position = candidate;
+                    }
+                    else
+                    {
+                        _player.position = new Vector3(candidate.x, candidate.y, _player.position.z);
+                    }
+                    Physics2D.SyncTransforms();
+                    return;
+                }
+            }
+
+            var fallback = GetCrushRespawnPosition();
+            if (body != null)
+            {
+                body.linearVelocity = Vector2.zero;
+                body.position = fallback;
+            }
+            else
+            {
+                _player.position = new Vector3(fallback.x, fallback.y, _player.position.z);
+            }
+            Physics2D.SyncTransforms();
+        }
+
+        private static bool IsPlayerClearAt(Vector2 center, Vector2 size, Collider2D playerCollider)
+        {
+            var blockingMask = LayerMask.GetMask("World", "FallingBlock");
+            if (blockingMask == 0)
+                return true;
+
+            Physics2D.SyncTransforms();
+            var hits = Physics2D.OverlapBoxAll(center, size, 0f, blockingMask);
+            foreach (var hit in hits)
+            {
+                if (hit == null || !hit.enabled || hit.isTrigger || hit == playerCollider)
+                    continue;
+                if (hit.transform.IsChildOf(playerCollider.transform))
+                    continue;
+                return false;
+            }
+
+            return true;
+        }
+
         private void InitializePauseFlow()
         {
             if (_pauseMenu == null)
@@ -1019,6 +1100,8 @@ namespace BlockEscape.Bootstrap
         {
             if (_drone == null)
                 return "---";
+            if (_drone.IsDestroyed)
+                return $"RESPAWN {Mathf.CeilToInt(_drone.RespawnSecondsRemaining)}s";
             return _drone.State.ToString().ToUpperInvariant();
         }
 
@@ -1255,8 +1338,14 @@ namespace BlockEscape.AI
         [Min(0f)] public float recoverSeconds = 1.5f;
         public Vector2 knockback = new(8f, 3f);
 
+        [Header("Projectile")]
+        [Min(0.1f)] public float shootIntervalSeconds = 1.6f;
+        [Min(0.1f)] public float bulletSpeed = 8f;
+        [Min(0.1f)] public float bulletLifetimeSeconds = 4f;
+        [Min(0.05f)] public float explosionSeconds = 0.28f;
+
         [Header("Lifecycle")]
-        [Min(0f)] public float respawnSeconds = 12f;
+        [Min(0f)] public float respawnSeconds = 6f;
         [Min(1)] public int destroyScore = 300;
 
         public void Sanitize()
@@ -1270,6 +1359,10 @@ namespace BlockEscape.AI
             dashSpeed = Mathf.Max(0.1f, dashSpeed);
             dashSeconds = Mathf.Max(0.05f, dashSeconds);
             recoverSeconds = Mathf.Max(0f, recoverSeconds);
+            shootIntervalSeconds = Mathf.Max(0.1f, shootIntervalSeconds);
+            bulletSpeed = Mathf.Max(0.1f, bulletSpeed);
+            bulletLifetimeSeconds = Mathf.Max(0.1f, bulletLifetimeSeconds);
+            explosionSeconds = Mathf.Max(0.05f, explosionSeconds);
             respawnSeconds = Mathf.Max(0f, respawnSeconds);
             destroyScore = Mathf.Max(1, destroyScore);
         }
@@ -1296,12 +1389,14 @@ namespace BlockEscape.AI
         private bool _running;
         private bool _destroyed;
         private bool _damagedThisDash;
+        private float _shootTimer;
 
         public event System.Action<DroneController> DestroyedByFallingBlock;
 
         public DroneState State { get; private set; } = DroneState.Disabled;
         public int DestroyScore => _config != null ? _config.destroyScore : 300;
         public bool IsDestroyed => _destroyed;
+        public float RespawnSecondsRemaining => Mathf.Max(0f, _respawnTimer);
 
         private void Awake()
         {
@@ -1334,6 +1429,7 @@ namespace BlockEscape.AI
             _spawnPosition = GetPatrolPoint(0.5f);
             _body.position = _spawnPosition;
             _patrolDirection = 1;
+            _shootTimer = _config.shootIntervalSeconds * 0.5f;
             SetPhase(_phase);
         }
 
@@ -1347,7 +1443,7 @@ namespace BlockEscape.AI
         public void SetPhase(int phase)
         {
             _phase = Mathf.Max(1, phase);
-            if (_phase < 2)
+            if (_phase < 1)
             {
                 _destroyed = false;
                 _respawnTimer = 0f;
@@ -1371,8 +1467,9 @@ namespace BlockEscape.AI
             _body.position = _spawnPosition;
             _body.linearVelocity = Vector2.zero;
             _patrolDirection = 1;
-            SetVisible(_phase >= 2);
-            ChangeState(_phase >= 2 ? DroneState.Patrol : DroneState.Disabled);
+            _shootTimer = _config.shootIntervalSeconds * 0.5f;
+            SetVisible(_phase >= 1);
+            ChangeState(_phase >= 1 ? DroneState.Patrol : DroneState.Disabled);
         }
 
         public void ManualTick(float deltaTime)
@@ -1391,9 +1488,10 @@ namespace BlockEscape.AI
                 return;
             }
 
-            if (_phase < 2 || State == DroneState.Disabled)
+            if (_phase < 1 || State == DroneState.Disabled)
                 return;
 
+            TickShooting(deltaTime);
             switch (State)
             {
                 case DroneState.Patrol:
@@ -1416,7 +1514,7 @@ namespace BlockEscape.AI
 
         private void TickRespawn(float deltaTime)
         {
-            if (_phase < 2)
+            if (_phase < 1)
                 return;
 
             _respawnTimer -= deltaTime;
@@ -1443,6 +1541,46 @@ namespace BlockEscape.AI
             _body.position = position;
             if (CanDetectPlayer())
                 ChangeState(DroneState.Detect);
+        }
+
+        private void TickShooting(float deltaTime)
+        {
+            if (State == DroneState.Dash || State == DroneState.Disabled)
+                return;
+
+            _shootTimer -= deltaTime;
+            if (_shootTimer > 0f)
+                return;
+
+            _shootTimer = _config.shootIntervalSeconds;
+            FireBullet();
+        }
+
+        private void FireBullet()
+        {
+            var bulletObject = new GameObject("Drone Bullet");
+            bulletObject.transform.SetParent(transform.parent, false);
+            bulletObject.transform.position = _body.position + Vector2.down * 0.55f;
+            var hazardLayer = LayerMask.NameToLayer("Hazard");
+            if (hazardLayer >= 0)
+                bulletObject.layer = hazardLayer;
+
+            var renderer = bulletObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = BlockEscape.Tetris.RuntimeVisuals.Square;
+            renderer.color = new Color(1f, 0.25f, 0.2f);
+            renderer.sortingOrder = 23;
+            bulletObject.transform.localScale = new Vector3(0.18f, 0.34f, 1f);
+
+            var collider = bulletObject.AddComponent<CircleCollider2D>();
+            collider.radius = 0.14f;
+            collider.isTrigger = true;
+
+            var body = bulletObject.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+
+            var bullet = bulletObject.AddComponent<DroneBullet>();
+            bullet.Initialize(Vector2.down, _config.bulletSpeed, _config.bulletLifetimeSeconds, _config.explosionSeconds);
         }
 
         private void TickDetect(float deltaTime)
@@ -1612,6 +1750,92 @@ namespace BlockEscape.AI
 
             if (_collider != null)
                 _collider.isTrigger = true;
+        }
+    }
+
+    [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
+    internal sealed class DroneBullet : MonoBehaviour
+    {
+        private Vector2 _direction = Vector2.down;
+        private float _speed = 8f;
+        private float _lifeSeconds = 4f;
+        private float _explosionSeconds = 0.28f;
+        private bool _finished;
+
+        public void Initialize(Vector2 direction, float speed, float lifeSeconds, float explosionSeconds)
+        {
+            _direction = direction.sqrMagnitude > 0.01f ? direction.normalized : Vector2.down;
+            _speed = Mathf.Max(0.1f, speed);
+            _lifeSeconds = Mathf.Max(0.1f, lifeSeconds);
+            _explosionSeconds = Mathf.Max(0.05f, explosionSeconds);
+        }
+
+        private void Update()
+        {
+            if (_finished)
+                return;
+
+            transform.position += (Vector3)(_direction * _speed * Time.deltaTime);
+            _lifeSeconds -= Time.deltaTime;
+            if (_lifeSeconds <= 0f)
+                Destroy(gameObject);
+        }
+
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            if (_finished || other == null || !other.enabled || other.isTrigger)
+                return;
+
+            var otherLayer = other.gameObject.layer;
+            if (otherLayer == LayerMask.NameToLayer("Player"))
+            {
+                var damageable = other.GetComponentInParent<BlockEscape.Core.IDamageable>();
+                damageable?.TakeDamage(new BlockEscape.Core.DamageInfo(1, Vector2.down * 3f, gameObject, BlockEscape.Core.DamageType.Enemy));
+                Explode();
+                return;
+            }
+
+            if (otherLayer == LayerMask.NameToLayer("World") || otherLayer == LayerMask.NameToLayer("FallingBlock"))
+                Explode();
+        }
+
+        private void Explode()
+        {
+            if (_finished)
+                return;
+
+            _finished = true;
+            var collider = GetComponent<Collider2D>();
+            if (collider != null)
+                collider.enabled = false;
+            StartCoroutine(ExplosionRoutine());
+        }
+
+        private IEnumerator ExplosionRoutine()
+        {
+            var renderer = GetComponent<SpriteRenderer>();
+            if (renderer != null)
+            {
+                renderer.color = new Color(1f, 0.7f, 0.15f, 0.9f);
+                renderer.sortingOrder = 26;
+            }
+
+            var startScale = Vector3.one * 0.3f;
+            var endScale = Vector3.one * 0.9f;
+            for (var elapsed = 0f; elapsed < _explosionSeconds; elapsed += Time.deltaTime)
+            {
+                var t = Mathf.Clamp01(elapsed / _explosionSeconds);
+                transform.localScale = Vector3.Lerp(startScale, endScale, t);
+                if (renderer != null)
+                {
+                    var color = renderer.color;
+                    color.a = 1f - t;
+                    renderer.color = color;
+                }
+                yield return null;
+            }
+
+            Destroy(gameObject);
         }
     }
 }

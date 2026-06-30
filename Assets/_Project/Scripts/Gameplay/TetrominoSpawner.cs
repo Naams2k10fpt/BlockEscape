@@ -192,17 +192,17 @@ namespace BlockEscape.Events
         BlockOverdrive
     }
 
-    [CreateAssetMenu(menuName = "Block Escape/Dynamic Event Config", fileName = "DynamicEventConfig")]
+        [CreateAssetMenu(menuName = "Block Escape/Dynamic Event Config", fileName = "DynamicEventConfig")]
     internal sealed class DynamicEventConfig : ScriptableObject
     {
         [Min(0.1f)] public float overdriveFallSpeedMultiplier = 1.6f;
         [Min(1)] public int overdrivePieceCount = 3;
-        [Min(0f)] public float phase2MinIntervalSeconds = 25f;
-        [Min(0f)] public float phase2MaxIntervalSeconds = 30f;
-        [Min(0f)] public float phase3MinIntervalSeconds = 18f;
-        [Min(0f)] public float phase3MaxIntervalSeconds = 24f;
-        [Min(0f)] public float phase4MinIntervalSeconds = 14f;
-        [Min(0f)] public float phase4MaxIntervalSeconds = 20f;
+        [Min(0f)] public float phase2MinIntervalSeconds = 4f;
+        [Min(0f)] public float phase2MaxIntervalSeconds = 6f;
+        [Min(0f)] public float phase3MinIntervalSeconds = 6f;
+        [Min(0f)] public float phase3MaxIntervalSeconds = 8f;
+        [Min(0f)] public float phase4MinIntervalSeconds = 8f;
+        [Min(0f)] public float phase4MaxIntervalSeconds = 10f;
 
         public void Sanitize()
         {
@@ -289,7 +289,7 @@ namespace BlockEscape.Events
 
         public static bool CanRunEvents(int phase)
         {
-            return phase >= 2;
+            return phase >= 1;
         }
 
         public static float GetNextIntervalForPhase(int phase, DynamicEventConfig config, System.Random random)
@@ -298,9 +298,6 @@ namespace BlockEscape.Events
                 config = ScriptableObject.CreateInstance<DynamicEventConfig>();
             config.Sanitize();
             random ??= new System.Random(0);
-
-            if (phase <= 1)
-                return float.PositiveInfinity;
 
             var min = config.phase2MinIntervalSeconds;
             var max = config.phase2MaxIntervalSeconds;
