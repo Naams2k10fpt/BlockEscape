@@ -51,7 +51,7 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 - `TetrisDemoBootstrap` is the integration point for session state, time scale,
   input enable/disable, HUD, Pause Menu, and Game Over summary.
 - Player jump/gravity are configured through `PlayerConfig`; current
-  `jumpVelocity` is 12.5 and `gravityScale` is 5.
+  `jumpVelocity` is 12.5 and `gravityScale` is 2.
 - HUD health is text-rendered as three hearts.
 - HP reaching 0 fires `PlayerHealth.Died`, and `TetrisDemoBootstrap` ends the run.
 - Session phase advances by survival time and updates new-piece fall speed through

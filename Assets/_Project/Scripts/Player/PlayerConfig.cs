@@ -8,7 +8,7 @@ namespace BlockEscape.Player
         [Header("Movement")]
         [Min(0f)] public float moveSpeed = 7f;
         [Min(0f)] public float jumpVelocity = 12.5f;
-        [Min(0f)] public float gravityScale = 5f;
+        [Min(0f)] public float gravityScale = 2f;
         [Min(0f)] public float coyoteTime = 0.10f;
         [Min(0f)] public float jumpBufferTime = 0.12f;
         [Min(0f)] public float maxFallSpeed = 18f;
