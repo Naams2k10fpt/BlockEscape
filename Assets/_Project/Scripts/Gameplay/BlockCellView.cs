@@ -25,7 +25,7 @@ namespace BlockEscape.Tetris
             _collider = gameObject.GetComponent<BoxCollider2D>();
             if (_collider == null)
                 _collider = gameObject.AddComponent<BoxCollider2D>();
-            _collider.size = new Vector2(0.96f, 0.96f);
+            _collider.size = new Vector2(1.08f, 1.08f);
 
             var worldLayer = LayerMask.NameToLayer("World");
             if (worldLayer >= 0)

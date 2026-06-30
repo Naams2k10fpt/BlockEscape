@@ -7,7 +7,7 @@ or `PROGRESS.md` only when a task needs details not covered here.
 
 - Unity project: `BlockEscape`, Unity `6000.4.4f1`, Windows.
 - Current branch used by Codex work: `feature/player-crouch-health`.
-- Current milestone: Player sandbox playable, about 52%.
+- Current milestone: Player sandbox playable, about 58%.
 - Main playable/demo scenes:
   - `Assets/_Project/Scenes/TetrisDemo.unity`
   - `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity`
@@ -53,15 +53,25 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   input enable/disable, HUD, Pause Menu, and Game Over summary.
 - Player jump/gravity are configured through `PlayerConfig`; current
   `jumpVelocity` is 12.5 and `gravityScale` is 3.
+- PlayerController clamps small vertical physics jitter while grounded so
+  stepping from a higher block to a lower block does not repeatedly bounce.
 - HUD health is text-rendered as three hearts.
 - HP reaching 0 fires `PlayerHealth.Died`, and `TetrisDemoBootstrap` ends the run.
 - Session phase advances by survival time and updates new-piece fall speed through
   `TetrominoSpawner.ApplyDifficultyPhase`.
 - Player is spawned in the lower-center of `TetrisDemo` at runtime if missing.
 - Arena left/right/bottom borders have `World` colliders at runtime.
-- Falling blocks use solid `BoxCollider2D` and can block the player.
+- Falling blocks use trigger `BoxCollider2D` sensors and manual overlap logic so
+  Unity physics cannot push the player sideways; locked blocks remain solid
+  `World` colliders.
 - Active tetromino movement/rotation must pre-check player overlap before
   applying the new grid origin, especially during soft drop.
+- Pre-checks must not raise crush directly. Let the piece move to its real
+  position first; actual contact/collision decides crush so the player sees the
+  block reach them.
+- Active falling blocks use a larger trigger sensor for blocking/bounce logic
+  than the crush probe. Do not reuse the blocking sensor size for crush checks,
+  otherwise the player dies before the visible block actually reaches them.
 - Active/locked block crush only applies damage when the player is pinned from
   above and has no horizontal escape space.
 - Crush damage removes one heart, finds a clear respawn point near arena center
@@ -69,22 +79,35 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   air for 0.75 seconds, then grants 3 seconds of blinking invulnerability.
   HP reaching 0 ends the run.
 - If a falling block overlaps the player but the player still has side escape,
-  keep the block falling instead of stopping the active piece in midair.
+  keep the block falling and deflect the player downward instead of stopping the
+  active piece in midair.
+- Any non-crush contact with a falling block deflects the player downward only.
+  Do not push the player sideways into a gap; if they do not move out before
+  losing all escape space, crush damage applies.
+- Bootstrap unstuck must ignore `FallingBlock` overlap. Only locked `World`
+  blocks can trigger side/up unstuck probes.
 - If the player jumps into a falling block's path, bounce the player downward
   and let the block continue falling; do not trigger Game Over from upward contact.
-- If the player is rising against the side of a falling block, release sideways
-  instead of dragging the player downward.
+- PlayerController exposes a short recent-jump window for block bounce because
+  physics contact can zero vertical velocity before the falling block evaluates
+  the overlap.
+- If a falling block descends onto a non-rising player from above, apply crush
+  after actual contact instead of pushing the player out of the arena.
 - TetrisDemo has a block-overlap unstuck safety: if the player collider is
-  actually inside World/FallingBlock colliders, it probes upward/sideways for a
-  clear point.
+  actually inside World/FallingBlock colliders, it first pushes side overlap
+  with locked block cells horizontally, then probes upward/sideways for deeper
+  embeds.
 - Phase 1+ enables one runtime drone in `TetrisDemo`; it patrols the upper arena,
   detects, telegraphs, dashes, deals `Enemy` damage, fires downward bullets that
   make a small explosion on World/FallingBlock, and respawns 6 seconds after a
   falling block destroys it.
-- Phase 1+ also enables the runtime dynamic event director. The first shipped
-  event is Block Overdrive, which starts after a short seed-based interval,
-  multiplies fall speed for the next 3 spawned tetrominoes, then restores the
-  current phase speed.
+- Phase 1+ also enables the runtime dynamic event director. Shipped events are
+  Block Overdrive, which multiplies fall speed for the next 3 spawned
+  tetrominoes, and Meteor Shower, which warns a trajectory before a slower meteor
+  falls, starts from a random inner left/right upper-arena edge, targets a random
+  in-arena X with Y based on the highest locked block, deals Hazard damage to the
+  player, explodes only on real player/block/floor contact, and destroys locked
+  block cells in a 2-cell radius after 0.5 seconds of flashing.
 - Player/block/border runtime colliders use frictionless material to reduce wall cling.
 - `TetrisDemoBootstrap` clamps the player inside the arena as a safety net.
 

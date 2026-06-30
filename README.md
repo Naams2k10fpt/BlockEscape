@@ -31,22 +31,21 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Player movement được quản lý trong `PlayerConfig`, hiện đặt `jumpVelocity = 12.5` và `gravityScale = 3` để nhảy cao hơn và rơi vừa hơn.
 - HUD hiển thị máu bằng 3 tim thay cho dạng số.
 - Player có thể rơi xuống đáy đấu trường; tường trái/phải/đáy có collider layer `World` để không lọt khỏi map.
-- Falling tetromino dùng solid collider để chặn player ngay khi đang rơi.
-- Player, falling block và biên đấu trường dùng frictionless physics material để giảm lỗi bám tường.
+- Falling tetromino dùng trigger sensor và overlap logic để bắt va chạm khi đang rơi nhưng không để Unity physics hất player ngang.
+- Player, block đã khóa và biên đấu trường dùng frictionless physics material để giảm lỗi bám tường.
 - Active/locked block chỉ mở Game Over khi player bị đè và không còn đường thoát ngang; nhảy đụng block thì bị chặn, không chết ngay.
 - Khi bị block đè mà còn tim, player mất 1 tim rồi respawn ở điểm trống gần giữa arena, cao hơn block đã khóa cao nhất 5 đơn vị Y; player đứng lơ lửng 0.75 giây rồi rơi, nhấp nháy bất tử 3 giây, chỉ hết tim mới Game Over.
 - Falling block vẫn tiếp tục rơi khi player đứng cạnh/đứng dưới nhưng còn đường thoát, tránh kẹt piece giữa không trung.
 - Falling block kiểm tra vị trí kế tiếp trước khi bước xuống/rotate để không xuyên qua hoặc húc player văng ngang khi soft drop.
-- Nếu player nhảy lên vào block đang xuống, player bị bật ngược xuống và block vẫn tiếp tục rơi.
-- Nếu player đang leo/chạm cạnh falling block, block sẽ tách player ngang ra thay vì kéo player xuống.
+- Nếu player nhảy lên hoặc chạm cạnh block đang xuống, player chỉ bị bật ngược xuống và block vẫn tiếp tục rơi; nếu không chạy ra kịp và hết đường thoát thì mới bị crush.
 - Nếu player bị kẹt chồng collider vào block/world, TetrisDemo tự tìm điểm trống gần nhất để giải kẹt.
 - Runtime Drone AI xuất hiện từ phase 1, patrol ở nửa trên arena, detect/telegraph/dash gây Enemy damage; drone bắn đạn xuống, đạn chạm block/world tạo vụ nổ nhỏ; falling block phá drone cộng 300 điểm và drone respawn sau 6 giây.
-- Dynamic Event Director đã có Block Overdrive: từ phase 1, sau vài giây sẽ tăng tốc 3 tetromino tiếp theo theo lịch seed-based rồi trả tốc độ phase hiện tại.
+- Dynamic Event Director đã có Block Overdrive và Meteor Shower từ phase 1: Overdrive tăng tốc 3 tetromino tiếp theo, còn Meteor Shower báo đường bay chậm hơn từ sát mép trong trái/phải nửa trên arena tới X rơi ngẫu nhiên trong map, Y rơi bám theo block cao nhất, chỉ nổ khi chạm player/block/sàn, gây Hazard damage và phá block đã khóa trong bán kính 2 cell sau 0.5 giây nhấp nháy.
 - TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.
 
-Drone AI, dynamic event, pickup, menu hoàn chỉnh, save data, art và audio chưa được triển khai.
+Pickup, menu hoàn chỉnh, save data, art và audio chưa được triển khai.
 
 ## Yêu cầu
 
@@ -149,7 +148,7 @@ GameSession + Score
 - `BoardModel` chỉ quản lý dữ liệu lưới, không phụ thuộc scene.
 - `BlockBoard` đồng bộ dữ liệu với block hiển thị và collider.
 - `TetrominoSpawner` quản lý 7-bag, piece hiện tại và piece tiếp theo.
-- `ActiveTetromino` xử lý input WASD, chuyển động từng ô và dùng solid collider để chặn player.
+- `ActiveTetromino` xử lý input WASD, chuyển động từng ô và dùng trigger sensor để bounce/crush player bằng overlap logic.
 - `TetrisDemoBootstrap` kết nối scene, tự spawn player khi cần, tạo collider biên đấu trường, clamp player trong arena và mở Game Over khi player bị block đè mà không còn đường thoát.
 - `GameSession` giữ trạng thái lượt chơi, thời gian sống sót, phase, tổng hàng đã xóa, điểm và kết quả cuối để HUD/menu dùng thống nhất.
 

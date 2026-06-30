@@ -1,8 +1,8 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
-- **Cập nhật lần cuối:** 29/06/2026
+- **Cập nhật lần cuối:** 30/06/2026
 - **Cột mốc hiện tại:** Player sandbox playable
-- **Tiến độ tổng thể ước tính:** 56%
+- **Tiến độ tổng thể ước tính:** 58%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity` cho Tetris; `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` cho player sandbox
 
@@ -101,16 +101,16 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | NguyenNgu2005 |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | NguyenNgu2005 |
 | Player Controller | 79% | Có movement, jump cao hơn, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
-| Block tương tác với player | 49% | Falling block pre-check vị trí kế tiếp; block vẫn rơi nếu player còn đường thoát; chạm cạnh block đang rơi được tách ngang; crush trừ tim, tìm điểm respawn trống và cho bất tử 3 giây | NguyenNgu2005 |
-| Máu và sát thương | 63% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, invulnerability public API, crush damage và HP 0 kết thúc run trong TetrisDemo; còn tích hợp hazard/AI | NguyenNgu2005 |
+| Block tương tác với player | 57% | Falling block pre-check vị trí kế tiếp; block đang rơi dùng trigger sensor để không bị physics đẩy ngang; mọi chạm không-crush với block đang rơi chỉ bật player xuống; locked block collider được bù kín khe để player đi trên bề mặt đỡ nhảy; meteor có thể phá block đã khóa theo bán kính; crush trừ tim, tìm điểm respawn trống và cho bất tử 3 giây | NguyenNgu2005 |
+| Máu và sát thương | 66% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, invulnerability public API, crush/enemy/hazard damage và HP 0 kết thúc run trong TetrisDemo; còn cần cân bằng damage/iFrame qua playtest | NguyenNgu2005 |
 | Game Session và scoring | 58% | Có `GameSession`, `ScoreService`, survival score, row score, bonus score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
 | Drone AI | 42% | Có runtime drone trong TetrisDemo từ phase 1, state patrol/detect/telegraph/dash/recover, Enemy damage, bắn đạn xuống, nổ nhỏ khi chạm block/world, bị falling block phá và respawn | NguyenNgu2005 |
-| Dynamic Events | 25% | Có Event Director runtime, seed-based schedule sớm và Block Overdrive 3 piece từ phase 1; chưa có Cutter Sweep | NguyenNgu2005 |
+| Dynamic Events | 42% | Có Event Director runtime, seed-based schedule sớm, Block Overdrive 3 piece và Meteor Shower bay chậm hơn từ sát mép trong hai cạnh nửa trên arena tới X rơi ngẫu nhiên, Y rơi bám theo block cao nhất, chỉ nổ khi chạm thật và phá block bán kính 2 sau 0.5 giây nhấp nháy; chưa có Cutter Sweep | NguyenNgu2005 |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
 | HUD và game flow | 59% | HUD/Pause/Game Over đọc cùng session score, hiển thị 3 tim, phase, drone/event state, respawn crush và thời gian sống sót | NguyenNgu2005 |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 39% | Build .NET runtime/test/editor xanh; có thêm test gravity, health reset, session phase và phase speed config; cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
+| Test và Windows build | 40% | Build .NET runtime/test/editor xanh; có thêm test gravity, health reset, session phase, phase speed config và meteor event config; cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
 
 ## 5. Phần đã hoàn thành
 
@@ -187,7 +187,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] `TetrisDemoBootstrap` tự spawn player khi Play nếu scene chưa có player.
 - [x] `BlockBoard` phát hiện locked cell overlap player và phát event crush.
 - [x] TetrisDemo chuyển Game Over với lý do player bị block đè.
-- [x] Falling tetromino dùng solid `BoxCollider2D`, không còn trigger để player đi xuyên qua.
+- [x] Falling tetromino dùng trigger `BoxCollider2D` sensor và overlap logic để bắt va chạm mà không để physics đẩy player ngang.
 - [x] Player và collider block/biên arena dùng frictionless material để hạn chế dính tường.
 - [x] TetrisDemo clamp player trong biên board nếu physics bị ép vượt khỏi arena.
 - [x] Active/locked block chỉ phát crush damage khi player bị đè và không còn đường thoát ngang.
@@ -197,7 +197,9 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Player nhảy đụng mặt dưới falling block sẽ bị chặn bởi collider, không bị tính là crush.
 - [x] Falling tetromino kiểm tra player tại vị trí kế tiếp trước khi move/rotate để tránh xuyên qua hoặc đẩy player văng ngang khi soft drop.
 - [x] Player đang nhảy lên vào block đang xuống sẽ bị bounce xuống, block vẫn tiếp tục rơi.
-- [x] Player đang leo/chạm cạnh block đang rơi sẽ được tách ngang, không bị block kéo xuống.
+- [x] Player chạm block đang rơi nhưng chưa bị kẹt sẽ chỉ bị bật xuống; block vẫn tiếp tục rơi và không đẩy player ngang sang khe trống.
+- [x] Falling block dùng trigger sensor + overlap logic thay cho physics solid contact để Unity không tự tách player sang hai bên.
+- [x] Player cố tình đu/chèn cạnh block đã khóa sẽ được đẩy ngang nhẹ thay vì bị safety probe văng lên theo vòng lặp.
 - [x] Nếu player bị kẹt collider trong block/world, TetrisDemo tự dò điểm trống gần nhất để giải kẹt.
 - [x] Crush Game Over do falling block chỉ phát sau khi block đã apply vị trí xuống, không chết sớm ở vị trí dự đoán.
 - [x] Falling block tiếp tục rơi khi player đứng cạnh/đứng dưới nhưng còn đường thoát, không còn bị kẹt giữa không trung.
@@ -225,6 +227,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 - [x] Thêm runtime Event Director làm nơi duy nhất lập lịch event trong `TetrisDemo`.
 - [x] Block Overdrive chạy từ phase 1 với interval ngắn hơn, tăng tốc 3 tetromino tiếp theo rồi trả tốc độ phase hiện tại.
+- [x] Meteor Shower chạy từ phase 1, báo đường bay bằng vệt đỏ, spawn chậm hơn từ sát mép trong trái/phải nửa trên arena, rơi vào X ngẫu nhiên với Y dựa trên block cao nhất, gây Hazard damage khi trúng player và phá block đã khóa bán kính 2 cell sau 0.5 giây nhấp nháy.
 - [x] Event schedule dùng seed của spawner để tái hiện interval theo phase.
 - [ ] Cutter Sweep chưa triển khai.
 
@@ -860,6 +863,18 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 30/06/2026 | Player gravity retune | Giữ `jumpVelocity = 12.5`, chỉnh `gravityScale` lên 3 | Player rơi nhanh hơn bản gravity 2 nhưng vẫn nhẹ hơn bản 5 |
 | 30/06/2026 | Early events + drone bullets | Drone/event bật từ phase 1, event interval ngắn hơn, drone bắn đạn xuống và đạn nổ nhỏ khi chạm block/world | Người chơi thấy event sớm hơn và drone có hazard rõ ràng hơn |
 | 30/06/2026 | Player unstuck safety | TetrisDemo tự dò điểm trống khi player bị kẹt collider trong block/world | Giảm lỗi nhân vật kẹt trong cụm block như ảnh playtest |
+| 30/06/2026 | Meteor event + locked block side fix | Thêm Meteor Shower có cảnh báo đường bay, thiên thạch bay chéo từ hai cạnh nửa trên arena, phá block bán kính 2 sau khi nhấp nháy 0.5s; chỉnh unstuck để đẩy ngang khi player chèn cạnh block đã khóa | Event nhìn rõ hơn, tác động được địa hình và tránh vòng lặp văng khi cố tình đu vào block khóa |
+| 30/06/2026 | Meteor path + block seam tune | Giảm tốc meteor, cho bay từ sát mép trong trái/phải nửa trên arena qua toàn chiều ngang; bù collider block để bề mặt liền hơn | Meteor dễ quan sát hơn và player đi qua khe giữa block ít bị nhảy |
+| 30/06/2026 | Falling block bounce priority | Nếu player đã bị bounce xuống khi nhảy vào block đang rơi thì bỏ qua side-release ngang trong cùng frame; falling block collider giảm nhẹ so với locked block | Tránh trường hợp đáng lẽ bật xuống nhưng bị hất ngang/văng khỏi arena |
+| 30/06/2026 | Meteor stack-aware targeting | Meteor spawn từ sát mép trong hai vách nửa trên, chọn X rơi ngẫu nhiên trong arena và Y rơi theo block đã khóa cao nhất; đường bay ép đủ xa nếu target quá gần | Tránh đập vào tường bên và tạo đường bay bất ngờ hơn |
+| 30/06/2026 | Meteor contact explosion + crush priority | Kéo warning meteor tới dưới sàn và chỉ nổ khi chạm player/block/sàn; falling block rơi từ trên vào player đứng yên sẽ crush thay vì side-release ngang | Tránh meteor nổ trên không và tránh player bị đẩy văng khi đáng lẽ bị đè |
+| 30/06/2026 | Falling block actual-contact crush | Pre-check của falling block không raise crush nữa; block phải apply vào vị trí thật rồi actual contact mới crush, còn player nhảy lên sẽ bounce và bỏ qua crush frame đó | Tránh chết sớm khi block chưa rơi tới và khôi phục cảm giác nhảy chạm block bị bật xuống |
+| 30/06/2026 | Falling block crush probe tune | Tách solid collider dùng để chặn/bounce khỏi vùng kiểm tra crush nhỏ hơn và yêu cầu tiếp xúc Y thật với đáy block | Tránh chết khi block nhìn như chưa rơi hết nhưng collider phụ đã overlap |
+| 30/06/2026 | Meteor radius + side-release clamp | Giảm bán kính phá block của meteor xuống 2 cell; side-release chỉ chạy khi player đang đi lên, block rơi nhanh sẽ kiểm crush thật thay vì đẩy ngang player đang đứng | Giảm vùng tác động meteor và giảm lỗi player bị hất khỏi arena |
+| 30/06/2026 | Jump-to-block bounce window | PlayerController lưu short jump window để falling block vẫn bounce khi physics đã kéo velocity Y về gần 0 lúc chạm collider | Tránh player vừa nhảy vào block đang rơi nhưng bị tính chết thay vì bật xuống |
+| 30/06/2026 | Grounded step jitter clamp | PlayerController triệt tiêu vận tốc Y nhỏ khi đang grounded và không chủ động jump | Giảm hiện tượng nảy khi bước từ block cao xuống block thấp |
+| 30/06/2026 | Falling block downward-only deflect | Bỏ side-release của falling block; overlap không-crush chỉ đặt player xuống dưới/velocity Y âm, còn crush chỉ xảy ra khi probe nhỏ xác nhận bị kẹp và hết đường thoát | Tránh văng ngang khỏi arena nhưng vẫn giữ luật không chạy kịp thì mất tim |
+| 30/06/2026 | Falling block trigger sensor | Đổi active falling block sang trigger sensor và bootstrap unstuck bỏ qua `FallingBlock` overlap | Chặn nguồn physics/unstuck tự đẩy player ra hai bên; falling block vẫn xử lý bounce/crush bằng overlap logic |
 
 ## 13. Cách cập nhật file này
 

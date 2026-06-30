@@ -192,6 +192,39 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void DynamicEventConfig_ExposesMeteorShowerTuning()
+        {
+            var eventConfigType = typeof(InputService).Assembly.GetType("BlockEscape.Events.DynamicEventConfig");
+            var eventKindType = typeof(InputService).Assembly.GetType("BlockEscape.Events.DynamicEventKind");
+            Assert.That(eventConfigType, Is.Not.Null);
+            Assert.That(eventKindType, Is.Not.Null);
+            Assert.That(Enum.GetNames(eventKindType), Does.Contain("MeteorShower"));
+
+            var config = ScriptableObject.CreateInstance(eventConfigType);
+            try
+            {
+                eventConfigType.GetField("meteorEventChance").SetValue(config, 2f);
+                eventConfigType.GetField("meteorCount").SetValue(config, 0);
+                eventConfigType.GetField("meteorWarningSeconds").SetValue(config, 0f);
+                eventConfigType.GetField("meteorFallSpeed").SetValue(config, 0f);
+                eventConfigType.GetField("meteorDestroyRadiusCells").SetValue(config, -1);
+                eventConfigType.GetField("meteorBlockFlashSeconds").SetValue(config, -1f);
+                eventConfigType.GetMethod("Sanitize").Invoke(config, null);
+
+                Assert.That((float)eventConfigType.GetField("meteorEventChance").GetValue(config), Is.EqualTo(1f));
+                Assert.That((int)eventConfigType.GetField("meteorCount").GetValue(config), Is.EqualTo(1));
+                Assert.That((float)eventConfigType.GetField("meteorWarningSeconds").GetValue(config), Is.GreaterThanOrEqualTo(0.05f));
+                Assert.That((float)eventConfigType.GetField("meteorFallSpeed").GetValue(config), Is.GreaterThanOrEqualTo(0.1f));
+                Assert.That((int)eventConfigType.GetField("meteorDestroyRadiusCells").GetValue(config), Is.EqualTo(0));
+                Assert.That((float)eventConfigType.GetField("meteorBlockFlashSeconds").GetValue(config), Is.EqualTo(0f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
         public void DroneController_EnablesAtPhaseOneAndDetectsNearbyPlayer()
         {
             var droneType = typeof(InputService).Assembly.GetType("BlockEscape.AI.DroneController");

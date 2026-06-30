@@ -211,7 +211,7 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
-        public void ActiveTetromino_FallingCellsUseSolidColliders()
+        public void ActiveTetromino_FallingCellsUseTriggerSensors()
         {
             var boardObject = new GameObject("Board");
             var pieceObject = new GameObject("Active Test Piece");
@@ -232,7 +232,7 @@ namespace BlockEscape.Tetris.Tests
                 Assert.That(colliders.Length, Is.EqualTo(4));
                 foreach (var collider in colliders)
                 {
-                    Assert.That(collider.isTrigger, Is.False);
+                    Assert.That(collider.isTrigger, Is.True);
                     Assert.That(collider.sharedMaterial, Is.Not.Null);
                     Assert.That(collider.sharedMaterial.friction, Is.EqualTo(0f));
                 }
@@ -396,7 +396,7 @@ namespace BlockEscape.Tetris.Tests
                 var crushed = false;
                 piece.PlayerCrushed += () => crushed = true;
 
-                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.False);
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.True);
                 Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin + Vector2Int.down));
                 Assert.That(crushed, Is.True);
             }
@@ -500,10 +500,10 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
-        public void ActiveTetromino_DownStepReleasesRisingPlayerOnSideContact()
+        public void ActiveTetromino_DownStepDeflectsSideContactDownWithoutMovingSideways()
         {
             var boardObject = new GameObject("Board");
-            var pieceObject = new GameObject("Active Side Release Test Piece");
+            var pieceObject = new GameObject("Active Side Deflect Test Piece");
             var player = new GameObject("Player Side Probe");
             try
             {
@@ -516,11 +516,11 @@ namespace BlockEscape.Tetris.Tests
                 board.Initialize(config);
 
                 player.layer = LayerMask.NameToLayer("Player");
-                player.transform.position = new Vector3(0.86f, 2.5f, 0f);
+                var startPlayerPosition = new Vector3(0.86f, 2.5f, 0f);
+                player.transform.position = startPlayerPosition;
                 var body = player.AddComponent<Rigidbody2D>();
                 body.linearVelocity = new Vector2(0f, 6f);
-                var playerCollider = player.AddComponent<CapsuleCollider2D>();
-                playerCollider.size = new Vector2(0.72f, 1.45f);
+                player.AddComponent<CapsuleCollider2D>().size = new Vector2(0.72f, 1.45f);
 
                 var piece = pieceObject.AddComponent<ActiveTetromino>();
                 var startOrigin = new Vector2Int(1, 3);
@@ -532,9 +532,8 @@ namespace BlockEscape.Tetris.Tests
                 Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.True);
                 Physics2D.SyncTransforms();
                 Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin + Vector2Int.down));
-                Assert.That(body.linearVelocity.y, Is.GreaterThanOrEqualTo(0f));
-                var blockLeft = board.WorldForCell(new Vector2Int(1, 2)).x - 0.47f;
-                Assert.That(playerCollider.bounds.max.x, Is.LessThanOrEqualTo(blockLeft + 0.04f));
+                Assert.That(body.linearVelocity.y, Is.LessThan(0f));
+                Assert.That(body.position.x, Is.EqualTo(startPlayerPosition.x).Within(0.001f));
                 Assert.That(crushed, Is.False);
             }
             finally

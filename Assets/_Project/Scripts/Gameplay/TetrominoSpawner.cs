@@ -28,6 +28,7 @@ namespace BlockEscape.Tetris
         public int Seed { get; private set; }
         public int PiecesSpawned { get; private set; }
         public TetrominoKind NextKind => _nextKind;
+        public BlockBoard Board => _board;
         public float CurrentFallSpeed => _currentFallSpeed;
         public float FallSpeedMultiplier => _fallSpeedMultiplier;
 
@@ -189,14 +190,24 @@ namespace BlockEscape.Events
     internal enum DynamicEventKind
     {
         None,
-        BlockOverdrive
+        BlockOverdrive,
+        MeteorShower
     }
 
-        [CreateAssetMenu(menuName = "Block Escape/Dynamic Event Config", fileName = "DynamicEventConfig")]
+    [CreateAssetMenu(menuName = "Block Escape/Dynamic Event Config", fileName = "DynamicEventConfig")]
     internal sealed class DynamicEventConfig : ScriptableObject
     {
         [Min(0.1f)] public float overdriveFallSpeedMultiplier = 1.6f;
         [Min(1)] public int overdrivePieceCount = 3;
+        [Range(0f, 1f)] public float meteorEventChance = 0.5f;
+        [Min(1)] public int meteorCount = 3;
+        [Min(0.05f)] public float meteorWarningSeconds = 0.45f;
+        [Min(0.05f)] public float meteorIntervalSeconds = 0.35f;
+        [Min(0.1f)] public float meteorFallSpeed = 6.5f;
+        [Min(0.05f)] public float meteorExplosionSeconds = 0.3f;
+        [Min(0.1f)] public float meteorStartHeight = 1.5f;
+        [Min(0)] public int meteorDestroyRadiusCells = 2;
+        [Min(0f)] public float meteorBlockFlashSeconds = 0.5f;
         [Min(0f)] public float phase2MinIntervalSeconds = 4f;
         [Min(0f)] public float phase2MaxIntervalSeconds = 6f;
         [Min(0f)] public float phase3MinIntervalSeconds = 6f;
@@ -208,6 +219,15 @@ namespace BlockEscape.Events
         {
             overdriveFallSpeedMultiplier = Mathf.Max(0.1f, overdriveFallSpeedMultiplier);
             overdrivePieceCount = Mathf.Max(1, overdrivePieceCount);
+            meteorEventChance = Mathf.Clamp01(meteorEventChance);
+            meteorCount = Mathf.Max(1, meteorCount);
+            meteorWarningSeconds = Mathf.Max(0.05f, meteorWarningSeconds);
+            meteorIntervalSeconds = Mathf.Max(0.05f, meteorIntervalSeconds);
+            meteorFallSpeed = Mathf.Max(0.1f, meteorFallSpeed);
+            meteorExplosionSeconds = Mathf.Max(0.05f, meteorExplosionSeconds);
+            meteorStartHeight = Mathf.Max(0.1f, meteorStartHeight);
+            meteorDestroyRadiusCells = Mathf.Max(0, meteorDestroyRadiusCells);
+            meteorBlockFlashSeconds = Mathf.Max(0f, meteorBlockFlashSeconds);
             NormalizeRange(ref phase2MinIntervalSeconds, ref phase2MaxIntervalSeconds);
             NormalizeRange(ref phase3MinIntervalSeconds, ref phase3MaxIntervalSeconds);
             NormalizeRange(ref phase4MinIntervalSeconds, ref phase4MaxIntervalSeconds);
@@ -225,11 +245,15 @@ namespace BlockEscape.Events
         [SerializeField] private DynamicEventConfig _config;
 
         private BlockEscape.Tetris.TetrominoSpawner _spawner;
+        private BlockEscape.Tetris.BlockBoard _board;
         private System.Random _random;
+        private Coroutine _meteorRoutine;
+        private Transform _meteorRoot;
         private float _timer;
         private int _phase = 1;
         private int _remainingOverdrivePieces;
         private bool _running;
+        private bool _hasStartedEvent;
 
         public event System.Action<string> StatusChanged;
 
@@ -253,6 +277,7 @@ namespace BlockEscape.Events
             _config.Sanitize();
             _random = new System.Random(seed ^ 0x6d2b79f5);
             BindSpawner(spawner);
+            _board = spawner != null ? spawner.Board : null;
             ResetDirector(seed);
         }
 
@@ -260,6 +285,7 @@ namespace BlockEscape.Events
         {
             StopActiveEvent();
             _random = new System.Random(seed ^ 0x6d2b79f5);
+            _hasStartedEvent = false;
             _timer = GetNextIntervalForPhase(_phase, _config, _random);
         }
 
@@ -325,7 +351,16 @@ namespace BlockEscape.Events
 
             _timer -= deltaTime;
             if (_timer <= 0f)
+                StartRandomEvent();
+        }
+
+        private void StartRandomEvent()
+        {
+            if (_board != null && (!_hasStartedEvent || _random.NextDouble() < _config.meteorEventChance))
+                StartMeteorShower();
+            else
                 StartOverdrive();
+            _hasStartedEvent = true;
         }
 
         private void StartOverdrive()
@@ -334,6 +369,151 @@ namespace BlockEscape.Events
             _remainingOverdrivePieces = _config.overdrivePieceCount;
             _spawner.SetFallSpeedMultiplier(_config.overdriveFallSpeedMultiplier);
             StatusChanged?.Invoke($"EVENT: OVERDRIVE x{_config.overdriveFallSpeedMultiplier:0.0}");
+        }
+
+        private void StartMeteorShower()
+        {
+            ActiveEvent = DynamicEventKind.MeteorShower;
+            _meteorRoutine = StartCoroutine(MeteorShowerRoutine());
+            StatusChanged?.Invoke("EVENT: METEOR SHOWER");
+        }
+
+        private IEnumerator MeteorShowerRoutine()
+        {
+            for (var i = 0; i < _config.meteorCount; i++)
+            {
+                yield return SpawnMeteorWarningAndProjectile(i + 1);
+                yield return new WaitForSeconds(_config.meteorIntervalSeconds);
+            }
+
+            var travelSeconds = (_board != null ? _board.Width + _board.Height + _config.meteorStartHeight + 2f : 2f) / _config.meteorFallSpeed;
+            yield return new WaitForSeconds(travelSeconds);
+
+            _meteorRoutine = null;
+            ActiveEvent = DynamicEventKind.None;
+            _timer = GetNextIntervalForPhase(_phase, _config, _random);
+            StatusChanged?.Invoke("EVENT: METEOR END");
+        }
+
+        private IEnumerator SpawnMeteorWarningAndProjectile(int index)
+        {
+            if (_board == null)
+                yield break;
+
+            var bottom = _board.transform.position.y;
+            var left = _board.transform.position.x;
+            var right = left + _board.Width;
+            const float edgeInset = 0.65f;
+            const float targetInset = 1.0f;
+            var startFromLeft = _random.Next(0, 2) == 0;
+            var spawnX = startFromLeft ? left + edgeInset : right - edgeInset;
+            var targetX = Mathf.Lerp(left + targetInset, right - targetInset, (float)_random.NextDouble());
+            var minimumTravelX = _board.Width * 0.35f;
+            if (Mathf.Abs(targetX - spawnX) < minimumTravelX)
+            {
+                targetX = startFromLeft
+                    ? Mathf.Min(right - targetInset, spawnX + minimumTravelX + (float)_random.NextDouble() * _board.Width * 0.35f)
+                    : Mathf.Max(left + targetInset, spawnX - minimumTravelX - (float)_random.NextDouble() * _board.Width * 0.35f);
+            }
+            var stackImpactY = GetMeteorImpactY(bottom);
+            var spawnMinY = Mathf.Max(bottom + _board.Height * 0.5f, stackImpactY + 3f);
+            var spawnMaxY = bottom + _board.Height * 0.95f;
+            if (spawnMinY > spawnMaxY)
+                spawnMinY = spawnMaxY;
+            var start = new Vector2(
+                spawnX,
+                Mathf.Lerp(spawnMinY, spawnMaxY, (float)_random.NextDouble()));
+            var despawnY = bottom - 2f;
+            var end = new Vector2(
+                targetX,
+                bottom - 0.35f);
+            var warningEnd = ExtendMeteorPathToY(start, end, despawnY);
+            var root = GetMeteorRoot();
+            var path = warningEnd - start;
+            var pathLength = Mathf.Max(0.1f, path.magnitude);
+
+            var warning = BlockEscape.Tetris.RuntimeVisuals.CreateQuad(
+                $"Meteor Warning {index}",
+                root,
+                (start + warningEnd) * 0.5f,
+                new Vector2(0.14f, pathLength),
+                new Color(1f, 0.15f, 0.05f, 0.55f),
+                18);
+            warning.transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(path.y, path.x) * Mathf.Rad2Deg - 90f);
+
+            StatusChanged?.Invoke($"EVENT: METEOR {index}/{_config.meteorCount}");
+            yield return new WaitForSeconds(_config.meteorWarningSeconds);
+            if (warning != null)
+                Destroy(warning);
+
+            if (_board == null)
+                yield break;
+
+            SpawnMeteorProjectile(start, end, despawnY);
+        }
+
+        private float GetMeteorImpactY(float boardBottom)
+        {
+            var highestRow = _board != null && _board.Model != null ? _board.Model.HighestOccupiedRow() : -1;
+            if (highestRow < 0)
+                return boardBottom + 0.4f;
+
+            var highestBlockY = _board.WorldForCell(new Vector2Int(_board.Width / 2, highestRow)).y;
+            return Mathf.Clamp(highestBlockY + 0.25f, boardBottom + 0.4f, boardBottom + _board.Height - 0.5f);
+        }
+
+        private void SpawnMeteorProjectile(Vector2 start, Vector2 end, float despawnY)
+        {
+            var meteor = new GameObject("Meteor");
+            meteor.transform.SetParent(GetMeteorRoot(), false);
+            meteor.transform.position = start;
+            meteor.transform.localScale = new Vector3(0.72f, 0.72f, 1f);
+
+            var renderer = meteor.AddComponent<SpriteRenderer>();
+            renderer.sprite = BlockEscape.Tetris.RuntimeVisuals.Square;
+            renderer.color = new Color(1f, 0.38f, 0.05f);
+            renderer.sortingOrder = 25;
+
+            var collider = meteor.AddComponent<CircleCollider2D>();
+            collider.radius = 0.42f;
+            collider.isTrigger = true;
+
+            var body = meteor.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+            body.freezeRotation = true;
+
+            var projectile = meteor.AddComponent<MeteorProjectile>();
+            projectile.Initialize(
+                _config.meteorFallSpeed,
+                end,
+                despawnY,
+                _config.meteorExplosionSeconds,
+                _board,
+                _config.meteorDestroyRadiusCells,
+                _config.meteorBlockFlashSeconds);
+        }
+
+        private static Vector2 ExtendMeteorPathToY(Vector2 start, Vector2 target, float y)
+        {
+            var direction = target - start;
+            if (direction.sqrMagnitude <= 0.01f || direction.y >= -0.01f)
+                return target;
+
+            direction.Normalize();
+            var distance = (y - start.y) / direction.y;
+            return start + direction * Mathf.Max(0f, distance);
+        }
+
+        private Transform GetMeteorRoot()
+        {
+            if (_meteorRoot != null)
+                return _meteorRoot;
+
+            var root = new GameObject("Meteor Events");
+            root.transform.SetParent(_board != null ? _board.transform : transform, false);
+            _meteorRoot = root.transform;
+            return _meteorRoot;
         }
 
         private void OnPieceSpawned(BlockEscape.Tetris.TetrominoKind kind)
@@ -352,6 +532,12 @@ namespace BlockEscape.Events
 
         private void StopActiveEvent()
         {
+            if (_meteorRoutine != null)
+                StopCoroutine(_meteorRoutine);
+            _meteorRoutine = null;
+            if (_meteorRoot != null)
+                Destroy(_meteorRoot.gameObject);
+            _meteorRoot = null;
             if (_spawner != null)
                 _spawner.SetFallSpeedMultiplier(1f);
             ActiveEvent = DynamicEventKind.None;
@@ -371,6 +557,135 @@ namespace BlockEscape.Events
             if (_spawner != null)
                 _spawner.PieceSpawned -= OnPieceSpawned;
             _spawner = null;
+            _board = null;
+        }
+    }
+
+    [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
+    internal sealed class MeteorProjectile : MonoBehaviour
+    {
+        private float _speed = 11f;
+        private Vector2 _direction = Vector2.down;
+        private float _despawnY;
+        private float _explosionSeconds = 0.3f;
+        private BlockEscape.Tetris.BlockBoard _board;
+        private int _destroyRadiusCells = 3;
+        private float _blockFlashSeconds = 0.5f;
+        private bool _finished;
+
+        public void Initialize(
+            float speed,
+            Vector2 end,
+            float despawnY,
+            float explosionSeconds,
+            BlockEscape.Tetris.BlockBoard board,
+            int destroyRadiusCells,
+            float blockFlashSeconds)
+        {
+            _speed = Mathf.Max(0.1f, speed);
+            var path = end - (Vector2)transform.position;
+            _direction = path.sqrMagnitude > 0.01f ? path.normalized : Vector2.down;
+            _despawnY = despawnY;
+            _explosionSeconds = Mathf.Max(0.05f, explosionSeconds);
+            _board = board;
+            _destroyRadiusCells = Mathf.Max(0, destroyRadiusCells);
+            _blockFlashSeconds = Mathf.Max(0f, blockFlashSeconds);
+            transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(_direction.y, _direction.x) * Mathf.Rad2Deg - 90f);
+        }
+
+        private void Update()
+        {
+            if (_finished)
+                return;
+
+            var step = _speed * Time.deltaTime;
+            transform.position += (Vector3)(_direction * step);
+            CheckOverlapHit();
+            if (!_finished && transform.position.y <= _despawnY)
+                Destroy(gameObject);
+        }
+
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            HandleHit(other);
+        }
+
+        private void CheckOverlapHit()
+        {
+            var mask = LayerMask.GetMask("Player", "World", "FallingBlock");
+            if (mask == 0)
+                return;
+
+            var hits = Physics2D.OverlapCircleAll(transform.position, 0.42f, mask);
+            foreach (var hit in hits)
+            {
+                if (HandleHit(hit))
+                    return;
+            }
+        }
+
+        private bool HandleHit(Collider2D other)
+        {
+            if (_finished || other == null || !other.enabled || other.isTrigger)
+                return false;
+
+            var otherLayer = other.gameObject.layer;
+            if (otherLayer == LayerMask.NameToLayer("Player"))
+            {
+                var damageable = other.GetComponentInParent<IDamageable>();
+                damageable?.TakeDamage(new DamageInfo(1, Vector2.down * 4f, gameObject, DamageType.Hazard));
+                Explode();
+                return true;
+            }
+
+            if (otherLayer == LayerMask.NameToLayer("World") || otherLayer == LayerMask.NameToLayer("FallingBlock"))
+            {
+                if (_board != null && other.GetComponent<BlockEscape.Tetris.BlockCellView>() != null)
+                    _board.DestroyCellsInRadius(transform.position, _destroyRadiusCells, _blockFlashSeconds);
+                Explode();
+                return true;
+            }
+
+            return false;
+        }
+
+        private void Explode()
+        {
+            if (_finished)
+                return;
+
+            _finished = true;
+            var collider = GetComponent<Collider2D>();
+            if (collider != null)
+                collider.enabled = false;
+            StartCoroutine(ExplosionRoutine());
+        }
+
+        private IEnumerator ExplosionRoutine()
+        {
+            var renderer = GetComponent<SpriteRenderer>();
+            if (renderer != null)
+            {
+                renderer.color = new Color(1f, 0.75f, 0.1f, 0.95f);
+                renderer.sortingOrder = 26;
+            }
+
+            var startScale = Vector3.one * 0.75f;
+            var endScale = Vector3.one * 1.5f;
+            for (var elapsed = 0f; elapsed < _explosionSeconds; elapsed += Time.deltaTime)
+            {
+                var t = Mathf.Clamp01(elapsed / _explosionSeconds);
+                transform.localScale = Vector3.Lerp(startScale, endScale, t);
+                if (renderer != null)
+                {
+                    var color = renderer.color;
+                    color.a = 1f - t;
+                    renderer.color = color;
+                }
+                yield return null;
+            }
+
+            Destroy(gameObject);
         }
     }
 }

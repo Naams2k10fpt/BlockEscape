@@ -34,7 +34,8 @@ namespace BlockEscape.Tetris
         private const float HorizontalRepeatInterval = 0.07f;
         private const float SoftDropRepeatInterval = 0.06f;
         private const float GhostAlpha = 0.10f;
-        private const float CellColliderSize = 0.94f;
+        private const float CellColliderSize = 1.08f;
+        private const float CrushProbeSize = 0.86f;
         private const float PlayerBounceVelocity = -8f;
         private const float PlayerBounceSkin = 0.03f;
 
@@ -199,7 +200,7 @@ namespace BlockEscape.Tetris
 
                 var collider = cell.AddComponent<BoxCollider2D>();
                 collider.size = new Vector2(CellColliderSize, CellColliderSize);
-                collider.isTrigger = false;
+                collider.isTrigger = true;
                 collider.sharedMaterial = PhysicsMaterialLibrary.Frictionless;
             }
         }
@@ -233,19 +234,20 @@ namespace BlockEscape.Tetris
             foreach (var localCell in _localCells)
             {
                 var center = rootPosition + localCell;
-                var hits = Physics2D.OverlapBoxAll(center, new Vector2(CellColliderSize, CellColliderSize), 0f, playerMask);
+                var hits = Physics2D.OverlapBoxAll(center, new Vector2(CrushProbeSize, CrushProbeSize), 0f, playerMask);
                 foreach (var hit in hits)
                 {
                     if (hit == null || !hit.enabled || hit.isTrigger)
                         continue;
-                    if (PlayerCrushEscape.ShouldCrush(
+                    if (PlayerCrushEscape.IsPinnedFromAbove(hit, center) ||
+                        PlayerCrushEscape.ShouldCrush(
                             hit,
                             center,
                             _board,
                             ignoreRisingPlayer: true,
                             _localCells,
                             _origin,
-                            new Vector2(CellColliderSize, CellColliderSize)))
+                            new Vector2(CrushProbeSize, CrushProbeSize)))
                         return true;
                 }
             }
@@ -364,32 +366,38 @@ namespace BlockEscape.Tetris
                     _board,
                     new Vector2(CellColliderSize, CellColliderSize),
                     ignoreRisingPlayer: true,
-                    out var shouldCrush,
-                    out var hasRisingPlayer))
+                    out _,
+                    out _,
+                    out _))
             {
-                if (offset.y < 0 && hasRisingPlayer)
+                if (offset.y < 0)
                 {
-                    PlayerCrushEscape.BounceRisingPlayersInCells(
+                    PlayerCrushEscape.TryEvaluateCellOverlap(
                         _localCells,
                         candidate,
                         _board,
-                        new Vector2(CellColliderSize, CellColliderSize),
-                        PlayerBounceVelocity,
-                        PlayerBounceSkin);
-                    ApplyMove(candidate, offset);
-                    return true;
-                }
+                        new Vector2(CrushProbeSize, CrushProbeSize),
+                        ignoreRisingPlayer: true,
+                        out var shouldCrush,
+                        out _,
+                        out _);
 
-                if (offset.y < 0 && shouldCrush)
-                {
-                    ApplyMove(candidate, offset);
-                    RaisePlayerCrush();
-                    return false;
-                }
+                    ApplyMove(candidate, offset, checkCrush: false);
+                    if (shouldCrush)
+                    {
+                        RaisePlayerCrush();
+                    }
+                    else
+                    {
+                        PlayerCrushEscape.DeflectOverlappedPlayersDownInCells(
+                            _localCells,
+                            _origin,
+                            _board,
+                            new Vector2(CellColliderSize, CellColliderSize),
+                            PlayerBounceVelocity,
+                            PlayerBounceSkin);
+                    }
 
-                if (offset.y < 0)
-                {
-                    ApplyMove(candidate, offset);
                     return true;
                 }
 
@@ -400,23 +408,16 @@ namespace BlockEscape.Tetris
             return true;
         }
 
-        private void ApplyMove(Vector2Int origin, Vector2Int offset)
+        private void ApplyMove(Vector2Int origin, Vector2Int offset, bool checkCrush = true)
         {
             _origin = origin;
             _rigidbody.position = _board.WorldForCell(_origin);
             _lockTimer = 0f;
             if (offset.y < 0)
-            {
                 _fallStepTimer = 0f;
-                PlayerCrushEscape.ReleaseSideClingingPlayersInCells(
-                    _localCells,
-                    _origin,
-                    _board,
-                    new Vector2(CellColliderSize, CellColliderSize),
-                    PlayerBounceSkin);
-            }
             UpdateGhostPiece();
-            CheckPlayerCrush();
+            if (checkCrush)
+                CheckPlayerCrush();
         }
 
         private void TryRotateClockwise()
@@ -437,6 +438,7 @@ namespace BlockEscape.Tetris
                         new Vector2(CellColliderSize, CellColliderSize),
                         ignoreRisingPlayer: true,
                         out _,
+                        out _,
                         out _))
                     continue;
 
@@ -455,30 +457,35 @@ namespace BlockEscape.Tetris
 
         private void OnCollisionEnter2D(Collision2D collision)
         {
-            BounceRisingPlayersAtCurrentCells();
-            CheckPlayerCrush();
+            ResolvePlayerCollisionAtCurrentCells();
         }
 
         private void OnCollisionStay2D(Collision2D collision)
         {
-            BounceRisingPlayersAtCurrentCells();
-            CheckPlayerCrush();
+            ResolvePlayerCollisionAtCurrentCells();
         }
 
-        private void BounceRisingPlayersAtCurrentCells()
+        private void OnTriggerEnter2D(Collider2D other)
         {
-            PlayerCrushEscape.BounceRisingPlayersInCells(
+            ResolvePlayerCollisionAtCurrentCells();
+        }
+
+        private void OnTriggerStay2D(Collider2D other)
+        {
+            ResolvePlayerCollisionAtCurrentCells();
+        }
+
+        private void ResolvePlayerCollisionAtCurrentCells()
+        {
+            if (CheckPlayerCrush())
+                return;
+
+            PlayerCrushEscape.DeflectOverlappedPlayersDownInCells(
                 _localCells,
                 _origin,
                 _board,
                 new Vector2(CellColliderSize, CellColliderSize),
                 PlayerBounceVelocity,
-                PlayerBounceSkin);
-            PlayerCrushEscape.ReleaseSideClingingPlayersInCells(
-                _localCells,
-                _origin,
-                _board,
-                new Vector2(CellColliderSize, CellColliderSize),
                 PlayerBounceSkin);
         }
 

@@ -616,13 +616,16 @@ namespace BlockEscape.Bootstrap
             var probeSize = new Vector2(
                 Mathf.Max(0.05f, bounds.size.x - 0.04f),
                 Mathf.Max(0.05f, bounds.size.y - 0.04f));
-            if (IsPlayerClearAt(bounds.center, probeSize, playerCollider))
+            if (IsPlayerClearAt(bounds.center, probeSize, playerCollider, includeFallingBlocks: false))
                 return;
 
             var boardOrigin = (Vector2)_board.transform.position;
             var minX = boardOrigin.x + probeSize.x * 0.5f;
             var maxX = boardOrigin.x + _board.Width - probeSize.x * 0.5f;
             var body = _player.GetComponent<Rigidbody2D>();
+            if (TryResolveLockedBlockSideOverlap(playerCollider, probeSize, body, minX, maxX))
+                return;
+
             var offsetsX = new[] { 0f, -1f, 1f, -2f, 2f, -3f, 3f };
 
             for (var step = 1; step <= RespawnProbeSteps; step++)
@@ -631,7 +634,7 @@ namespace BlockEscape.Bootstrap
                 foreach (var offsetX in offsetsX)
                 {
                     var candidate = new Vector2(Mathf.Clamp(bounds.center.x + offsetX, minX, maxX), y);
-                    if (!IsPlayerClearAt(candidate, probeSize, playerCollider))
+                    if (!IsPlayerClearAt(candidate, probeSize, playerCollider, includeFallingBlocks: false))
                         continue;
 
                     if (body != null)
@@ -661,9 +664,79 @@ namespace BlockEscape.Bootstrap
             Physics2D.SyncTransforms();
         }
 
-        private static bool IsPlayerClearAt(Vector2 center, Vector2 size, Collider2D playerCollider)
+        private bool TryResolveLockedBlockSideOverlap(
+            Collider2D playerCollider,
+            Vector2 probeSize,
+            Rigidbody2D body,
+            float minX,
+            float maxX)
         {
-            var blockingMask = LayerMask.GetMask("World", "FallingBlock");
+            var blockingMask = LayerMask.GetMask("World");
+            if (blockingMask == 0)
+                return false;
+
+            const float skin = 0.03f;
+            const float sideBias = 0.06f;
+            var playerBounds = playerCollider.bounds;
+            var hits = Physics2D.OverlapBoxAll(playerBounds.center, probeSize, 0f, blockingMask);
+            foreach (var hit in hits)
+            {
+                if (hit == null || !hit.enabled || hit.isTrigger || hit == playerCollider)
+                    continue;
+                if (hit.GetComponent<BlockCellView>() == null)
+                    continue;
+
+                var hitBounds = hit.bounds;
+                var overlapX = Mathf.Min(playerBounds.max.x, hitBounds.max.x) - Mathf.Max(playerBounds.min.x, hitBounds.min.x);
+                var overlapY = Mathf.Min(playerBounds.max.y, hitBounds.max.y) - Mathf.Max(playerBounds.min.y, hitBounds.min.y);
+                if (overlapX <= 0f || overlapY <= 0f || overlapX > overlapY + sideBias)
+                    continue;
+
+                var direction = playerBounds.center.x < hitBounds.center.x ? -1f : 1f;
+                for (var extra = 0; extra <= 3; extra++)
+                {
+                    var push = direction * (overlapX + skin + extra * 0.08f);
+                    var candidate = new Vector2(
+                        Mathf.Clamp(playerBounds.center.x + push, minX, maxX),
+                        playerBounds.center.y);
+                    if (!IsPlayerClearAt(candidate, probeSize, playerCollider, includeFallingBlocks: false))
+                        continue;
+
+                    MovePlayerToOverlapResolution(candidate, body, push);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void MovePlayerToOverlapResolution(Vector2 targetCenter, Rigidbody2D body, float horizontalPush)
+        {
+            if (body != null)
+            {
+                var velocity = body.linearVelocity;
+                if ((horizontalPush < 0f && velocity.x > 0f) || (horizontalPush > 0f && velocity.x < 0f))
+                    velocity.x = 0f;
+                body.linearVelocity = velocity;
+                body.position = targetCenter;
+            }
+            else if (_player != null)
+            {
+                _player.position = new Vector3(targetCenter.x, targetCenter.y, _player.position.z);
+            }
+
+            Physics2D.SyncTransforms();
+        }
+
+        private static bool IsPlayerClearAt(
+            Vector2 center,
+            Vector2 size,
+            Collider2D playerCollider,
+            bool includeFallingBlocks = true)
+        {
+            var blockingMask = includeFallingBlocks
+                ? LayerMask.GetMask("World", "FallingBlock")
+                : LayerMask.GetMask("World");
             if (blockingMask == 0)
                 return true;
 

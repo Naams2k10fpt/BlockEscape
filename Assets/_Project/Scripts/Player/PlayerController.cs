@@ -16,14 +16,19 @@ namespace BlockEscape.Player
         private float _moveInput;
         private float _lastGroundedTime = float.NegativeInfinity;
         private float _lastJumpPressedTime = float.NegativeInfinity;
+        private float _lastJumpStartedTime = float.NegativeInfinity;
         private bool _jumpReleasedThisFrame;
         private bool _wantsCrouch;
         private Animator _animator;
+
+        private const float BlockBounceJumpWindow = 0.35f;
+        private const float GroundedVerticalJitterLimit = 2f;
 
         public PlayerConfig Config => _config;
         public bool IsGrounded { get; private set; }
         public bool IsCrouching { get; private set; }
         public Vector2 Velocity => _body != null ? _body.linearVelocity : Vector2.zero;
+        public bool HasRecentJumpForBlockBounce => !IsGrounded && Time.time - _lastJumpStartedTime <= BlockBounceJumpWindow;
 
         private void Awake()
         {
@@ -55,6 +60,7 @@ namespace BlockEscape.Player
             _input = InputService.Current;
             _lastGroundedTime = float.NegativeInfinity;
             _lastJumpPressedTime = float.NegativeInfinity;
+            _lastJumpStartedTime = float.NegativeInfinity;
         }
 
         private void Update()
@@ -90,17 +96,23 @@ namespace BlockEscape.Player
 
             var velocity = _body.linearVelocity;
             velocity.x = _moveInput * _config.moveSpeed;
+            var consumeJump = ShouldConsumeJump();
 
-            if (ShouldConsumeJump())
+            if (consumeJump)
             {
                 velocity.y = _config.jumpVelocity;
                 _lastJumpPressedTime = float.NegativeInfinity;
+                _lastJumpStartedTime = Time.time;
                 _lastGroundedTime = float.NegativeInfinity;
                 IsGrounded = false;
             }
             else if (_jumpReleasedThisFrame && velocity.y > 0f)
             {
                 velocity.y *= _config.variableJumpMultiplier;
+            }
+            else if (IsGrounded && Mathf.Abs(velocity.y) <= GroundedVerticalJitterLimit)
+            {
+                velocity.y = 0f;
             }
 
             if (velocity.y < -_config.maxFallSpeed)
