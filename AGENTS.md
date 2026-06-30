@@ -48,6 +48,7 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 - `InputService` owns `Tetris`, `Player`, and `System` maps.
 - `GameSession`/`ScoreService` live in `BlockEscape.Core` and track
   Playing/Paused/GameOver, survival time, phase, row score, total score, and run result.
+- `GameSession.AddBonusScore(points)` is used for non-row rewards such as drone destruction.
 - `TetrisDemoBootstrap` is the integration point for session state, time scale,
   input enable/disable, HUD, Pause Menu, and Game Over summary.
 - Player jump/gravity are configured through `PlayerConfig`; current
@@ -73,6 +74,12 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   and let the block continue falling; do not trigger Game Over from upward contact.
 - If the player is rising against the side of a falling block, release sideways
   instead of dragging the player downward.
+- Phase 2+ enables one runtime drone in `TetrisDemo`; it patrols the upper arena,
+  detects, telegraphs, dashes, deals `Enemy` damage, and respawns 12 seconds
+  after a falling block destroys it.
+- Phase 2+ also enables the runtime dynamic event director. The first shipped
+  event is Block Overdrive, which multiplies fall speed for the next 3 spawned
+  tetrominoes and then restores the current phase speed.
 - Player/block/border runtime colliders use frictionless material to reduce wall cling.
 - `TetrisDemoBootstrap` clamps the player inside the arena as a safety net.
 

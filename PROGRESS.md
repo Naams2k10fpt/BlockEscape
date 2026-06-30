@@ -2,7 +2,7 @@
 
 - **Cập nhật lần cuối:** 29/06/2026
 - **Cột mốc hiện tại:** Player sandbox playable
-- **Tiến độ tổng thể ước tính:** 52%
+- **Tiến độ tổng thể ước tính:** 56%
 - **Unity bắt buộc:** `6000.4.4f1`
 - **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity` cho Tetris; `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` cho player sandbox
 
@@ -103,11 +103,11 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Player Controller | 79% | Có movement, jump cao hơn, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
 | Block tương tác với player | 49% | Falling block pre-check vị trí kế tiếp; block vẫn rơi nếu player còn đường thoát; chạm cạnh block đang rơi được tách ngang; crush trừ tim, tìm điểm respawn trống và cho bất tử 3 giây | NguyenNgu2005 |
 | Máu và sát thương | 63% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, invulnerability public API, crush damage và HP 0 kết thúc run trong TetrisDemo; còn tích hợp hazard/AI | NguyenNgu2005 |
-| Game Session và scoring | 55% | Có `GameSession`, `ScoreService`, survival score, row score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
-| Drone AI | 0% | Chưa làm | Chưa phân công |
-| Dynamic Events | 0% | Chưa làm | Chưa phân công |
+| Game Session và scoring | 58% | Có `GameSession`, `ScoreService`, survival score, row score, bonus score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
+| Drone AI | 35% | Có runtime drone trong TetrisDemo từ phase 2, state patrol/detect/telegraph/dash/recover, Enemy damage, bị falling block phá và respawn | NguyenNgu2005 |
+| Dynamic Events | 20% | Có Event Director runtime, seed-based schedule và Block Overdrive 3 piece từ phase 2; chưa có Cutter Sweep | NguyenNgu2005 |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
-| HUD và game flow | 57% | HUD/Pause/Game Over đọc cùng session score, hiển thị 3 tim, phase, respawn crush và thời gian sống sót | NguyenNgu2005 |
+| HUD và game flow | 59% | HUD/Pause/Game Over đọc cùng session score, hiển thị 3 tim, phase, drone/event state, respawn crush và thời gian sống sót | NguyenNgu2005 |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
 | Test và Windows build | 39% | Build .NET runtime/test/editor xanh; có thêm test gravity, health reset, session phase và phase speed config; cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
@@ -210,6 +210,21 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] TetrisDemo dùng crush damage trừ tim, respawn nếu còn tim và lắng nghe `PlayerHealth.Died` để HP 0 mở Game Over.
 - [x] iFrame chặn damage liên tục và trả alpha SpriteRenderer về 1 khi kết thúc/disable/death.
 - [x] Thêm EditMode test cho damage, knockback, iFrame và death chỉ phát một lần.
+
+### Drone AI
+
+- [x] Thêm runtime drone cho `TetrisDemo`, tự tạo khi Play, không cần sửa scene thủ công.
+- [x] Drone chỉ hoạt động từ phase 2, patrol ở nửa trên arena và dừng khi Pause/GameOver.
+- [x] Drone có state `Disabled`, `Patrol`, `Detect`, `Telegraph`, `Dash`, `Recover`.
+- [x] Dash gây `Enemy` damage và knockback qua contract `IDamageable`.
+- [x] Falling block chạm drone sẽ phá drone, cộng 300 điểm và respawn sau 12 giây.
+
+### Dynamic Events
+
+- [x] Thêm runtime Event Director làm nơi duy nhất lập lịch event trong `TetrisDemo`.
+- [x] Block Overdrive chạy từ phase 2, tăng tốc 3 tetromino tiếp theo rồi trả tốc độ phase hiện tại.
+- [x] Event schedule dùng seed của spawner để tái hiện interval theo phase.
+- [ ] Cutter Sweep chưa triển khai.
 
 ## 6. Kiến trúc và contract dùng chung
 
@@ -548,7 +563,7 @@ Nghiệm thu:
 - [x] Timer/score không tăng khi Pause hoặc GameOver.
 - [x] HP 0 hoặc overflow đều tạo `RunResult` và GameOver.
 - [x] Phase đổi đúng mốc và cập nhật config của spawner.
-- [ ] Phase cập nhật config/event director khi AI/Event được triển khai.
+- [x] Phase cập nhật drone và event director khi AI/Event được triển khai.
 
 ### AI-01 — Drone AI
 
@@ -575,10 +590,10 @@ Thông số ban đầu:
 
 Nghiệm thu:
 
-- [ ] Mỗi state có entry/exit rõ ràng, không xử lý tất cả bằng nhiều bool rời rạc.
-- [ ] Warning cho người chơi đủ thời gian phản ứng.
-- [ ] Drone dừng hoàn toàn khi Pause/GameOver.
-- [ ] Không có hơn một drone.
+- [x] Mỗi state có entry/exit rõ ràng, không xử lý tất cả bằng nhiều bool rời rạc.
+- [x] Warning cho người chơi đủ thời gian phản ứng.
+- [x] Drone dừng hoàn toàn khi Pause/GameOver.
+- [x] Không có hơn một drone.
 
 ### EVENT-01 — Event Director, Cutter và Overdrive
 
@@ -605,9 +620,9 @@ Event không chạy khi row clear, Countdown, Pause, GameOver hoặc tutorial.
 
 Nghiệm thu:
 
-- [ ] Hai event không chạy đồng thời.
-- [ ] Seed cố định tái hiện được thứ tự event.
-- [ ] Không làm hỏng next-piece preview hoặc difficulty speed.
+- [x] Hai event không chạy đồng thời.
+- [x] Seed cố định tái hiện được thứ tự event.
+- [x] Không làm hỏng next-piece preview hoặc difficulty speed.
 
 ### ITEM-01 — Pickup và power-up
 
@@ -839,6 +854,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 30/06/2026 | Respawn hover + gravity 5 | Tăng gravity lên 5 và giữ player lơ lửng 0.75 giây sau respawn crush | Respawn dễ nhìn hơn, tránh vừa hồi sinh đã rơi ngay vào cụm block |
 | 30/06/2026 | Side climb release + jump tune | Tăng `jumpVelocity` lên 12.5 và tách player ngang khi leo/chạm cạnh falling block | Tránh bị block đang rơi kéo xuống, nhảy cao hơn để leo block dễ hơn |
 | 30/06/2026 | Player gravity tune | Giữ `jumpVelocity = 12.5`, hạ `gravityScale` xuống 2 | Player rơi nhẹ hơn theo yêu cầu playtest |
+| 30/06/2026 | Drone AI + Event Director | Thêm runtime drone phase 2, Enemy damage, falling block phá drone +300 và Block Overdrive event | AI/Event có lát cắt playable đầu tiên trong TetrisDemo |
 
 ## 13. Cách cập nhật file này
 

@@ -1,5 +1,7 @@
 using System.Collections;
+using BlockEscape.AI;
 using BlockEscape.Core;
+using BlockEscape.Events;
 using BlockEscape.Player;
 using BlockEscape.Tetris;
 using BlockEscape.UI;
@@ -38,6 +40,9 @@ namespace BlockEscape.Bootstrap
         private Transform _player;
         private PlayerHealth _playerHealth;
         private Coroutine _respawnHoverRoutine;
+        private DroneController _drone;
+        private EventDirector _eventDirector;
+        private string _lastDynamicEvent = "NONE";
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
         private const float CrushRespawnHeightAboveHighestBlock = 5f;
@@ -78,9 +83,11 @@ namespace BlockEscape.Bootstrap
                 }
             }
             InitializeSystems();
+            InitializeAiAndEvents();
             _session.PhaseChanged += OnSessionPhaseChanged;
             _session.StartRun(_config.phaseDurationSeconds);
             ApplySessionPhase();
+            SetAuxiliaryGameplayRunning(true);
             if (_statusText != null)
             {
                 _statusText.text = "RUNNING";
@@ -127,6 +134,7 @@ namespace BlockEscape.Bootstrap
             }
             if (_spawner != null)
                 _spawner.PlayerCrushed -= OnPlayerCrushed;
+            UnbindAiAndEvents();
             _session.PhaseChanged -= OnSessionPhaseChanged;
             UnbindPlayerHealth();
             StopRespawnHover(restoreGravity: true);
@@ -161,6 +169,93 @@ namespace BlockEscape.Bootstrap
             _spawner.NextPieceChanged += OnNextPieceChanged;
             _spawner.PlayerCrushed += OnPlayerCrushed;
             _spawner.Initialize(_board, _config, _inputService);
+        }
+
+        private void InitializeAiAndEvents()
+        {
+            if (_board == null)
+                return;
+
+            if (_drone == null)
+                _drone = CreateRuntimeDrone();
+            if (_drone != null)
+            {
+                var droneConfig = Resources.Load<DroneConfig>("DroneConfig");
+                _drone.Initialize(droneConfig, _player, _board);
+                _drone.DestroyedByFallingBlock += OnDroneDestroyedByFallingBlock;
+            }
+
+            if (_eventDirector == null)
+            {
+                var eventObject = new GameObject("Dynamic Event Director");
+                eventObject.transform.SetParent(transform, false);
+                _eventDirector = eventObject.AddComponent<EventDirector>();
+            }
+
+            var eventConfig = Resources.Load<DynamicEventConfig>("DynamicEventConfig");
+            _eventDirector.Initialize(eventConfig, _spawner, _spawner != null ? _spawner.Seed : 0);
+            _eventDirector.StatusChanged += OnDynamicEventStatusChanged;
+            _lastDynamicEvent = "NONE";
+        }
+
+        private void ResetAiAndEvents()
+        {
+            _lastDynamicEvent = "NONE";
+            if (_drone != null)
+            {
+                _drone.SetPhase(_session.Phase);
+                _drone.ResetDrone();
+            }
+
+            if (_eventDirector != null)
+            {
+                _eventDirector.SetPhase(_session.Phase);
+                _eventDirector.ResetDirector(_spawner != null ? _spawner.Seed : 0);
+            }
+        }
+
+        private void UnbindAiAndEvents()
+        {
+            if (_drone != null)
+                _drone.DestroyedByFallingBlock -= OnDroneDestroyedByFallingBlock;
+            if (_eventDirector != null)
+                _eventDirector.StatusChanged -= OnDynamicEventStatusChanged;
+        }
+
+        private void SetAuxiliaryGameplayRunning(bool running)
+        {
+            if (_drone != null)
+                _drone.SetRunning(running);
+            if (_eventDirector != null)
+                _eventDirector.SetRunning(running);
+        }
+
+        private DroneController CreateRuntimeDrone()
+        {
+            var droneObject = new GameObject("Drone");
+            droneObject.transform.SetParent(transform, false);
+            var enemyLayer = LayerMask.NameToLayer("Enemy");
+            if (enemyLayer >= 0)
+                droneObject.layer = enemyLayer;
+
+            var body = droneObject.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+            body.freezeRotation = true;
+
+            var collider = droneObject.AddComponent<CircleCollider2D>();
+            collider.radius = 0.45f;
+            collider.isTrigger = true;
+
+            var visual = new GameObject("Visual");
+            visual.transform.SetParent(droneObject.transform, false);
+            visual.transform.localScale = new Vector3(0.85f, 0.85f, 1f);
+            var renderer = visual.AddComponent<SpriteRenderer>();
+            renderer.sprite = RuntimeVisuals.Square;
+            renderer.color = new Color(0.75f, 0.25f, 1f);
+            renderer.sortingOrder = 24;
+
+            return droneObject.AddComponent<DroneController>();
         }
 
         private void RecoverSceneReferences()
@@ -430,6 +525,8 @@ namespace BlockEscape.Bootstrap
                 $"SPAWNED    {_spawner.PiecesSpawned}\n" +
                 $"LAST PIECE {_lastSpawned}\n" +
                 $"LOCKED     {_board.Model.OccupiedCount} CELLS\n" +
+                $"DRONE      {FormatDroneState()}\n" +
+                $"EVENT      {_lastDynamicEvent}\n" +
                 $"ROWS       {_session.RowsCleared}\n" +
                 $"SCORE      {_session.Score}";
         }
@@ -452,6 +549,8 @@ namespace BlockEscape.Bootstrap
                 _playerHealth.ResetHealth();
             ClampPlayerToArena();
             _spawner.Restart();
+            ResetAiAndEvents();
+            SetAuxiliaryGameplayRunning(true);
             _statusText.text = "RUNNING";
             _statusText.color = Color.white;
         }
@@ -542,6 +641,7 @@ namespace BlockEscape.Bootstrap
         {
             _paused = true;
             _session.Pause();
+            SetAuxiliaryGameplayRunning(false);
             Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
             if (_pauseMenu != null)
@@ -560,6 +660,7 @@ namespace BlockEscape.Bootstrap
         {
             _paused = false;
             _session.Resume();
+            SetAuxiliaryGameplayRunning(true);
             Time.timeScale = 1f;
             if (_inputService != null)
                 _inputService.SetGameplayEnabled(_board != null && !_board.IsOverflowed);
@@ -577,6 +678,7 @@ namespace BlockEscape.Bootstrap
         {
             _paused = true;
             _session.Pause();
+            SetAuxiliaryGameplayRunning(false);
             Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
             if (_statusText != null)
@@ -623,6 +725,26 @@ namespace BlockEscape.Bootstrap
             _statusText.color = new Color(0.35f, 1f, 0.55f);
             if (points > 0)
                 _statusText.text += $" +{points}";
+        }
+
+        private void OnDroneDestroyedByFallingBlock(DroneController drone)
+        {
+            var points = _session.AddBonusScore(drone != null ? drone.DestroyScore : 300);
+            if (_statusText != null && !_paused && !_gameOver)
+            {
+                _statusText.text = points > 0 ? $"DRONE DESTROYED +{points}" : "DRONE DESTROYED";
+                _statusText.color = new Color(0.75f, 0.35f, 1f);
+            }
+        }
+
+        private void OnDynamicEventStatusChanged(string message)
+        {
+            _lastDynamicEvent = string.IsNullOrEmpty(message) ? "NONE" : message;
+            if (_statusText != null && !_paused && !_gameOver)
+            {
+                _statusText.text = _lastDynamicEvent;
+                _statusText.color = new Color(1f, 0.45f, 0.2f);
+            }
         }
 
         private void OnOverflowChanged(bool dangerous, float normalized)
@@ -685,6 +807,7 @@ namespace BlockEscape.Bootstrap
             _gameOver = true;
             _paused = false;
             StopRespawnHover(restoreGravity: true);
+            SetAuxiliaryGameplayRunning(false);
             Time.timeScale = 0f;
             if (_inputService != null) _inputService.SetGameplayEnabled(false);
             if (_spawner != null) _spawner.Stop();
@@ -886,6 +1009,17 @@ namespace BlockEscape.Bootstrap
         {
             if (_spawner != null)
                 _spawner.ApplyDifficultyPhase(_session.Phase);
+            if (_drone != null)
+                _drone.SetPhase(_session.Phase);
+            if (_eventDirector != null)
+                _eventDirector.SetPhase(_session.Phase);
+        }
+
+        private string FormatDroneState()
+        {
+            if (_drone == null)
+                return "---";
+            return _drone.State.ToString().ToUpperInvariant();
         }
 
         private void SetPlayer(Transform player)
@@ -1088,6 +1222,396 @@ namespace BlockEscape.Bootstrap
             var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
             config.name = "Runtime Tetris Defaults";
             return config;
+        }
+    }
+}
+
+namespace BlockEscape.AI
+{
+    internal enum DroneState
+    {
+        Disabled,
+        Patrol,
+        Detect,
+        Telegraph,
+        Dash,
+        Recover
+    }
+
+    [CreateAssetMenu(menuName = "Block Escape/Drone Config", fileName = "DroneConfig")]
+    internal sealed class DroneConfig : ScriptableObject
+    {
+        [Header("Patrol")]
+        [Min(0.1f)] public float patrolSpeed = 2.2f;
+        [Range(0.5f, 0.95f)] public float patrolHeightNormalized = 0.72f;
+        [Min(0.1f)] public float arenaSidePadding = 1f;
+
+        [Header("Attack")]
+        [Min(0.1f)] public float detectRange = 8f;
+        [Min(0f)] public float detectConfirmSeconds = 0.15f;
+        [Min(0f)] public float telegraphSeconds = 0.8f;
+        [Min(0.1f)] public float dashSpeed = 13f;
+        [Min(0.05f)] public float dashSeconds = 0.45f;
+        [Min(0f)] public float recoverSeconds = 1.5f;
+        public Vector2 knockback = new(8f, 3f);
+
+        [Header("Lifecycle")]
+        [Min(0f)] public float respawnSeconds = 12f;
+        [Min(1)] public int destroyScore = 300;
+
+        public void Sanitize()
+        {
+            patrolSpeed = Mathf.Max(0.1f, patrolSpeed);
+            patrolHeightNormalized = Mathf.Clamp(patrolHeightNormalized, 0.5f, 0.95f);
+            arenaSidePadding = Mathf.Max(0.1f, arenaSidePadding);
+            detectRange = Mathf.Max(0.1f, detectRange);
+            detectConfirmSeconds = Mathf.Max(0f, detectConfirmSeconds);
+            telegraphSeconds = Mathf.Max(0f, telegraphSeconds);
+            dashSpeed = Mathf.Max(0.1f, dashSpeed);
+            dashSeconds = Mathf.Max(0.05f, dashSeconds);
+            recoverSeconds = Mathf.Max(0f, recoverSeconds);
+            respawnSeconds = Mathf.Max(0f, respawnSeconds);
+            destroyScore = Mathf.Max(1, destroyScore);
+        }
+    }
+
+    [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
+    internal sealed class DroneController : MonoBehaviour
+    {
+        [SerializeField] private DroneConfig _config;
+        [SerializeField] private SpriteRenderer _renderer;
+
+        private Rigidbody2D _body;
+        private Collider2D _collider;
+        private Transform _player;
+        private BlockEscape.Tetris.BlockBoard _board;
+        private Rect _arena;
+        private Vector2 _spawnPosition;
+        private Vector2 _dashDirection = Vector2.right;
+        private Vector2 _dashTarget;
+        private float _stateTimer;
+        private float _respawnTimer;
+        private int _phase = 1;
+        private int _patrolDirection = 1;
+        private bool _running;
+        private bool _destroyed;
+        private bool _damagedThisDash;
+
+        public event System.Action<DroneController> DestroyedByFallingBlock;
+
+        public DroneState State { get; private set; } = DroneState.Disabled;
+        public int DestroyScore => _config != null ? _config.destroyScore : 300;
+        public bool IsDestroyed => _destroyed;
+
+        private void Awake()
+        {
+            EnsureComponents();
+        }
+
+        private void Update()
+        {
+            Tick(Time.deltaTime);
+        }
+
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            HandleTrigger(other);
+        }
+
+        private void OnTriggerStay2D(Collider2D other)
+        {
+            HandleTrigger(other);
+        }
+
+        public void Initialize(DroneConfig config, Transform player, BlockEscape.Tetris.BlockBoard board)
+        {
+            EnsureComponents();
+            _config = config != null ? config : ScriptableObject.CreateInstance<DroneConfig>();
+            _config.Sanitize();
+            _player = player;
+            _board = board;
+            RefreshArena();
+            _spawnPosition = GetPatrolPoint(0.5f);
+            _body.position = _spawnPosition;
+            _patrolDirection = 1;
+            SetPhase(_phase);
+        }
+
+        public void SetRunning(bool running)
+        {
+            _running = running;
+            if (!running && _body != null)
+                _body.linearVelocity = Vector2.zero;
+        }
+
+        public void SetPhase(int phase)
+        {
+            _phase = Mathf.Max(1, phase);
+            if (_phase < 2)
+            {
+                _destroyed = false;
+                _respawnTimer = 0f;
+                ChangeState(DroneState.Disabled);
+                SetVisible(false);
+                return;
+            }
+
+            if (State == DroneState.Disabled && !_destroyed)
+                ResetDrone();
+        }
+
+        public void ResetDrone()
+        {
+            EnsureComponents();
+            RefreshArena();
+            _destroyed = false;
+            _respawnTimer = 0f;
+            _damagedThisDash = false;
+            _spawnPosition = GetPatrolPoint(0.5f);
+            _body.position = _spawnPosition;
+            _body.linearVelocity = Vector2.zero;
+            _patrolDirection = 1;
+            SetVisible(_phase >= 2);
+            ChangeState(_phase >= 2 ? DroneState.Patrol : DroneState.Disabled);
+        }
+
+        public void ManualTick(float deltaTime)
+        {
+            Tick(deltaTime);
+        }
+
+        private void Tick(float deltaTime)
+        {
+            if (!_running || deltaTime <= 0f || _config == null)
+                return;
+
+            if (_destroyed)
+            {
+                TickRespawn(deltaTime);
+                return;
+            }
+
+            if (_phase < 2 || State == DroneState.Disabled)
+                return;
+
+            switch (State)
+            {
+                case DroneState.Patrol:
+                    TickPatrol(deltaTime);
+                    break;
+                case DroneState.Detect:
+                    TickDetect(deltaTime);
+                    break;
+                case DroneState.Telegraph:
+                    TickTelegraph(deltaTime);
+                    break;
+                case DroneState.Dash:
+                    TickDash(deltaTime);
+                    break;
+                case DroneState.Recover:
+                    TickRecover(deltaTime);
+                    break;
+            }
+        }
+
+        private void TickRespawn(float deltaTime)
+        {
+            if (_phase < 2)
+                return;
+
+            _respawnTimer -= deltaTime;
+            if (_respawnTimer <= 0f)
+                ResetDrone();
+        }
+
+        private void TickPatrol(float deltaTime)
+        {
+            var position = _body.position;
+            position.x += _patrolDirection * _config.patrolSpeed * deltaTime;
+            if (position.x <= _arena.xMin + _config.arenaSidePadding)
+            {
+                position.x = _arena.xMin + _config.arenaSidePadding;
+                _patrolDirection = 1;
+            }
+            else if (position.x >= _arena.xMax - _config.arenaSidePadding)
+            {
+                position.x = _arena.xMax - _config.arenaSidePadding;
+                _patrolDirection = -1;
+            }
+
+            position.y = GetPatrolY();
+            _body.position = position;
+            if (CanDetectPlayer())
+                ChangeState(DroneState.Detect);
+        }
+
+        private void TickDetect(float deltaTime)
+        {
+            if (!CanDetectPlayer())
+            {
+                ChangeState(DroneState.Patrol);
+                return;
+            }
+
+            _stateTimer += deltaTime;
+            if (_stateTimer >= _config.detectConfirmSeconds)
+            {
+                _dashTarget = _player.position;
+                ChangeState(DroneState.Telegraph);
+            }
+        }
+
+        private void TickTelegraph(float deltaTime)
+        {
+            _stateTimer += deltaTime;
+            if (_stateTimer < _config.telegraphSeconds)
+                return;
+
+            _dashDirection = (_dashTarget - _body.position).normalized;
+            if (_dashDirection.sqrMagnitude < 0.01f)
+                _dashDirection = Vector2.down;
+            ChangeState(DroneState.Dash);
+        }
+
+        private void TickDash(float deltaTime)
+        {
+            _stateTimer += deltaTime;
+            _body.position += _dashDirection * _config.dashSpeed * deltaTime;
+            if (!IsInsideArena(_body.position) || _stateTimer >= _config.dashSeconds)
+                ChangeState(DroneState.Recover);
+        }
+
+        private void TickRecover(float deltaTime)
+        {
+            _stateTimer += deltaTime;
+            if (_stateTimer >= _config.recoverSeconds)
+                ChangeState(DroneState.Patrol);
+        }
+
+        private void HandleTrigger(Collider2D other)
+        {
+            if (_destroyed || other == null || !other.enabled)
+                return;
+
+            if (other.gameObject.layer == LayerMask.NameToLayer("FallingBlock"))
+            {
+                DestroyByFallingBlock();
+                return;
+            }
+
+            if (State != DroneState.Dash || _damagedThisDash)
+                return;
+
+            var damageable = other.GetComponentInParent<BlockEscape.Core.IDamageable>();
+            if (damageable == null)
+                return;
+
+            var knockbackDirection = _dashDirection.x < 0f ? -1f : 1f;
+            var knockback = new Vector2(_config.knockback.x * knockbackDirection, _config.knockback.y);
+            if (damageable.TakeDamage(new BlockEscape.Core.DamageInfo(1, knockback, gameObject, BlockEscape.Core.DamageType.Enemy)))
+                _damagedThisDash = true;
+        }
+
+        private void DestroyByFallingBlock()
+        {
+            _destroyed = true;
+            _respawnTimer = _config.respawnSeconds;
+            _body.linearVelocity = Vector2.zero;
+            ChangeState(DroneState.Disabled);
+            SetVisible(false);
+            DestroyedByFallingBlock?.Invoke(this);
+        }
+
+        private bool CanDetectPlayer()
+        {
+            if (_player == null)
+                return false;
+
+            var toPlayer = (Vector2)_player.position - _body.position;
+            return toPlayer.sqrMagnitude <= _config.detectRange * _config.detectRange;
+        }
+
+        private void ChangeState(DroneState state)
+        {
+            State = state;
+            _stateTimer = 0f;
+            if (state == DroneState.Dash)
+                _damagedThisDash = false;
+            ApplyStateColor();
+        }
+
+        private void ApplyStateColor()
+        {
+            if (_renderer == null)
+                return;
+
+            _renderer.color = State switch
+            {
+                DroneState.Detect => new Color(1f, 0.75f, 0.25f),
+                DroneState.Telegraph => new Color(1f, 0.2f, 0.25f),
+                DroneState.Dash => new Color(1f, 0.45f, 0.15f),
+                DroneState.Recover => new Color(0.55f, 0.6f, 0.7f),
+                _ => new Color(0.75f, 0.25f, 1f)
+            };
+        }
+
+        private void SetVisible(bool visible)
+        {
+            if (_renderer != null)
+                _renderer.enabled = visible;
+            if (_collider != null)
+                _collider.enabled = visible;
+        }
+
+        private void RefreshArena()
+        {
+            if (_board == null)
+            {
+                _arena = new Rect(-7f, -10f, 14f, 20f);
+                return;
+            }
+
+            var origin = (Vector2)_board.transform.position;
+            _arena = new Rect(origin.x, origin.y, _board.Width, _board.Height);
+        }
+
+        private Vector2 GetPatrolPoint(float normalizedX)
+        {
+            var x = Mathf.Lerp(_arena.xMin + _config.arenaSidePadding, _arena.xMax - _config.arenaSidePadding, normalizedX);
+            return new Vector2(x, GetPatrolY());
+        }
+
+        private float GetPatrolY()
+        {
+            return Mathf.Lerp(_arena.yMin, _arena.yMax, _config.patrolHeightNormalized);
+        }
+
+        private bool IsInsideArena(Vector2 position)
+        {
+            return position.x >= _arena.xMin &&
+                   position.x <= _arena.xMax &&
+                   position.y >= _arena.yMin &&
+                   position.y <= _arena.yMax;
+        }
+
+        private void EnsureComponents()
+        {
+            if (_body == null)
+                _body = GetComponent<Rigidbody2D>();
+            if (_collider == null)
+                _collider = GetComponent<Collider2D>();
+            if (_renderer == null)
+                _renderer = GetComponentInChildren<SpriteRenderer>();
+
+            if (_body != null)
+            {
+                _body.bodyType = RigidbodyType2D.Kinematic;
+                _body.gravityScale = 0f;
+                _body.freezeRotation = true;
+            }
+
+            if (_collider != null)
+                _collider.isTrigger = true;
         }
     }
 }

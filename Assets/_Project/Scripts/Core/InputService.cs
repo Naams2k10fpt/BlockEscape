@@ -201,6 +201,15 @@ namespace BlockEscape.Core
             Score += points;
             return points;
         }
+
+        public int AddBonusScore(int points)
+        {
+            if (points <= 0)
+                return 0;
+
+            Score += points;
+            return points;
+        }
     }
 
     internal sealed class GameSession
@@ -252,6 +261,14 @@ namespace BlockEscape.Core
                 return 0;
 
             return _scoreService.AddRowsCleared(rowCount);
+        }
+
+        public int AddBonusScore(int points)
+        {
+            if (State != GameSessionState.Playing)
+                return 0;
+
+            return _scoreService.AddBonusScore(points);
         }
 
         public void Pause()
