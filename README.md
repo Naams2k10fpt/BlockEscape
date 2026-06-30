@@ -28,7 +28,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - HUD, Pause Menu và Game Over summary đọc cùng một nguồn session/score nên số liệu không bị lệch nhau.
 - Phase độ khó tăng theo thời gian sống và làm piece mới rơi nhanh dần theo config.
 - Player runtime spawn trong `TetrisDemo`, có di chuyển, nhảy, cúi, health, iFrame và death event.
-- Player gravity được quản lý trong `PlayerConfig` và đang đặt `gravityScale = 5` để giảm cảm giác rơi lơ lửng.
+- Player movement được quản lý trong `PlayerConfig`, hiện đặt `jumpVelocity = 12.5` và `gravityScale = 5` để nhảy cao hơn nhưng vẫn rơi chắc.
 - HUD hiển thị máu bằng 3 tim thay cho dạng số.
 - Player có thể rơi xuống đáy đấu trường; tường trái/phải/đáy có collider layer `World` để không lọt khỏi map.
 - Falling tetromino dùng solid collider để chặn player ngay khi đang rơi.
@@ -38,6 +38,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Falling block vẫn tiếp tục rơi khi player đứng cạnh/đứng dưới nhưng còn đường thoát, tránh kẹt piece giữa không trung.
 - Falling block kiểm tra vị trí kế tiếp trước khi bước xuống/rotate để không xuyên qua hoặc húc player văng ngang khi soft drop.
 - Nếu player nhảy lên vào block đang xuống, player bị bật ngược xuống và block vẫn tiếp tục rơi.
+- Nếu player đang leo/chạm cạnh falling block, block sẽ tách player ngang ra thay vì kéo player xuống.
 - TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.

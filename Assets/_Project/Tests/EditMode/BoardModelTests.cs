@@ -499,6 +499,52 @@ namespace BlockEscape.Tetris.Tests
             }
         }
 
+        [Test]
+        public void ActiveTetromino_DownStepReleasesRisingPlayerOnSideContact()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Side Release Test Piece");
+            var player = new GameObject("Player Side Probe");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(0.86f, 2.5f, 0f);
+                var body = player.AddComponent<Rigidbody2D>();
+                body.linearVelocity = new Vector2(0f, 6f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                var startOrigin = new Vector2Int(1, 3);
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, startOrigin, 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.True);
+                Physics2D.SyncTransforms();
+                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin + Vector2Int.down));
+                Assert.That(body.linearVelocity.y, Is.GreaterThanOrEqualTo(0f));
+                var blockLeft = board.WorldForCell(new Vector2Int(1, 2)).x - 0.47f;
+                Assert.That(playerCollider.bounds.max.x, Is.LessThanOrEqualTo(blockLeft + 0.04f));
+                Assert.That(crushed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
         private static void CreateBlockingBox(GameObject gameObject, Vector2 center, Vector2 size)
         {
             var worldLayer = LayerMask.NameToLayer("World");

@@ -18,7 +18,7 @@ namespace BlockEscape.Tetris.Tests
             Assert.That(config, Is.Not.Null, $"Player config is missing at {PlayerConfigPath}.");
 
             Assert.That(config.moveSpeed, Is.EqualTo(7f));
-            Assert.That(config.jumpVelocity, Is.EqualTo(11f));
+            Assert.That(config.jumpVelocity, Is.EqualTo(12.5f));
             Assert.That(config.gravityScale, Is.EqualTo(5f));
             Assert.That(config.coyoteTime, Is.EqualTo(0.10f));
             Assert.That(config.jumpBufferTime, Is.EqualTo(0.12f));

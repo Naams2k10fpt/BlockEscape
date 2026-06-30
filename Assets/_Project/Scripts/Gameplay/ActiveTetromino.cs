@@ -406,7 +406,15 @@ namespace BlockEscape.Tetris
             _rigidbody.position = _board.WorldForCell(_origin);
             _lockTimer = 0f;
             if (offset.y < 0)
+            {
                 _fallStepTimer = 0f;
+                PlayerCrushEscape.ReleaseSideClingingPlayersInCells(
+                    _localCells,
+                    _origin,
+                    _board,
+                    new Vector2(CellColliderSize, CellColliderSize),
+                    PlayerBounceSkin);
+            }
             UpdateGhostPiece();
             CheckPlayerCrush();
         }
@@ -465,6 +473,12 @@ namespace BlockEscape.Tetris
                 _board,
                 new Vector2(CellColliderSize, CellColliderSize),
                 PlayerBounceVelocity,
+                PlayerBounceSkin);
+            PlayerCrushEscape.ReleaseSideClingingPlayersInCells(
+                _localCells,
+                _origin,
+                _board,
+                new Vector2(CellColliderSize, CellColliderSize),
                 PlayerBounceSkin);
         }
 

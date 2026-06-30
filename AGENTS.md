@@ -50,7 +50,8 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   Playing/Paused/GameOver, survival time, phase, row score, total score, and run result.
 - `TetrisDemoBootstrap` is the integration point for session state, time scale,
   input enable/disable, HUD, Pause Menu, and Game Over summary.
-- Player gravity is configured through `PlayerConfig.gravityScale`, currently 5.
+- Player jump/gravity are configured through `PlayerConfig`; current
+  `jumpVelocity` is 12.5 and `gravityScale` is 5.
 - HUD health is text-rendered as three hearts.
 - HP reaching 0 fires `PlayerHealth.Died`, and `TetrisDemoBootstrap` ends the run.
 - Session phase advances by survival time and updates new-piece fall speed through
@@ -70,6 +71,8 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   keep the block falling instead of stopping the active piece in midair.
 - If the player jumps into a falling block's path, bounce the player downward
   and let the block continue falling; do not trigger Game Over from upward contact.
+- If the player is rising against the side of a falling block, release sideways
+  instead of dragging the player downward.
 - Player/block/border runtime colliders use frictionless material to reduce wall cling.
 - `TetrisDemoBootstrap` clamps the player inside the arena as a safety net.
 

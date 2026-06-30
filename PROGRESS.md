@@ -100,8 +100,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | NguyenNgu2005 |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | NguyenNgu2005 |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | NguyenNgu2005 |
-| Player Controller | 78% | Có movement, jump, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
-| Block tương tác với player | 48% | Falling block pre-check vị trí kế tiếp; block vẫn rơi nếu player còn đường thoát; crush trừ tim, tìm điểm respawn trống và cho bất tử 3 giây | NguyenNgu2005 |
+| Player Controller | 79% | Có movement, jump cao hơn, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
+| Block tương tác với player | 49% | Falling block pre-check vị trí kế tiếp; block vẫn rơi nếu player còn đường thoát; chạm cạnh block đang rơi được tách ngang; crush trừ tim, tìm điểm respawn trống và cho bất tử 3 giây | NguyenNgu2005 |
 | Máu và sát thương | 63% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, invulnerability public API, crush damage và HP 0 kết thúc run trong TetrisDemo; còn tích hợp hazard/AI | NguyenNgu2005 |
 | Game Session và scoring | 55% | Có `GameSession`, `ScoreService`, survival score, row score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
 | Drone AI | 0% | Chưa làm | Chưa phân công |
@@ -173,7 +173,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 ### Player Controller
 
-- [x] Tạo `PlayerConfig` với thông số mặc định đã thống nhất.
+- [x] Tạo `PlayerConfig` với thông số mặc định đã thống nhất; `jumpVelocity = 12.5` để nhảy cao hơn.
 - [x] Tạo `PlayerController` đọc input trong `Update` và áp vận tốc Rigidbody trong `FixedUpdate`.
 - [x] Tạo `Assets/_Project/Prefabs/Player/Player.prefab` với Rigidbody2D, CapsuleCollider2D, Visual và Ground Check.
 - [x] Gravity của player được đưa vào `PlayerConfig` và đặt mặc định `gravityScale = 5` để rơi chắc hơn.
@@ -197,6 +197,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Player nhảy đụng mặt dưới falling block sẽ bị chặn bởi collider, không bị tính là crush.
 - [x] Falling tetromino kiểm tra player tại vị trí kế tiếp trước khi move/rotate để tránh xuyên qua hoặc đẩy player văng ngang khi soft drop.
 - [x] Player đang nhảy lên vào block đang xuống sẽ bị bounce xuống, block vẫn tiếp tục rơi.
+- [x] Player đang leo/chạm cạnh block đang rơi sẽ được tách ngang, không bị block kéo xuống.
 - [x] Crush Game Over do falling block chỉ phát sau khi block đã apply vị trí xuống, không chết sớm ở vị trí dự đoán.
 - [x] Falling block tiếp tục rơi khi player đứng cạnh/đứng dưới nhưng còn đường thoát, không còn bị kẹt giữa không trung.
 
@@ -836,6 +837,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 29/06/2026 | Crush life respawn | Crush trừ 1 tim và respawn player cao hơn block đã khóa cao nhất 5Y nếu còn tim | Chỉ hết 3 tim mới Game Over do hết máu |
 | 29/06/2026 | Respawn safety + iFrame | Respawn tìm điểm trống quanh giữa arena và bật bất tử 3 giây có nhấp nháy | Tránh hồi sinh kẹt trong block và tránh mất tim liên tục |
 | 30/06/2026 | Respawn hover + gravity 5 | Tăng gravity lên 5 và giữ player lơ lửng 0.75 giây sau respawn crush | Respawn dễ nhìn hơn, tránh vừa hồi sinh đã rơi ngay vào cụm block |
+| 30/06/2026 | Side climb release + jump tune | Tăng `jumpVelocity` lên 12.5 và tách player ngang khi leo/chạm cạnh falling block | Tránh bị block đang rơi kéo xuống, nhảy cao hơn để leo block dễ hơn |
 
 ## 13. Cách cập nhật file này
 
