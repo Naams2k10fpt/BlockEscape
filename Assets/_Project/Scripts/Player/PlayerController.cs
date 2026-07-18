@@ -20,6 +20,8 @@ namespace BlockEscape.Player
         private bool _jumpReleasedThisFrame;
         private bool _wantsCrouch;
         private Animator _animator;
+        private float _jumpBoostMultiplier = 1f;
+        private float _jumpBoostUntil = float.NegativeInfinity;
 
         private const float BlockBounceJumpWindow = 0.35f;
         private const float GroundedVerticalJitterLimit = 2f;
@@ -29,6 +31,9 @@ namespace BlockEscape.Player
         public bool IsCrouching { get; private set; }
         public Vector2 Velocity => _body != null ? _body.linearVelocity : Vector2.zero;
         public bool HasRecentJumpForBlockBounce => !IsGrounded && Time.time - _lastJumpStartedTime <= BlockBounceJumpWindow;
+        public float JumpBoostSecondsRemaining => Mathf.Max(0f, _jumpBoostUntil - Time.time);
+        public bool JumpBoostActive => JumpBoostSecondsRemaining > 0f;
+        public float EffectiveJumpVelocity => _config == null ? 0f : _config.jumpVelocity * (JumpBoostActive ? _jumpBoostMultiplier : 1f);
 
         private void Awake()
         {
@@ -100,7 +105,7 @@ namespace BlockEscape.Player
 
             if (consumeJump)
             {
-                velocity.y = _config.jumpVelocity;
+                velocity.y = EffectiveJumpVelocity;
                 _lastJumpPressedTime = float.NegativeInfinity;
                 _lastJumpStartedTime = Time.time;
                 _lastGroundedTime = float.NegativeInfinity;
@@ -110,7 +115,7 @@ namespace BlockEscape.Player
             {
                 velocity.y *= _config.variableJumpMultiplier;
             }
-            else if (IsGrounded && Mathf.Abs(velocity.y) <= GroundedVerticalJitterLimit)
+            else if (IsGrounded && velocity.y <= GroundedVerticalJitterLimit)
             {
                 velocity.y = 0f;
             }
@@ -120,6 +125,18 @@ namespace BlockEscape.Player
 
             _body.linearVelocity = velocity;
             _jumpReleasedThisFrame = false;
+        }
+
+        public void ApplyJumpBoost(float multiplier, float durationSeconds)
+        {
+            _jumpBoostMultiplier = Mathf.Max(1f, multiplier);
+            _jumpBoostUntil = Time.time + Mathf.Max(0f, durationSeconds);
+        }
+
+        public void ClearJumpBoost()
+        {
+            _jumpBoostMultiplier = 1f;
+            _jumpBoostUntil = float.NegativeInfinity;
         }
 
         private bool CanReadGameplayInput()

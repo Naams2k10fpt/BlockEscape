@@ -38,17 +38,20 @@ namespace BlockEscape.Bootstrap
         private bool _paused;
         private bool _gameOver;
         private Transform _player;
+        private PlayerController _playerController;
         private PlayerHealth _playerHealth;
         private SpriteRenderer _overflowWarningRenderer;
         private Coroutine _respawnHoverRoutine;
         private DroneController _drone;
         private EventDirector _eventDirector;
+        private PickupDirector _pickupDirector;
         private string _lastDynamicEvent = "NONE";
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
         private const float CrushRespawnHeightAboveHighestBlock = 5f;
         private const float CrushRespawnInvulnerabilitySeconds = 3f;
         private const float CrushRespawnHoverSeconds = 0.75f;
+        private const float PlayerUnstuckPenetrationThreshold = 0.05f;
         private const float RespawnProbeStep = 1f;
         private const int RespawnProbeSteps = 12;
 
@@ -90,6 +93,7 @@ namespace BlockEscape.Bootstrap
             }
             InitializeSystems();
             InitializeAiAndEvents();
+            InitializePickups();
             _session.PhaseChanged += OnSessionPhaseChanged;
             _session.StartRun(_config.phaseDurationSeconds);
             ApplySessionPhase();
@@ -221,6 +225,9 @@ namespace BlockEscape.Bootstrap
                 _eventDirector.SetPhase(_session.Phase);
                 _eventDirector.ResetDirector(_spawner != null ? _spawner.Seed : 0);
             }
+
+            _playerController?.ClearJumpBoost();
+            _pickupDirector?.ResetDirector(_spawner != null ? _spawner.Seed : 0);
         }
 
         private void UnbindAiAndEvents()
@@ -229,6 +236,8 @@ namespace BlockEscape.Bootstrap
                 _drone.DestroyedByFallingBlock -= OnDroneDestroyedByFallingBlock;
             if (_eventDirector != null)
                 _eventDirector.StatusChanged -= OnDynamicEventStatusChanged;
+            if (_pickupDirector != null)
+                _pickupDirector.PickupCollected -= OnPickupCollected;
         }
 
         private void SetAuxiliaryGameplayRunning(bool running)
@@ -237,6 +246,25 @@ namespace BlockEscape.Bootstrap
                 _drone.SetRunning(running);
             if (_eventDirector != null)
                 _eventDirector.SetRunning(running);
+            if (_pickupDirector != null)
+                _pickupDirector.SetRunning(running);
+        }
+
+        private void InitializePickups()
+        {
+            if (_board == null)
+                return;
+
+            if (_pickupDirector == null)
+            {
+                var pickupObject = new GameObject("Pickup Director");
+                pickupObject.transform.SetParent(transform, false);
+                _pickupDirector = pickupObject.AddComponent<PickupDirector>();
+            }
+
+            _pickupDirector.PickupCollected -= OnPickupCollected;
+            _pickupDirector.Initialize(_board, _playerHealth, _spawner != null ? _spawner.Seed : 0);
+            _pickupDirector.PickupCollected += OnPickupCollected;
         }
 
         private DroneController CreateRuntimeDrone()
@@ -554,6 +582,7 @@ namespace BlockEscape.Bootstrap
                 $"LOCKED     {_board.Model.OccupiedCount} CELLS\n" +
                 $"DRONE      {FormatDroneState()}\n" +
                 $"EVENT      {_lastDynamicEvent}\n" +
+                $"POWER      {FormatPowerUpState()}\n" +
                 $"ROWS       {_session.RowsCleared}\n" +
                 $"SCORE      {_session.Score}";
         }
@@ -640,7 +669,7 @@ namespace BlockEscape.Bootstrap
             var probeSize = new Vector2(
                 Mathf.Max(0.05f, bounds.size.x - 0.04f),
                 Mathf.Max(0.05f, bounds.size.y - 0.04f));
-            if (IsPlayerClearAt(bounds.center, probeSize, playerCollider, includeFallingBlocks: false))
+            if (!HasDeepWorldOverlap(playerCollider))
                 return;
 
             var boardOrigin = (Vector2)_board.transform.position;
@@ -686,6 +715,30 @@ namespace BlockEscape.Bootstrap
                 _player.position = new Vector3(fallback.x, fallback.y, _player.position.z);
             }
             Physics2D.SyncTransforms();
+        }
+
+        private static bool HasDeepWorldOverlap(Collider2D playerCollider)
+        {
+            var worldMask = LayerMask.GetMask("World");
+            if (playerCollider == null || worldMask == 0)
+                return false;
+
+            Physics2D.SyncTransforms();
+            var bounds = playerCollider.bounds;
+            var hits = Physics2D.OverlapBoxAll(bounds.center, bounds.size, 0f, worldMask);
+            foreach (var hit in hits)
+            {
+                if (hit == null || !hit.enabled || hit.isTrigger || hit == playerCollider)
+                    continue;
+                if (hit.transform.IsChildOf(playerCollider.transform))
+                    continue;
+
+                var distance = playerCollider.Distance(hit);
+                if (distance.isOverlapped && distance.distance < -PlayerUnstuckPenetrationThreshold)
+                    return true;
+            }
+
+            return false;
         }
 
         private bool TryResolveLockedBlockSideOverlap(
@@ -922,6 +975,29 @@ namespace BlockEscape.Bootstrap
             {
                 _statusText.text = _lastDynamicEvent;
                 _statusText.color = new Color(1f, 0.45f, 0.2f);
+            }
+        }
+
+        private void OnPickupCollected(PickupKind kind)
+        {
+            var message = kind switch
+            {
+                PickupKind.ScoreCrystal => $"SCORE CRYSTAL +{_session.AddBonusScore(100)}",
+                PickupKind.HealthPack => "HEALTH +1",
+                _ => "JUMP BOOST 8s"
+            };
+
+            if (kind == PickupKind.HealthPack)
+                _playerHealth?.Heal(1);
+            else if (kind == PickupKind.JumpBoost)
+                _playerController?.ApplyJumpBoost(1.2f, 8f);
+
+            if (_statusText != null && !_paused && !_gameOver)
+            {
+                _statusText.text = message;
+                _statusText.color = kind == PickupKind.HealthPack
+                    ? new Color(1f, 0.3f, 0.4f)
+                    : new Color(1f, 0.8f, 0.2f);
             }
         }
 
@@ -1213,10 +1289,18 @@ namespace BlockEscape.Bootstrap
             return _drone.State.ToString().ToUpperInvariant();
         }
 
+        private string FormatPowerUpState()
+        {
+            return _playerController != null && _playerController.JumpBoostActive
+                ? $"JUMP {Mathf.CeilToInt(_playerController.JumpBoostSecondsRemaining)}s"
+                : "NONE";
+        }
+
         private void SetPlayer(Transform player)
         {
             UnbindPlayerHealth();
             _player = player;
+            _playerController = _player != null ? _player.GetComponent<PlayerController>() : null;
             _playerHealth = _player != null ? _player.GetComponent<PlayerHealth>() : null;
             if (_playerHealth != null)
                 _playerHealth.Died += OnPlayerDied;
@@ -1226,6 +1310,7 @@ namespace BlockEscape.Bootstrap
         {
             if (_playerHealth != null)
                 _playerHealth.Died -= OnPlayerDied;
+            _playerController = null;
             _playerHealth = null;
         }
 

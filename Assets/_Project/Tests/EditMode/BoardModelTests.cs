@@ -67,6 +67,25 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void CollapseColumns_DropsCellsIntoUnsupportedGaps()
+        {
+            var board = new BoardModel(3, 8);
+            board.SetOccupied(0, 0);
+            board.SetOccupied(0, 3);
+            board.SetOccupied(0, 5);
+            board.SetOccupied(2, 4);
+
+            board.CollapseColumns();
+
+            Assert.That(board.IsOccupied(0, 0), Is.True);
+            Assert.That(board.IsOccupied(0, 1), Is.True);
+            Assert.That(board.IsOccupied(0, 2), Is.True);
+            Assert.That(board.IsOccupied(2, 0), Is.True);
+            Assert.That(board.HighestOccupiedRow(), Is.EqualTo(2));
+            Assert.That(board.OccupiedCount, Is.EqualTo(4));
+        }
+
+        [Test]
         public void TetrisBalanceConfig_IncreasesFallSpeedByPhaseAndClampsToMax()
         {
             var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();

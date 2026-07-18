@@ -45,7 +45,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.
 
-Pickup, menu hoàn chỉnh, save data, art và audio chưa được triển khai.
+Ba pickup runtime spawn ở mép trên rồi rơi xuống bề mặt trống: Score Crystal +100 điểm, Health Pack +1 HP và Jump Boost +20% trong 8 giây; art, animation/audio hoàn chỉnh và Windows build cuối vẫn còn thiếu.
 
 ## Yêu cầu
 

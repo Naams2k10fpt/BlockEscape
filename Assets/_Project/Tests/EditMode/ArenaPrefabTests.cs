@@ -1,3 +1,5 @@
+using System.Reflection;
+using BlockEscape.Bootstrap;
 using BlockEscape.Core;
 using BlockEscape.Player;
 using NUnit.Framework;
@@ -112,6 +114,41 @@ namespace BlockEscape.Tetris.Tests
             Assert.That(player.GetComponent<Rigidbody2D>(), Is.Not.Null);
             Assert.That(player.GetComponent<CapsuleCollider2D>(), Is.Not.Null);
             Assert.That(player.Config, Is.Not.Null);
+        }
+
+        [Test]
+        public void PlayerUnstuck_IgnoresShallowLandingContactButDetectsDeepEmbed()
+        {
+            var player = new GameObject("Player Unstuck Probe");
+            var block = new GameObject("World Unstuck Probe");
+            try
+            {
+                player.layer = LayerMask.NameToLayer("Player");
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+                playerCollider.offset = new Vector2(0f, -0.02f);
+
+                block.layer = LayerMask.NameToLayer("World");
+                block.AddComponent<BoxCollider2D>().size = Vector2.one;
+
+                var method = typeof(TetrisDemoBootstrap).GetMethod(
+                    "HasDeepWorldOverlap",
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.That(method, Is.Not.Null);
+
+                player.transform.position = new Vector3(0f, 1.225f);
+                Physics2D.SyncTransforms();
+                Assert.That((bool)method.Invoke(null, new object[] { playerCollider }), Is.False);
+
+                player.transform.position = new Vector3(0f, 1.145f);
+                Physics2D.SyncTransforms();
+                Assert.That((bool)method.Invoke(null, new object[] { playerCollider }), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(block);
+                Object.DestroyImmediate(player);
+            }
         }
 
         private static void AssertStaticCompositeCollider(Transform tilemapTransform)
