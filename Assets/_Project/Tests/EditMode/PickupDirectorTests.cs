@@ -1,3 +1,4 @@
+using System.Reflection;
 using BlockEscape.Player;
 using NUnit.Framework;
 using UnityEngine;
@@ -7,7 +8,7 @@ namespace BlockEscape.Tetris.Tests
     public sealed class PickupDirectorTests
     {
         [Test]
-        public void PickupDirector_SpawnsAtMostTwoTriggersFromArenaTop()
+        public void PickupDirector_SpawnsFromTopAndExpiresOneSecondAfterLanding()
         {
             var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
             var boardObject = new GameObject("Pickup Board Test");
@@ -45,6 +46,21 @@ namespace BlockEscape.Tetris.Tests
                     Assert.That(pickup.transform.position.y,
                         Is.EqualTo(board.WorldForCell(new Vector2Int(0, board.Height - 1)).y).Within(0.001f));
                 }
+
+                var itemType = typeof(PickupDirector).Assembly.GetType("BlockEscape.Tetris.PickupItem");
+                Assert.That(itemType, Is.Not.Null);
+                var item = pickups[0].GetComponent(itemType);
+                var landingPosition = (Vector3)itemType.GetField(
+                    "_landingPosition",
+                    BindingFlags.NonPublic | BindingFlags.Instance).GetValue(item);
+                itemType.GetField("_landedAt", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .SetValue(item, Time.time - 1.01f);
+                pickups[0].transform.position = landingPosition;
+                itemType.GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .Invoke(item, null);
+
+                Assert.That(pickups[0].gameObject.activeSelf, Is.False);
+                Assert.That(director.ActiveCount, Is.EqualTo(1));
             }
             finally
             {

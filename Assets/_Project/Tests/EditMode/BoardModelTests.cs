@@ -86,6 +86,31 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void CutterTarget_ChoosesDensestOccupiedRowAboveGround()
+        {
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            var boardObject = new GameObject("Cutter Target Board");
+            try
+            {
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+                board.Model.SetOccupied(0, 0);
+                board.Model.SetOccupied(0, 2);
+                board.Model.SetOccupied(1, 2);
+                board.Model.SetOccupied(0, 4);
+
+                Assert.That(board.GetDensestEligibleRow(1), Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(boardObject);
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
         public void TetrisBalanceConfig_IncreasesFallSpeedByPhaseAndClampsToMax()
         {
             var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();

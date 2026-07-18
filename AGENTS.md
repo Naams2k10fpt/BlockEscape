@@ -103,7 +103,9 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   falling block destroys it.
 - Phase 1+ also enables the runtime dynamic event director. Shipped events are
   Block Overdrive, which multiplies fall speed for the next 3 spawned
-  tetrominoes, and Meteor Shower, which warns a trajectory before a slower meteor
+  tetrominoes, Cutter Sweep, which warns a populated row before crossing it,
+  damaging the player, and clearing it through `BlockBoard`, and Meteor Shower,
+  which warns a trajectory before a slower meteor
   falls, starts from a random inner left/right upper-arena edge, targets a random
   in-arena X with Y based on the highest locked block, deals Hazard damage to the
   player, explodes only on real player/block/floor contact, and destroys locked

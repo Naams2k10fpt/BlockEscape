@@ -225,6 +225,31 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void DynamicEventConfig_ExposesCutterSweepTuning()
+        {
+            var eventConfigType = typeof(InputService).Assembly.GetType("BlockEscape.Events.DynamicEventConfig");
+            var eventKindType = typeof(InputService).Assembly.GetType("BlockEscape.Events.DynamicEventKind");
+            Assert.That(eventConfigType, Is.Not.Null);
+            Assert.That(eventKindType, Is.Not.Null);
+            Assert.That(Enum.GetNames(eventKindType), Does.Contain("CutterSweep"));
+
+            var config = ScriptableObject.CreateInstance(eventConfigType);
+            try
+            {
+                eventConfigType.GetField("cutterWarningSeconds").SetValue(config, 0f);
+                eventConfigType.GetField("cutterSpeed").SetValue(config, 0f);
+                eventConfigType.GetMethod("Sanitize").Invoke(config, null);
+
+                Assert.That((float)eventConfigType.GetField("cutterWarningSeconds").GetValue(config), Is.GreaterThanOrEqualTo(0.1f));
+                Assert.That((float)eventConfigType.GetField("cutterSpeed").GetValue(config), Is.GreaterThanOrEqualTo(0.1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
         public void DroneController_EnablesAtPhaseOneAndDetectsNearbyPlayer()
         {
             var droneType = typeof(InputService).Assembly.GetType("BlockEscape.AI.DroneController");

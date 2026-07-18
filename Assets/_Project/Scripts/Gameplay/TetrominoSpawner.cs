@@ -191,6 +191,7 @@ namespace BlockEscape.Events
     {
         None,
         BlockOverdrive,
+        CutterSweep,
         MeteorShower
     }
 
@@ -199,6 +200,8 @@ namespace BlockEscape.Events
     {
         [Min(0.1f)] public float overdriveFallSpeedMultiplier = 1.6f;
         [Min(1)] public int overdrivePieceCount = 3;
+        [Min(0.1f)] public float cutterWarningSeconds = 1.2f;
+        [Min(0.1f)] public float cutterSpeed = 12f;
         [Range(0f, 1f)] public float meteorEventChance = 0.5f;
         [Min(1)] public int meteorCount = 3;
         [Min(0.05f)] public float meteorWarningSeconds = 0.45f;
@@ -219,6 +222,8 @@ namespace BlockEscape.Events
         {
             overdriveFallSpeedMultiplier = Mathf.Max(0.1f, overdriveFallSpeedMultiplier);
             overdrivePieceCount = Mathf.Max(1, overdrivePieceCount);
+            cutterWarningSeconds = Mathf.Max(0.1f, cutterWarningSeconds);
+            cutterSpeed = Mathf.Max(0.1f, cutterSpeed);
             meteorEventChance = Mathf.Clamp01(meteorEventChance);
             meteorCount = Mathf.Max(1, meteorCount);
             meteorWarningSeconds = Mathf.Max(0.05f, meteorWarningSeconds);
@@ -247,7 +252,9 @@ namespace BlockEscape.Events
         private BlockEscape.Tetris.TetrominoSpawner _spawner;
         private BlockEscape.Tetris.BlockBoard _board;
         private System.Random _random;
+        private Coroutine _cutterRoutine;
         private Coroutine _meteorRoutine;
+        private Transform _cutterRoot;
         private Transform _meteorRoot;
         private float _timer;
         private int _phase = 1;
@@ -346,7 +353,7 @@ namespace BlockEscape.Events
             if (!_running || deltaTime <= 0f || _spawner == null || _config == null || !CanRunEvents(_phase))
                 return;
 
-            if (ActiveEvent != DynamicEventKind.None)
+            if (ActiveEvent != DynamicEventKind.None || _board != null && _board.IsResolving)
                 return;
 
             _timer -= deltaTime;
@@ -356,6 +363,12 @@ namespace BlockEscape.Events
 
         private void StartRandomEvent()
         {
+            if (_board != null && _random.Next(0, 3) == 0 && TryStartCutterSweep())
+            {
+                _hasStartedEvent = true;
+                return;
+            }
+
             if (_board != null && (!_hasStartedEvent || _random.NextDouble() < _config.meteorEventChance))
                 StartMeteorShower();
             else
@@ -369,6 +382,87 @@ namespace BlockEscape.Events
             _remainingOverdrivePieces = _config.overdrivePieceCount;
             _spawner.SetFallSpeedMultiplier(_config.overdriveFallSpeedMultiplier);
             StatusChanged?.Invoke($"EVENT: OVERDRIVE x{_config.overdriveFallSpeedMultiplier:0.0}");
+        }
+
+        private bool TryStartCutterSweep()
+        {
+            var row = _board != null ? _board.GetDensestEligibleRow(1) : -1;
+            if (row < 1)
+                return false;
+
+            ActiveEvent = DynamicEventKind.CutterSweep;
+            var fromLeft = _random.Next(0, 2) == 0;
+            _cutterRoutine = StartCoroutine(CutterSweepRoutine(row, fromLeft));
+            StatusChanged?.Invoke($"EVENT: CUTTER WARNING ROW {row + 1}");
+            return true;
+        }
+
+        private IEnumerator CutterSweepRoutine(int row, bool fromLeft)
+        {
+            var boardLeft = _board.transform.position.x;
+            var boardRight = boardLeft + _board.Width;
+            var rowY = _board.WorldForCell(new Vector2Int(0, row)).y;
+            var root = GetCutterRoot();
+            var warning = BlockEscape.Tetris.RuntimeVisuals.CreateQuad(
+                "Cutter Warning",
+                root,
+                new Vector3((boardLeft + boardRight) * 0.5f, rowY, 0f),
+                new Vector2(_board.Width, 0.14f),
+                new Color(1f, 0.1f, 0.15f, 0.6f),
+                24);
+
+            yield return new WaitForSeconds(_config.cutterWarningSeconds);
+            if (warning != null)
+                Destroy(warning);
+            if (_board == null)
+                yield break;
+
+            var start = new Vector2(fromLeft ? boardLeft - 0.5f : boardRight + 0.5f, rowY);
+            var end = new Vector2(fromLeft ? boardRight + 0.5f : boardLeft - 0.5f, rowY);
+            var cutter = BlockEscape.Tetris.RuntimeVisuals.CreateQuad(
+                "Cutter",
+                root,
+                start,
+                new Vector2(0.36f, 0.9f),
+                new Color(1f, 0.15f, 0.2f),
+                26);
+
+            StatusChanged?.Invoke($"EVENT: CUTTER SWEEP ROW {row + 1}");
+            var duration = Vector2.Distance(start, end) / _config.cutterSpeed;
+            var playerMask = LayerMask.GetMask("Player");
+            var touchedPlayer = false;
+            for (var elapsed = 0f; elapsed < duration; elapsed += Time.deltaTime)
+            {
+                var position = Vector2.Lerp(start, end, Mathf.Clamp01(elapsed / duration));
+                cutter.transform.position = position;
+                if (!touchedPlayer && playerMask != 0)
+                {
+                    var hit = Physics2D.OverlapBox(position, new Vector2(0.42f, 0.9f), 0f, playerMask);
+                    if (hit != null)
+                    {
+                        touchedPlayer = true;
+                        var knockback = new Vector2(fromLeft ? 4f : -4f, 2f);
+                        hit.GetComponentInParent<IDamageable>()?.TakeDamage(
+                            new DamageInfo(1, knockback, cutter, DamageType.Hazard));
+                    }
+                }
+
+                yield return null;
+            }
+
+            cutter.transform.position = end;
+            if (_cutterRoot != null)
+                Destroy(_cutterRoot.gameObject);
+            _cutterRoot = null;
+
+            while (_board != null && _board.IsResolving)
+                yield return null;
+            _board?.ForceClearRow(row);
+
+            _cutterRoutine = null;
+            ActiveEvent = DynamicEventKind.None;
+            _timer = GetNextIntervalForPhase(_phase, _config, _random);
+            StatusChanged?.Invoke("EVENT: CUTTER END");
         }
 
         private void StartMeteorShower()
@@ -516,6 +610,17 @@ namespace BlockEscape.Events
             return _meteorRoot;
         }
 
+        private Transform GetCutterRoot()
+        {
+            if (_cutterRoot != null)
+                return _cutterRoot;
+
+            var root = new GameObject("Cutter Event");
+            root.transform.SetParent(_board != null ? _board.transform : transform, false);
+            _cutterRoot = root.transform;
+            return _cutterRoot;
+        }
+
         private void OnPieceSpawned(BlockEscape.Tetris.TetrominoKind kind)
         {
             if (ActiveEvent != DynamicEventKind.BlockOverdrive)
@@ -532,9 +637,15 @@ namespace BlockEscape.Events
 
         private void StopActiveEvent()
         {
+            if (_cutterRoutine != null)
+                StopCoroutine(_cutterRoutine);
+            _cutterRoutine = null;
             if (_meteorRoutine != null)
                 StopCoroutine(_meteorRoutine);
             _meteorRoutine = null;
+            if (_cutterRoot != null)
+                Destroy(_cutterRoot.gameObject);
+            _cutterRoot = null;
             if (_meteorRoot != null)
                 Destroy(_meteorRoot.gameObject);
             _meteorRoot = null;

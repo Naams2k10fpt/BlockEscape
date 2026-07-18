@@ -105,8 +105,8 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Máu và sát thương | 66% | Có `DamageInfo`, `IDamageable`, `PlayerHealth`, reset health, invulnerability public API, crush/enemy/hazard damage và HP 0 kết thúc run trong TetrisDemo; còn cần cân bằng damage/iFrame qua playtest | NguyenNgu2005 |
 | Game Session và scoring | 58% | Có `GameSession`, `ScoreService`, survival score, row score, bonus score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
 | Drone AI | 42% | Có runtime drone trong TetrisDemo từ phase 1, state patrol/detect/telegraph/dash/recover, Enemy damage, bắn đạn xuống, nổ nhỏ khi chạm block/world, bị falling block phá và respawn | NguyenNgu2005 |
-| Dynamic Events | 42% | Có Event Director runtime, seed-based schedule sớm, Block Overdrive 3 piece và Meteor Shower bay chậm hơn từ sát mép trong hai cạnh nửa trên arena tới X rơi ngẫu nhiên, Y rơi bám theo block cao nhất, chỉ nổ khi chạm thật và phá block bán kính 2 sau 0.5 giây nhấp nháy; chưa có Cutter Sweep | NguyenNgu2005 |
-| Pickup và power-up | 70% | Có Score Crystal, Health Pack, Jump Boost 8 giây, pool tối đa 2 item, spawn từ mép trên rồi rơi xuống mặt đỡ hợp lệ và timer trên HUD; chờ Play Mode test để cân bằng nhịp spawn | NguyenNgu2005 |
+| Dynamic Events | 58% | Có Event Director runtime, Block Overdrive 3 piece, Cutter Sweep cảnh báo 1.2 giây rồi gây Hazard damage/clear hàng, và Meteor Shower phá block bán kính 2; chờ Play Mode test để cân bằng lịch event | NguyenNgu2005 |
+| Pickup và power-up | 70% | Có Score Crystal, Health Pack, Jump Boost 8 giây, pool tối đa 2 item, spawn từ mép trên, rơi xuống mặt đỡ và tồn tại 1 giây sau khi chạm đất; chờ Play Mode test | NguyenNgu2005 |
 | HUD và game flow | 59% | HUD/Pause/Game Over đọc cùng session score; 3 tim nằm ở góc trên phải và vùng trên danger row nháy đỏ khi Overflow; có phase, drone/event state, respawn crush và thời gian sống sót | NguyenNgu2005 |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
@@ -229,7 +229,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 - [x] Block Overdrive chạy từ phase 1 với interval ngắn hơn, tăng tốc 3 tetromino tiếp theo rồi trả tốc độ phase hiện tại.
 - [x] Meteor Shower chạy từ phase 1, báo đường bay bằng vệt đỏ, spawn chậm hơn từ sát mép trong trái/phải nửa trên arena, rơi vào X ngẫu nhiên với Y dựa trên block cao nhất, gây Hazard damage khi trúng player và phá block đã khóa bán kính 2 cell sau 0.5 giây nhấp nháy.
 - [x] Event schedule dùng seed của spawner để tái hiện interval theo phase.
-- [ ] Cutter Sweep chưa triển khai.
+- [x] Cutter Sweep chọn hàng block từ row 1, cảnh báo 1.2 giây, quét ngang gây Hazard damage rồi gọi `BlockBoard.ForceClearRow`.
 
 ## 6. Kiến trúc và contract dùng chung
 

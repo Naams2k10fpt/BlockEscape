@@ -224,6 +224,15 @@ namespace BlockEscape.Tetris
             PickupCollected?.Invoke(kind);
         }
 
+        internal void Expire(PickupItem item)
+        {
+            if (item == null || !item.IsActive)
+                return;
+
+            item.Deactivate();
+            _spawnTimer = Mathf.Min(_spawnTimer, 1f);
+        }
+
         private readonly struct SpawnSlot
         {
             public readonly int x;
@@ -244,12 +253,14 @@ namespace BlockEscape.Tetris
     internal sealed class PickupItem : MonoBehaviour
     {
         private const float FallSpeed = 5f;
+        private const float LifetimeAfterLanding = 1f;
 
         private PickupDirector _owner;
         private SpriteRenderer _renderer;
         private TextMesh _label;
         private bool _collected;
         private Vector3 _landingPosition;
+        private float _landedAt;
 
         public PickupKind Kind { get; private set; }
         public int SupportX { get; private set; }
@@ -270,6 +281,7 @@ namespace BlockEscape.Tetris
             SupportRow = supportRow;
             _collected = false;
             _landingPosition = landingPosition;
+            _landedAt = float.PositiveInfinity;
             transform.position = spawnPosition;
             gameObject.name = $"Pickup {kind}";
             _renderer.color = GetColor(kind);
@@ -280,6 +292,17 @@ namespace BlockEscape.Tetris
         private void Update()
         {
             transform.position = Vector3.MoveTowards(transform.position, _landingPosition, FallSpeed * Time.deltaTime);
+            if (transform.position != _landingPosition)
+                return;
+
+            if (float.IsPositiveInfinity(_landedAt))
+            {
+                _landedAt = Time.time;
+                return;
+            }
+
+            if (Time.time - _landedAt >= LifetimeAfterLanding)
+                _owner.Expire(this);
         }
 
         public void Deactivate()
