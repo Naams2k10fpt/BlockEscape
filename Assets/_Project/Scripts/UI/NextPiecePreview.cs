@@ -6,9 +6,9 @@ namespace BlockEscape.UI
 {
     public sealed class NextPiecePreview : MonoBehaviour
     {
-        [SerializeField] private RectTransform _cellRoot;
-        [SerializeField] private Image[] _cells;
-        [SerializeField] private Text _kindText;
+        [SerializeField] private RectTransform _cellRoot = null;
+        [SerializeField] private Image[] _cells = null;
+        [SerializeField] private Text _kindText = null;
         [SerializeField, Min(8f)] private float _cellSize = 38f;
 
         public void Show(TetrominoKind kind)

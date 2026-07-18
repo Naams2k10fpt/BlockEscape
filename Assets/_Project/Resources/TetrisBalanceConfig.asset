@@ -20,7 +20,10 @@ MonoBehaviour:
   spawnDelay: 0.6
   telegraphSeconds: 0
   fallSpeedCellsPerSecond: 2
+  maxFallSpeedCellsPerSecond: 5
+  fallSpeedIncreasePerPhase: 0.35
   lockDelaySeconds: 0.12
+  phaseDurationSeconds: 45
   rowClearWarningSeconds: 0.6
   rowCollapseSeconds: 0.15
   seed: 0

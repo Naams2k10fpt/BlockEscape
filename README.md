@@ -8,8 +8,8 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 
 ## Trạng thái hiện tại
 
-**Cột mốc:** Tetris Core  
-**Tiến độ tổng thể ước tính:** 25%
+**Cột mốc:** Player sandbox playable
+**Tiến độ tổng thể ước tính:** 51%
 
 Đã có:
 
@@ -24,10 +24,28 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Main Menu có nút Bắt đầu/Thoát và màn Game Over tổng kết lượt chơi.
 - Pause Menu có nút trở về Main Menu với hộp xác nhận để tránh mất lượt nhầm.
 - Input System được tách thành ba map `Tetris`, `Player`, `System` và quản lý tập trung qua `InputService`.
+- Game session runtime quản lý trạng thái Playing/Paused/Game Over, thời gian sống sót, phase độ khó, điểm theo thời gian và điểm xóa hàng.
+- HUD, Pause Menu và Game Over summary đọc cùng một nguồn session/score nên số liệu không bị lệch nhau.
+- Phase độ khó tăng theo thời gian sống và làm piece mới rơi nhanh dần theo config.
+- Player runtime spawn trong `TetrisDemo`, có di chuyển, nhảy, cúi, health, iFrame và death event.
+- Player movement được quản lý trong `PlayerConfig`, hiện đặt `jumpVelocity = 12.5` và `gravityScale = 3` để nhảy cao hơn và rơi vừa hơn.
+- HUD hiển thị máu bằng 3 tim thay cho dạng số.
+- Player có thể rơi xuống đáy đấu trường; tường trái/phải/đáy có collider layer `World` để không lọt khỏi map.
+- Falling tetromino dùng trigger sensor và overlap logic để bắt va chạm khi đang rơi nhưng không để Unity physics hất player ngang.
+- Player, block đã khóa và biên đấu trường dùng frictionless physics material để giảm lỗi bám tường.
+- Active/locked block chỉ mở Game Over khi player bị đè và không còn đường thoát ngang; nhảy đụng block thì bị chặn, không chết ngay.
+- Khi bị block đè mà còn tim, player mất 1 tim rồi respawn ở điểm trống gần giữa arena, cao hơn block đã khóa cao nhất 5 đơn vị Y; player đứng lơ lửng 0.75 giây rồi rơi, nhấp nháy bất tử 3 giây, chỉ hết tim mới Game Over.
+- Falling block vẫn tiếp tục rơi khi player đứng cạnh/đứng dưới nhưng còn đường thoát, tránh kẹt piece giữa không trung.
+- Falling block kiểm tra vị trí kế tiếp trước khi bước xuống/rotate để không xuyên qua hoặc húc player văng ngang khi soft drop.
+- Nếu player nhảy lên hoặc chạm cạnh block đang xuống, player chỉ bị bật ngược xuống và block vẫn tiếp tục rơi; nếu không chạy ra kịp và hết đường thoát thì mới bị crush.
+- Nếu player bị kẹt chồng collider vào block/world, TetrisDemo tự tìm điểm trống gần nhất để giải kẹt.
+- Runtime Drone AI xuất hiện từ phase 1, patrol ở nửa trên arena, detect/telegraph/dash gây Enemy damage; drone bắn đạn xuống, đạn chạm block/world tạo vụ nổ nhỏ; falling block phá drone cộng 300 điểm và drone respawn sau 6 giây.
+- Dynamic Event Director đã có Block Overdrive và Meteor Shower từ phase 1: Overdrive tăng tốc 3 tetromino tiếp theo, còn Meteor Shower báo đường bay chậm hơn từ sát mép trong trái/phải nửa trên arena tới X rơi ngẫu nhiên trong map, Y rơi bám theo block cao nhất, chỉ nổ khi chạm player/block/sàn, gây Hazard damage và phá block đã khóa trong bán kính 2 cell sau 0.5 giây nhấp nháy.
+- TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.
 
-Player platform, Drone AI, event, pickup, menu hoàn chỉnh, save data, art và audio chưa được triển khai.
+Pickup, menu hoàn chỉnh, save data, art và audio chưa được triển khai.
 
 ## Yêu cầu
 
@@ -67,12 +85,27 @@ Công cụ trên tạo đồng thời `MainMenu` và `TetrisDemo`, đồng thờ
 | `A / D` | Di chuyển tetromino trái/phải |
 | `W` | Xoay tetromino theo chiều kim đồng hồ |
 | `S` | Soft drop |
+| `Left / Right Arrow` | Di chuyển player |
+| `Up Arrow` | Player nhảy |
+| `Down Arrow` | Player cúi |
 | `Esc` | Mở/đóng Pause Menu |
 | `R` | Mở hộp xác nhận reset lượt chơi |
 
-Nhân vật platform sau này sẽ sử dụng các phím mũi tên để không xung đột với điều khiển Tetris.
+Tetris dùng WASD, player dùng phím mũi tên để hai hệ điều khiển không xung đột.
 
 Không đọc `Keyboard.current` trực tiếp trong script gameplay mới. Thành viên phải lấy action tương ứng từ `InputService` để Pause có thể vô hiệu hóa gameplay thống nhất.
+
+## InputService là gì?
+
+`InputService` là service trung tâm trong `BlockEscape.Core` dùng để quản lý toàn bộ input của game. Nó giữ một `InputActionAsset`, tìm ba action map chính và bật/tắt chúng đúng lúc:
+
+| Action Map | Dùng cho | Binding hiện tại |
+|---|---|---|
+| `Tetris` | Điều khiển tetromino | `A/D`, `W`, `S` |
+| `Player` | Điều khiển nhân vật | `Left/Right/Up/Down Arrow` |
+| `System` | Lệnh hệ thống | `Esc`, `R` |
+
+Khi Pause, Game Over hoặc reset confirmation, gameplay input có thể bị tắt bằng một lệnh chung thay vì từng script tự xử lý phím. Script gameplay mới nên lấy input qua `InputService.Current`, ví dụ `InputService.Current.PlayerMove`, `PlayerJump`, `TetrisMove`, `Pause`.
 
 ## Cấu trúc project
 
@@ -89,6 +122,7 @@ Assets/_Project/
 │   ├── Bootstrap/    Khởi tạo và kết nối scene
 │   ├── Core/         Hệ thống dùng chung
 │   ├── Gameplay/     Board, tetromino và gameplay
+│   ├── Player/       Player controller, config và health
 │   └── UI/           HUD và preview
 ├── Tests/            EditMode và PlayMode tests
 └── Tilemaps/         Tile và Tilemap của đấu trường
@@ -107,14 +141,16 @@ BlockBoard
     ↓ cập nhật dữ liệu
 BoardModel
     ↓ phát hiện hàng đầy
-Row Clear + HUD
+GameSession + Score
+    ↓ HUD / Pause / Game Over
 ```
 
 - `BoardModel` chỉ quản lý dữ liệu lưới, không phụ thuộc scene.
 - `BlockBoard` đồng bộ dữ liệu với block hiển thị và collider.
 - `TetrominoSpawner` quản lý 7-bag, piece hiện tại và piece tiếp theo.
-- `ActiveTetromino` xử lý input WASD và chuyển động từng ô.
-- `TetrisDemoBootstrap` kết nối các object đã được tạo sẵn trong scene.
+- `ActiveTetromino` xử lý input WASD, chuyển động từng ô và dùng trigger sensor để bounce/crush player bằng overlap logic.
+- `TetrisDemoBootstrap` kết nối scene, tự spawn player khi cần, tạo collider biên đấu trường, clamp player trong arena và mở Game Over khi player bị block đè mà không còn đường thoát.
+- `GameSession` giữ trạng thái lượt chơi, thời gian sống sót, phase, tổng hàng đã xóa, điểm và kết quả cuối để HUD/menu dùng thống nhất.
 
 ## Quy trình làm việc nhóm
 
@@ -190,10 +226,9 @@ Cập nhật bảng này khi nhóm chốt thành viên:
 
 | Thành viên | Phụ trách |
 |---|---|
-| Chưa phân công | Tetris và hệ thống gameplay |
-| Chưa phân công | Player, health và animation |
-| Chưa phân công | UI, save và scene flow |
-| Chưa phân công | Art, audio và kiểm thử |
+| NguyenNgu2005 | Các phần đã sửa trong branch hiện tại: gameplay, player, input, HUD/session và test |
+| Chưa phân công | Drone AI, dynamic events, pickup và power-up |
+| Chưa phân công | Options, save data, art, animation và audio |
 
 ## License và asset bên ngoài
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -66,6 +67,28 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void TetrisBalanceConfig_IncreasesFallSpeedByPhaseAndClampsToMax()
+        {
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            try
+            {
+                config.fallSpeedCellsPerSecond = 2f;
+                config.fallSpeedIncreasePerPhase = 0.5f;
+                config.maxFallSpeedCellsPerSecond = 3f;
+
+                config.Sanitize();
+
+                Assert.That(config.GetFallSpeedForPhase(1), Is.EqualTo(2f));
+                Assert.That(config.GetFallSpeedForPhase(2), Is.EqualTo(2.5f));
+                Assert.That(config.GetFallSpeedForPhase(10), Is.EqualTo(3f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
         public void SevenBag_ContainsAllSevenKindsBeforeRepeatingBag()
         {
             var bag = new SevenBag(12345);
@@ -113,6 +136,429 @@ namespace BlockEscape.Tetris.Tests
             board.SetOccupied(7, 18);
             Assert.That(board.HasOccupiedAtOrAbove(18), Is.True);
             Assert.That(board.HighestOccupiedRow(), Is.EqualTo(18));
+        }
+
+        [Test]
+        public void BlockBoard_RaisesPlayerCrushedWhenLockedCellOverlapsPlayer()
+        {
+            var boardObject = new GameObject("Board");
+            var player = new GameObject("Player Probe");
+            try
+            {
+                boardObject.transform.position = Vector3.zero;
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 2;
+                config.boardHeight = 8;
+                config.rowClearWarningSeconds = 0f;
+                config.rowCollapseSeconds = 0f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = board.WorldForCell(new Vector2Int(1, 0)) + Vector3.up * 0.5f;
+                var collider = player.AddComponent<CapsuleCollider2D>();
+                collider.size = new Vector2(0.72f, 1.45f);
+                Physics2D.SyncTransforms();
+
+                var crushed = false;
+                board.PlayerCrushed += () => crushed = true;
+
+                Assert.That(board.CommitPiece(TetrominoKind.O, 0, Vector2Int.zero), Is.True);
+                Assert.That(crushed, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void BlockBoard_DoesNotRaisePlayerCrushedWhenPlayerHasSideEscape()
+        {
+            var boardObject = new GameObject("Board");
+            var player = new GameObject("Player Probe");
+            try
+            {
+                boardObject.transform.position = Vector3.zero;
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+                config.rowClearWarningSeconds = 0f;
+                config.rowCollapseSeconds = 0f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = board.WorldForCell(new Vector2Int(1, 0)) + Vector3.up * 0.5f;
+                var collider = player.AddComponent<CapsuleCollider2D>();
+                collider.size = new Vector2(0.72f, 1.45f);
+                Physics2D.SyncTransforms();
+
+                var crushed = false;
+                board.PlayerCrushed += () => crushed = true;
+
+                Assert.That(board.CommitPiece(TetrominoKind.O, 0, Vector2Int.zero), Is.True);
+                Assert.That(crushed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_FallingCellsUseTriggerSensors()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Test Piece");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, new Vector2Int(1, 4), 1f, 0f, 0f);
+
+                var colliders = pieceObject.GetComponentsInChildren<BoxCollider2D>();
+                Assert.That(colliders.Length, Is.EqualTo(4));
+                foreach (var collider in colliders)
+                {
+                    Assert.That(collider.isTrigger, Is.True);
+                    Assert.That(collider.sharedMaterial, Is.Not.Null);
+                    Assert.That(collider.sharedMaterial.friction, Is.EqualTo(0f));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_RaisesPlayerCrushedWhenFallingBlockPinsPlayerWithoutSideEscape()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Crush Test Piece");
+            var player = new GameObject("Player Crush Probe");
+            var leftBlocker = new GameObject("Left Escape Blocker");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 3;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                CreateBlockingBox(leftBlocker, new Vector2(0.5f, 1.75f), new Vector2(0.96f, 1.6f));
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, new Vector2Int(1, 2), 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(piece.CheckPlayerCrush(), Is.True);
+                Assert.That(crushed, Is.True);
+                Assert.That(piece.CheckPlayerCrush(), Is.False, "A single falling piece should only raise crush once.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(leftBlocker);
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_DoesNotCrushWhenPlayerHasSideEscape()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Escape Test Piece");
+            var player = new GameObject("Player Escape Probe");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, new Vector2Int(1, 2), 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(piece.CheckPlayerCrush(), Is.False);
+                Assert.That(crushed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_DownStepContinuesWhenPlayerHasSideEscape()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Step Stop Test Piece");
+            var player = new GameObject("Player Step Probe");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                var startOrigin = new Vector2Int(1, 3);
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, startOrigin, 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.True);
+                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin + Vector2Int.down));
+                Assert.That(crushed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_DownStepCrushesWhenPlayerHasNoSideEscape()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Step Crush Test Piece");
+            var player = new GameObject("Player Step Crush Probe");
+            var leftBlocker = new GameObject("Left Escape Blocker");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 3;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                CreateBlockingBox(leftBlocker, new Vector2(0.5f, 1.75f), new Vector2(0.96f, 1.6f));
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                var startOrigin = new Vector2Int(1, 3);
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, startOrigin, 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.True);
+                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin + Vector2Int.down));
+                Assert.That(crushed, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(leftBlocker);
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_DoesNotCrushWhenPlayerJumpsIntoBlock()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Jump Test Piece");
+            var player = new GameObject("Player Jump Probe");
+            var leftBlocker = new GameObject("Left Escape Blocker");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 3;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                CreateBlockingBox(leftBlocker, new Vector2(0.5f, 1.75f), new Vector2(0.96f, 1.6f));
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var body = player.AddComponent<Rigidbody2D>();
+                body.linearVelocity = new Vector2(0f, 6f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, new Vector2Int(1, 2), 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(piece.CheckPlayerCrush(), Is.False);
+                Assert.That(crushed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(leftBlocker);
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_DownStepBouncesRisingPlayerAndContinuesFalling()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Bounce Test Piece");
+            var player = new GameObject("Player Bounce Probe");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                player.transform.position = new Vector3(1.5f, 1.75f, 0f);
+                var body = player.AddComponent<Rigidbody2D>();
+                body.linearVelocity = new Vector2(0f, 6f);
+                var playerCollider = player.AddComponent<CapsuleCollider2D>();
+                playerCollider.size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                var startOrigin = new Vector2Int(1, 3);
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, startOrigin, 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.True);
+                Physics2D.SyncTransforms();
+                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin + Vector2Int.down));
+                Assert.That(body.linearVelocity.y, Is.LessThan(0f));
+                var blockBottom = board.WorldForCell(new Vector2Int(1, 2)).y - 0.47f;
+                Assert.That(playerCollider.bounds.max.y, Is.LessThanOrEqualTo(blockBottom + 0.04f));
+                Assert.That(crushed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_DownStepDeflectsSideContactDownWithoutMovingSideways()
+        {
+            var boardObject = new GameObject("Board");
+            var pieceObject = new GameObject("Active Side Deflect Test Piece");
+            var player = new GameObject("Player Side Probe");
+            try
+            {
+                var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+                config.boardWidth = 4;
+                config.boardHeight = 10;
+                config.fallSpeedCellsPerSecond = 1f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                player.layer = LayerMask.NameToLayer("Player");
+                var startPlayerPosition = new Vector3(0.86f, 2.5f, 0f);
+                player.transform.position = startPlayerPosition;
+                var body = player.AddComponent<Rigidbody2D>();
+                body.linearVelocity = new Vector2(0f, 6f);
+                player.AddComponent<CapsuleCollider2D>().size = new Vector2(0.72f, 1.45f);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                var startOrigin = new Vector2Int(1, 3);
+                piece.Initialize(board, null, null, TetrominoKind.O, 0, startOrigin, 1f, 0f, 0f);
+
+                var crushed = false;
+                piece.PlayerCrushed += () => crushed = true;
+
+                Assert.That(InvokeTryMove(piece, Vector2Int.down), Is.True);
+                Physics2D.SyncTransforms();
+                Assert.That(piece.GridOrigin, Is.EqualTo(startOrigin + Vector2Int.down));
+                Assert.That(body.linearVelocity.y, Is.LessThan(0f));
+                Assert.That(body.position.x, Is.EqualTo(startPlayerPosition.x).Within(0.001f));
+                Assert.That(crushed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        private static void CreateBlockingBox(GameObject gameObject, Vector2 center, Vector2 size)
+        {
+            var worldLayer = LayerMask.NameToLayer("World");
+            if (worldLayer >= 0)
+                gameObject.layer = worldLayer;
+            gameObject.transform.position = center;
+            var collider = gameObject.AddComponent<BoxCollider2D>();
+            collider.size = size;
+        }
+
+        private static bool InvokeTryMove(ActiveTetromino piece, Vector2Int offset)
+        {
+            var method = typeof(ActiveTetromino).GetMethod("TryMove", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null);
+            return (bool)method.Invoke(piece, new object[] { offset });
         }
 
     }
