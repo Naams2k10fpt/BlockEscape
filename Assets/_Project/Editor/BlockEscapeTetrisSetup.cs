@@ -23,7 +23,7 @@ namespace BlockEscape.Editor
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string PlayerPrefabPath = "Assets/_Project/Prefabs/Player/Player.prefab";
         private const string SquareAssetPath = "Assets/_Project/Art/GeneratedSquare.asset";
-        private const string ClassroomMarker = "m_Name: Main Menu Confirmation Dialog";
+        private const string ClassroomMarker = "m_Name: Player Health";
 
         static BlockEscapeTetrisSetup()
         {
@@ -89,7 +89,7 @@ namespace BlockEscape.Editor
             managerData.FindProperty("_inputService").objectReferenceValue = inputService;
             managerData.FindProperty("_statsText").objectReferenceValue = hud.stats;
             managerData.FindProperty("_statusText").objectReferenceValue = hud.status;
-            managerData.FindProperty("_overflowFill").objectReferenceValue = hud.overflowFill;
+            managerData.FindProperty("_healthText").objectReferenceValue = hud.health;
             managerData.FindProperty("_nextPiecePreview").objectReferenceValue = hud.nextPreview;
             managerData.FindProperty("_pauseMenu").objectReferenceValue = hud.pauseMenu;
             managerData.FindProperty("_gameOverMenu").objectReferenceValue = hud.gameOverMenu;
@@ -167,11 +167,16 @@ namespace BlockEscape.Editor
             SetRect(subtitle.rectTransform, new Vector2(0f, 270f), new Vector2(800f, 55f), new Vector2(0.5f, 0.5f));
             subtitle.color = new Color(0.72f, 0.8f, 0.92f);
 
-            var startButton = CreateButton(canvasObject.transform, "Start Game Button", "BẮT ĐẦU", new Vector2(0f, 45f), new Vector2(400f, 72f));
-            var exitButton = CreateButton(canvasObject.transform, "Exit Game Button", "THOÁT GAME", new Vector2(0f, -55f), new Vector2(400f, 72f));
+            var records = CreateText(canvasObject.transform, "Saved Records", "HIGH SCORE  0\nBEST TIME   00:00", 24, TextAnchor.MiddleCenter);
+            SetRect(records.rectTransform, new Vector2(0f, 165f), new Vector2(500f, 70f), new Vector2(0.5f, 0.5f));
+            records.color = new Color(0.45f, 1f, 0.65f);
+
+            var startButton = CreateButton(canvasObject.transform, "Start Game Button", "BẮT ĐẦU", new Vector2(0f, 55f), new Vector2(400f, 64f));
+            var optionsButton = CreateButton(canvasObject.transform, "Options Button", "TÙY CHỌN", new Vector2(0f, -25f), new Vector2(400f, 64f));
+            var exitButton = CreateButton(canvasObject.transform, "Exit Game Button", "THOÁT GAME", new Vector2(0f, -105f), new Vector2(400f, 64f));
 
             var controls = CreateText(canvasObject.transform, "Control Hint", "TETRIS: A / D DI CHUYỂN  •  W XOAY  •  S SOFT DROP", 22, TextAnchor.MiddleCenter);
-            SetRect(controls.rectTransform, new Vector2(0f, -250f), new Vector2(1100f, 55f), new Vector2(0.5f, 0.5f));
+            SetRect(controls.rectTransform, new Vector2(0f, -255f), new Vector2(1100f, 55f), new Vector2(0.5f, 0.5f));
             controls.color = new Color(0.55f, 0.65f, 0.8f);
 
             var footer = CreateText(canvasObject.transform, "Project Footer", "PRU213 FINAL PROJECT", 18, TextAnchor.LowerCenter);
@@ -181,10 +186,8 @@ namespace BlockEscape.Editor
             var controllerObject = new GameObject("Main Menu Controller");
             controllerObject.transform.SetParent(uiRoot, false);
             var controller = controllerObject.AddComponent<MainMenuController>();
-            var controllerData = new SerializedObject(controller);
-            controllerData.FindProperty("_startButton").objectReferenceValue = startButton;
-            controllerData.FindProperty("_exitButton").objectReferenceValue = exitButton;
-            controllerData.ApplyModifiedPropertiesWithoutUndo();
+            var optionsMenu = CreateOptionsMenu(canvasObject.transform);
+            controller.Configure(startButton, optionsButton, exitButton, records, optionsMenu);
 
             CreateEventSystem(uiRoot);
             EditorSceneManager.SaveScene(scene, MainMenuScenePath);
@@ -220,6 +223,16 @@ namespace BlockEscape.Editor
 
             var dangerY = origin.y + config.dangerStartRow;
             CreateQuad("Danger Line (Overflow)", root, sprite, new Vector2(center.x, dangerY), new Vector2(config.boardWidth, 0.08f), new Color(1f, 0.2f, 0.25f, 0.85f), 5);
+            var warningHeight = config.boardHeight - config.dangerStartRow;
+            var warning = CreateQuad(
+                "Overflow Warning",
+                root,
+                sprite,
+                new Vector2(center.x, dangerY + warningHeight * 0.5f),
+                new Vector2(config.boardWidth, warningHeight),
+                new Color(1f, 0.05f, 0.08f, 0.3f),
+                30);
+            warning.GetComponent<SpriteRenderer>().enabled = false;
 
             var borders = new GameObject("Arena Borders").transform;
             borders.SetParent(root, false);
@@ -312,30 +325,15 @@ namespace BlockEscape.Editor
             previewData.FindProperty("_kindText").objectReferenceValue = kindText;
             previewData.ApplyModifiedPropertiesWithoutUndo();
 
-            var overflowRoot = new GameObject("Overflow Meter");
-            overflowRoot.transform.SetParent(canvasObject.transform, false);
-            var rootImage = overflowRoot.AddComponent<Image>();
-            rootImage.color = new Color(0f, 0f, 0f, 0.65f);
-            SetRect(rootImage.rectTransform, new Vector2(-24f, -24f), new Vector2(420f, 26f), new Vector2(1f, 1f));
-
-            var fillObject = new GameObject("Danger Fill");
-            fillObject.transform.SetParent(overflowRoot.transform, false);
-            var overflowFill = fillObject.AddComponent<Image>();
-            overflowFill.color = new Color(1f, 0.2f, 0.25f);
-            overflowFill.type = Image.Type.Filled;
-            overflowFill.fillMethod = Image.FillMethod.Horizontal;
-            overflowFill.fillAmount = 0f;
-            var fillRect = overflowFill.rectTransform;
-            fillRect.anchorMin = Vector2.zero;
-            fillRect.anchorMax = Vector2.one;
-            fillRect.offsetMin = new Vector2(3f, 3f);
-            fillRect.offsetMax = new Vector2(-3f, -3f);
+            var health = CreateText(canvasObject.transform, "Player Health", "♥ ♥ ♥", 46, TextAnchor.UpperRight);
+            SetRect(health.rectTransform, new Vector2(-24f, -16f), new Vector2(420f, 70f), new Vector2(1f, 1f));
+            health.color = new Color(1f, 0.2f, 0.25f);
 
             var pauseMenu = CreatePauseMenu(canvasObject.transform);
             var gameOverMenu = CreateGameOverMenu(canvasObject.transform);
             CreateEventSystem(uiRoot);
 
-            return new HudReferences(stats, status, overflowFill, nextPreview, pauseMenu, gameOverMenu);
+            return new HudReferences(stats, status, health, nextPreview, pauseMenu, gameOverMenu);
         }
 
         private static TetrisPauseMenu CreatePauseMenu(Transform canvasRoot)
@@ -345,22 +343,23 @@ namespace BlockEscape.Editor
             var controller = controllerObject.AddComponent<TetrisPauseMenu>();
 
             var pausePanel = CreateOverlay(canvasRoot, "Pause Menu Overlay", new Color(0f, 0f, 0f, 0.72f));
-            var pauseDialog = CreatePanel(pausePanel.transform, "Pause Dialog", new Vector2(560f, 580f));
+            var pauseDialog = CreatePanel(pausePanel.transform, "Pause Dialog", new Vector2(580f, 660f));
             var pauseTitle = CreateText(pauseDialog.transform, "Pause Title", "TẠM DỪNG", 40, TextAnchor.UpperCenter);
             SetRect(pauseTitle.rectTransform, new Vector2(0f, -30f), new Vector2(460f, 60f), new Vector2(0.5f, 1f));
             pauseTitle.color = new Color(0.35f, 0.85f, 1f);
 
             var runStats = CreateText(pauseDialog.transform, "Pause Run Statistics", "BLOCK ĐÃ THẢ  0\nHÀNG ĐÃ XÓA  0     ĐIỂM  0\nSEED  0", 22, TextAnchor.MiddleCenter);
-            SetRect(runStats.rectTransform, new Vector2(0f, 100f), new Vector2(500f, 105f), new Vector2(0.5f, 0.5f));
+            SetRect(runStats.rectTransform, new Vector2(0f, 135f), new Vector2(520f, 135f), new Vector2(0.5f, 0.5f));
             runStats.color = new Color(0.45f, 1f, 0.65f);
 
             var controls = CreateText(pauseDialog.transform, "Pause Controls", "A/D: Di chuyển   W: Xoay   S: Soft drop\nESC: Tiếp tục", 20, TextAnchor.MiddleCenter);
-            SetRect(controls.rectTransform, new Vector2(0f, 15f), new Vector2(480f, 60f), new Vector2(0.5f, 0.5f));
+            SetRect(controls.rectTransform, new Vector2(0f, 35f), new Vector2(500f, 60f), new Vector2(0.5f, 0.5f));
             controls.color = new Color(0.72f, 0.8f, 0.92f);
 
-            var resumeButton = CreateButton(pauseDialog.transform, "Resume Button", "TIẾP TỤC", new Vector2(0f, -75f), new Vector2(320f, 58f));
-            var resetButton = CreateButton(pauseDialog.transform, "Reset Button", "CHƠI LẠI", new Vector2(0f, -150f), new Vector2(320f, 58f));
-            var mainMenuButton = CreateButton(pauseDialog.transform, "Pause Main Menu Button", "TRỞ VỀ MAIN MENU", new Vector2(0f, -225f), new Vector2(320f, 58f));
+            var resumeButton = CreateButton(pauseDialog.transform, "Resume Button", "TIẾP TỤC", new Vector2(0f, -55f), new Vector2(340f, 56f));
+            var resetButton = CreateButton(pauseDialog.transform, "Reset Button", "CHƠI LẠI", new Vector2(0f, -125f), new Vector2(340f, 56f));
+            var optionsButton = CreateButton(pauseDialog.transform, "Pause Options Button", "TÙY CHỌN", new Vector2(0f, -195f), new Vector2(340f, 56f));
+            var mainMenuButton = CreateButton(pauseDialog.transform, "Pause Main Menu Button", "TRỞ VỀ MAIN MENU", new Vector2(0f, -265f), new Vector2(340f, 56f));
 
             var confirmationPanel = CreateOverlay(canvasRoot, "Reset Confirmation Overlay", new Color(0f, 0f, 0f, 0.82f));
             var confirmationDialog = CreatePanel(confirmationPanel.transform, "Reset Confirmation Dialog", new Vector2(620f, 330f));
@@ -385,6 +384,7 @@ namespace BlockEscape.Editor
 
             var confirmMainMenuButton = CreateButton(mainMenuConfirmationDialog.transform, "Confirm Main Menu Button", "ĐỒNG Ý", new Vector2(-155f, -112f), new Vector2(270f, 58f));
             var cancelMainMenuButton = CreateButton(mainMenuConfirmationDialog.transform, "Cancel Main Menu Button", "HỦY", new Vector2(155f, -112f), new Vector2(270f, 58f));
+            var optionsMenu = CreateOptionsMenu(canvasRoot);
 
             var menuData = new SerializedObject(controller);
             menuData.FindProperty("_pausePanel").objectReferenceValue = pausePanel;
@@ -393,7 +393,9 @@ namespace BlockEscape.Editor
             menuData.FindProperty("_runStatsText").objectReferenceValue = runStats;
             menuData.FindProperty("_resumeButton").objectReferenceValue = resumeButton;
             menuData.FindProperty("_resetButton").objectReferenceValue = resetButton;
+            menuData.FindProperty("_optionsButton").objectReferenceValue = optionsButton;
             menuData.FindProperty("_mainMenuButton").objectReferenceValue = mainMenuButton;
+            menuData.FindProperty("_optionsMenu").objectReferenceValue = optionsMenu;
             menuData.FindProperty("_confirmResetButton").objectReferenceValue = confirmButton;
             menuData.FindProperty("_cancelResetButton").objectReferenceValue = cancelButton;
             menuData.FindProperty("_confirmMainMenuButton").objectReferenceValue = confirmMainMenuButton;
@@ -437,6 +439,59 @@ namespace BlockEscape.Editor
             return controller;
         }
 
+        private static OptionsMenu CreateOptionsMenu(Transform canvasRoot)
+        {
+            var controllerObject = new GameObject("Options Menu Controller");
+            controllerObject.transform.SetParent(canvasRoot, false);
+            var controller = controllerObject.AddComponent<OptionsMenu>();
+
+            var panel = CreateOverlay(canvasRoot, "Options Overlay", new Color(0f, 0f, 0f, 0.86f));
+            var dialog = CreatePanel(panel.transform, "Options Dialog", new Vector2(760f, 760f));
+            var title = CreateText(dialog.transform, "Options Title", "TÙY CHỌN", 42, TextAnchor.UpperCenter);
+            SetRect(title.rectTransform, new Vector2(0f, -30f), new Vector2(660f, 60f), new Vector2(0.5f, 1f));
+            title.color = new Color(0.35f, 0.85f, 1f);
+
+            var masterLabel = CreateText(dialog.transform, "Master Volume Label", "MASTER VOLUME", 22, TextAnchor.MiddleLeft);
+            SetRect(masterLabel.rectTransform, new Vector2(-235f, 190f), new Vector2(260f, 44f), new Vector2(0.5f, 0.5f));
+            var masterSlider = CreateSlider(dialog.transform, "Master Volume Slider", new Vector2(140f, 190f), new Vector2(340f, 30f));
+
+            var musicLabel = CreateText(dialog.transform, "Music Volume Label", "MUSIC VOLUME", 22, TextAnchor.MiddleLeft);
+            SetRect(musicLabel.rectTransform, new Vector2(-235f, 125f), new Vector2(260f, 44f), new Vector2(0.5f, 0.5f));
+            var musicSlider = CreateSlider(dialog.transform, "Music Volume Slider", new Vector2(140f, 125f), new Vector2(340f, 30f));
+
+            var sfxLabel = CreateText(dialog.transform, "SFX Volume Label", "SFX VOLUME", 22, TextAnchor.MiddleLeft);
+            SetRect(sfxLabel.rectTransform, new Vector2(-235f, 60f), new Vector2(260f, 44f), new Vector2(0.5f, 0.5f));
+            var sfxSlider = CreateSlider(dialog.transform, "SFX Volume Slider", new Vector2(140f, 60f), new Vector2(340f, 30f));
+
+            var resolutionLabel = CreateText(dialog.transform, "Resolution Label", "RESOLUTION", 22, TextAnchor.MiddleLeft);
+            SetRect(resolutionLabel.rectTransform, new Vector2(-235f, -20f), new Vector2(240f, 44f), new Vector2(0.5f, 0.5f));
+            var previousResolution = CreateButton(dialog.transform, "Previous Resolution Button", "<", new Vector2(-20f, -20f), new Vector2(58f, 48f));
+            var resolutionText = CreateText(dialog.transform, "Resolution Value", "1920 × 1080", 22, TextAnchor.MiddleCenter);
+            SetRect(resolutionText.rectTransform, new Vector2(135f, -20f), new Vector2(220f, 48f), new Vector2(0.5f, 0.5f));
+            var nextResolution = CreateButton(dialog.transform, "Next Resolution Button", ">", new Vector2(290f, -20f), new Vector2(58f, 48f));
+
+            var fullscreenToggle = CreateToggle(dialog.transform, "Fullscreen Toggle", "FULLSCREEN", new Vector2(-145f, -100f));
+            var vSyncToggle = CreateToggle(dialog.transform, "VSync Toggle", "VSYNC", new Vector2(190f, -100f));
+
+            var applyButton = CreateButton(dialog.transform, "Apply Options Button", "ÁP DỤNG", new Vector2(-170f, -245f), new Vector2(280f, 60f));
+            var backButton = CreateButton(dialog.transform, "Back Options Button", "QUAY LẠI", new Vector2(170f, -245f), new Vector2(280f, 60f));
+
+            controller.Configure(
+                panel,
+                masterSlider,
+                musicSlider,
+                sfxSlider,
+                resolutionText,
+                previousResolution,
+                nextResolution,
+                fullscreenToggle,
+                vSyncToggle,
+                applyButton,
+                backButton);
+            panel.SetActive(false);
+            return controller;
+        }
+
         private static GameObject CreateOverlay(Transform parent, string name, Color color)
         {
             var gameObject = new GameObject(name);
@@ -476,6 +531,69 @@ namespace BlockEscape.Editor
             var text = CreateText(gameObject.transform, "Label", label, 24, TextAnchor.MiddleCenter);
             StretchFullScreen(text.rectTransform);
             return button;
+        }
+
+        private static Slider CreateSlider(Transform parent, string name, Vector2 position, Vector2 size)
+        {
+            var gameObject = new GameObject(name);
+            gameObject.transform.SetParent(parent, false);
+            var background = gameObject.AddComponent<Image>();
+            background.color = new Color(0.08f, 0.12f, 0.22f, 1f);
+            SetRect(background.rectTransform, position, size, new Vector2(0.5f, 0.5f));
+
+            var fillObject = new GameObject("Fill");
+            fillObject.transform.SetParent(gameObject.transform, false);
+            var fill = fillObject.AddComponent<Image>();
+            fill.color = new Color(0.2f, 0.75f, 1f, 1f);
+            StretchFullScreen(fill.rectTransform);
+            fill.rectTransform.offsetMin = new Vector2(4f, 4f);
+            fill.rectTransform.offsetMax = new Vector2(-4f, -4f);
+
+            var handleObject = new GameObject("Handle");
+            handleObject.transform.SetParent(gameObject.transform, false);
+            var handle = handleObject.AddComponent<Image>();
+            handle.color = Color.white;
+            SetRect(handle.rectTransform, Vector2.zero, new Vector2(20f, size.y + 10f), new Vector2(0.5f, 0.5f));
+
+            var slider = gameObject.AddComponent<Slider>();
+            slider.fillRect = fill.rectTransform;
+            slider.handleRect = handle.rectTransform;
+            slider.targetGraphic = handle;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.value = 1f;
+            return slider;
+        }
+
+        private static Toggle CreateToggle(Transform parent, string name, string label, Vector2 position)
+        {
+            var gameObject = new GameObject(name, typeof(RectTransform));
+            gameObject.transform.SetParent(parent, false);
+            var rect = (RectTransform)gameObject.transform;
+            SetRect(rect, position, new Vector2(280f, 44f), new Vector2(0.5f, 0.5f));
+
+            var backgroundObject = new GameObject("Background");
+            backgroundObject.transform.SetParent(gameObject.transform, false);
+            var background = backgroundObject.AddComponent<Image>();
+            background.color = new Color(0.08f, 0.12f, 0.22f, 1f);
+            SetRect(background.rectTransform, new Vector2(-115f, 0f), new Vector2(34f, 34f), new Vector2(0.5f, 0.5f));
+
+            var checkmarkObject = new GameObject("Checkmark");
+            checkmarkObject.transform.SetParent(backgroundObject.transform, false);
+            var checkmark = checkmarkObject.AddComponent<Image>();
+            checkmark.color = new Color(0.2f, 0.85f, 1f, 1f);
+            StretchFullScreen(checkmark.rectTransform);
+            checkmark.rectTransform.offsetMin = new Vector2(6f, 6f);
+            checkmark.rectTransform.offsetMax = new Vector2(-6f, -6f);
+
+            var labelText = CreateText(gameObject.transform, "Label", label, 22, TextAnchor.MiddleLeft);
+            SetRect(labelText.rectTransform, new Vector2(35f, 0f), new Vector2(230f, 44f), new Vector2(0.5f, 0.5f));
+
+            var toggle = gameObject.AddComponent<Toggle>();
+            toggle.targetGraphic = background;
+            toggle.graphic = checkmark;
+            toggle.isOn = true;
+            return toggle;
         }
 
         private static void CreateEventSystem(Transform parent)
@@ -606,7 +724,7 @@ namespace BlockEscape.Editor
         {
             public readonly Text stats;
             public readonly Text status;
-            public readonly Image overflowFill;
+            public readonly Text health;
             public readonly NextPiecePreview nextPreview;
             public readonly TetrisPauseMenu pauseMenu;
             public readonly TetrisGameOverMenu gameOverMenu;
@@ -614,14 +732,14 @@ namespace BlockEscape.Editor
             public HudReferences(
                 Text stats,
                 Text status,
-                Image overflowFill,
+                Text health,
                 NextPiecePreview nextPreview,
                 TetrisPauseMenu pauseMenu,
                 TetrisGameOverMenu gameOverMenu)
             {
                 this.stats = stats;
                 this.status = status;
-                this.overflowFill = overflowFill;
+                this.health = health;
                 this.nextPreview = nextPreview;
                 this.pauseMenu = pauseMenu;
                 this.gameOverMenu = gameOverMenu;

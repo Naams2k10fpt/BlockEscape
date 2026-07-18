@@ -28,7 +28,7 @@ namespace BlockEscape.Bootstrap
         [Header("HUD references")]
         [SerializeField] private Text _statsText;
         [SerializeField] private Text _statusText;
-        [SerializeField] private Image _overflowFill;
+        [SerializeField] private Text _healthText;
         [SerializeField] private NextPiecePreview _nextPiecePreview;
         [SerializeField] private TetrisPauseMenu _pauseMenu;
         [SerializeField] private TetrisGameOverMenu _gameOverMenu;
@@ -39,6 +39,7 @@ namespace BlockEscape.Bootstrap
         private bool _gameOver;
         private Transform _player;
         private PlayerHealth _playerHealth;
+        private SpriteRenderer _overflowWarningRenderer;
         private Coroutine _respawnHoverRoutine;
         private DroneController _drone;
         private EventDirector _eventDirector;
@@ -54,6 +55,8 @@ namespace BlockEscape.Bootstrap
         private void Awake()
         {
             Time.timeScale = 1f;
+            SaveService.Load();
+            SaveService.ApplyDisplaySettings();
             if (_config == null)
                 _config = Resources.Load<TetrisBalanceConfig>("TetrisBalanceConfig");
             if (_config == null)
@@ -65,15 +68,18 @@ namespace BlockEscape.Bootstrap
             InitializeInput();
             if (_arenaVisuals == null)
                 CreateArenaVisuals();
+            EnsureOverflowWarningVisual();
             EnsureArenaBoundaryColliders();
             EnsurePlayerTestRig();
-            if (_statsText == null || _statusText == null || _overflowFill == null)
+            if (_statsText == null || _statusText == null)
                 CreateHud();
             else
             {
                 var existingCanvas = FindAnyObjectByType<Canvas>();
                 if (existingCanvas != null)
                 {
+                    if (_healthText == null)
+                        _healthText = CreateHealthText(existingCanvas.transform);
                     if (_pauseMenu == null)
                         _pauseMenu = CreatePauseMenu(existingCanvas.transform);
                     if (_gameOverMenu == null)
@@ -285,8 +291,8 @@ namespace BlockEscape.Bootstrap
                     _statsText = FindNamedComponent<Text>(canvas.transform, "Game Statistics");
                 if (_statusText == null)
                     _statusText = FindNamedComponent<Text>(canvas.transform, "Game Status");
-                if (_overflowFill == null)
-                    _overflowFill = FindNamedComponent<Image>(canvas.transform, "Danger Fill");
+                if (_healthText == null)
+                    _healthText = FindNamedComponent<Text>(canvas.transform, "Player Health");
                 if (_nextPiecePreview == null)
                     _nextPiecePreview = FindNamedComponent<NextPiecePreview>(canvas.transform, "Next Piece Preview");
                 if (_pauseMenu == null)
@@ -294,6 +300,10 @@ namespace BlockEscape.Bootstrap
                 if (_gameOverMenu == null)
                     _gameOverMenu = canvas.GetComponentInChildren<TetrisGameOverMenu>(true);
             }
+
+            var legacyOverflowMeter = GameObject.Find("Overflow Meter");
+            if (legacyOverflowMeter != null)
+                legacyOverflowMeter.SetActive(false);
         }
 
         private static T FindNamedComponent<T>(Transform root, string objectName) where T : Component
@@ -365,10 +375,40 @@ namespace BlockEscape.Bootstrap
             var dangerY = origin.y + _config.dangerStartRow;
             RuntimeVisuals.CreateQuad("Danger Line", root, new Vector3(center.x, dangerY, 0f), new Vector2(_config.boardWidth, 0.08f), new Color(1f, 0.2f, 0.25f, 0.85f), 5);
 
+            var warningHeight = _config.boardHeight - _config.dangerStartRow;
+            _overflowWarningRenderer = RuntimeVisuals.CreateQuad(
+                "Overflow Warning",
+                root,
+                new Vector3(center.x, dangerY + warningHeight * 0.5f, 0f),
+                new Vector2(_config.boardWidth, warningHeight),
+                new Color(1f, 0.05f, 0.08f, 0.3f),
+                30).GetComponent<SpriteRenderer>();
+            _overflowWarningRenderer.enabled = false;
+
             var borderColor = new Color(0.35f, 0.65f, 1f, 0.9f);
             AddWorldCollider(RuntimeVisuals.CreateQuad("Border Left", root, new Vector3(origin.x - 0.08f, center.y, 0f), new Vector2(0.16f, _config.boardHeight + 0.2f), borderColor, 5));
             AddWorldCollider(RuntimeVisuals.CreateQuad("Border Right", root, new Vector3(origin.x + _config.boardWidth + 0.08f, center.y, 0f), new Vector2(0.16f, _config.boardHeight + 0.2f), borderColor, 5));
             AddWorldCollider(RuntimeVisuals.CreateQuad("Border Bottom", root, new Vector3(center.x, origin.y - 0.08f, 0f), new Vector2(_config.boardWidth + 0.2f, 0.16f), borderColor, 5));
+        }
+
+        private void EnsureOverflowWarningVisual()
+        {
+            if (_overflowWarningRenderer == null && _arenaVisuals != null)
+                _overflowWarningRenderer = FindNamedComponent<SpriteRenderer>(_arenaVisuals, "Overflow Warning");
+            if (_overflowWarningRenderer != null || _arenaVisuals == null)
+                return;
+
+            var origin = new Vector2(-_config.boardWidth * 0.5f, -10f);
+            var dangerY = origin.y + _config.dangerStartRow;
+            var warningHeight = _config.boardHeight - _config.dangerStartRow;
+            _overflowWarningRenderer = RuntimeVisuals.CreateQuad(
+                "Overflow Warning",
+                _arenaVisuals,
+                new Vector3(0f, dangerY + warningHeight * 0.5f, 0f),
+                new Vector2(_config.boardWidth, warningHeight),
+                new Color(1f, 0.05f, 0.08f, 0.3f),
+                30).GetComponent<SpriteRenderer>();
+            _overflowWarningRenderer.enabled = false;
         }
 
         private static void EnsureArenaBoundaryColliders()
@@ -491,24 +531,7 @@ namespace BlockEscape.Bootstrap
             _statusText = CreateText(canvasObject.transform, "Status", "RUNNING", 30, TextAnchor.UpperCenter);
             SetRect(_statusText.rectTransform, new Vector2(0f, -20f), new Vector2(600f, 60f), new Vector2(0.5f, 1f));
 
-            var overflowRoot = new GameObject("Overflow Meter");
-            overflowRoot.transform.SetParent(canvasObject.transform, false);
-            var rootImage = overflowRoot.AddComponent<Image>();
-            rootImage.color = new Color(0f, 0f, 0f, 0.65f);
-            SetRect(rootImage.rectTransform, new Vector2(-24f, -24f), new Vector2(420f, 26f), new Vector2(1f, 1f));
-
-            var fillObject = new GameObject("Fill");
-            fillObject.transform.SetParent(overflowRoot.transform, false);
-            _overflowFill = fillObject.AddComponent<Image>();
-            _overflowFill.color = new Color(1f, 0.2f, 0.25f);
-            _overflowFill.type = Image.Type.Filled;
-            _overflowFill.fillMethod = Image.FillMethod.Horizontal;
-            _overflowFill.fillAmount = 0f;
-            var fillRect = _overflowFill.rectTransform;
-            fillRect.anchorMin = Vector2.zero;
-            fillRect.anchorMax = Vector2.one;
-            fillRect.offsetMin = new Vector2(3f, 3f);
-            fillRect.offsetMax = new Vector2(-3f, -3f);
+            _healthText = CreateHealthText(canvasObject.transform);
 
             _pauseMenu = CreatePauseMenu(canvasObject.transform);
             _gameOverMenu = CreateGameOverMenu(canvasObject.transform);
@@ -517,6 +540,8 @@ namespace BlockEscape.Bootstrap
 
         private void UpdateHud()
         {
+            if (_healthText != null)
+                _healthText.text = FormatHealth();
             if (_statsText == null || _board == null || _spawner == null)
                 return;
 
@@ -524,7 +549,6 @@ namespace BlockEscape.Bootstrap
                 $"SEED       {_spawner.Seed}\n" +
                 $"TIME       {FormatTime(_session.SurvivalTime)}\n" +
                 $"PHASE      {_session.Phase} ({FormatTime(_session.TimeUntilNextPhase)})\n" +
-                $"HP         {FormatHealth()}\n" +
                 $"SPAWNED    {_spawner.PiecesSpawned}\n" +
                 $"LAST PIECE {_lastSpawned}\n" +
                 $"LOCKED     {_board.Model.OccupiedCount} CELLS\n" +
@@ -903,8 +927,16 @@ namespace BlockEscape.Bootstrap
 
         private void OnOverflowChanged(bool dangerous, float normalized)
         {
-            if (_overflowFill != null)
-                _overflowFill.fillAmount = normalized;
+            if (_overflowWarningRenderer != null)
+            {
+                _overflowWarningRenderer.enabled = dangerous;
+                if (dangerous)
+                {
+                    var color = _overflowWarningRenderer.color;
+                    color.a = Mathf.Lerp(0.08f, 0.35f, Mathf.PingPong(Time.unscaledTime * 2.5f, 1f));
+                    _overflowWarningRenderer.color = color;
+                }
+            }
             if (dangerous && !_paused && _statusText != null)
             {
                 _statusText.text = "DANGER — CLEAR THE TOP";
@@ -960,6 +992,8 @@ namespace BlockEscape.Bootstrap
 
             _gameOver = true;
             _paused = false;
+            if (_overflowWarningRenderer != null)
+                _overflowWarningRenderer.enabled = false;
             StopRespawnHover(restoreGravity: true);
             SetAuxiliaryGameplayRunning(false);
             Time.timeScale = 0f;
@@ -970,6 +1004,7 @@ namespace BlockEscape.Bootstrap
                 reason,
                 _spawner != null ? _spawner.PiecesSpawned : 0,
                 _spawner != null ? _spawner.Seed : 0);
+            SaveService.RecordRun(result.Score, result.SurvivalTime);
             if (_gameOverMenu != null && _spawner != null)
             {
                 _gameOverMenu.Show(
@@ -1002,11 +1037,11 @@ namespace BlockEscape.Bootstrap
         private string FormatHealth()
         {
             if (_playerHealth == null)
-                return "---";
+                return "♡ ♡ ♡";
 
             var hearts = string.Empty;
             for (var i = 0; i < _playerHealth.MaxHp; i++)
-                hearts += i < _playerHealth.CurrentHp ? "♥" : "♡";
+                hearts += (i == 0 ? string.Empty : " ") + (i < _playerHealth.CurrentHp ? "♥" : "♡");
             return hearts;
         }
 
@@ -1249,7 +1284,9 @@ namespace BlockEscape.Bootstrap
                 runStats,
                 resumeButton,
                 resetButton,
+                null,
                 mainMenuButton,
+                null,
                 confirmButton,
                 cancelButton,
                 confirmMainMenuButton,
@@ -1362,6 +1399,14 @@ namespace BlockEscape.Bootstrap
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Overflow;
             return text;
+        }
+
+        private static Text CreateHealthText(Transform parent)
+        {
+            var health = CreateText(parent, "Player Health", "♥ ♥ ♥", 46, TextAnchor.UpperRight);
+            SetRect(health.rectTransform, new Vector2(-24f, -16f), new Vector2(420f, 70f), new Vector2(1f, 1f));
+            health.color = new Color(1f, 0.2f, 0.25f);
+            return health;
         }
 
         private static void SetRect(RectTransform rect, Vector2 anchoredPosition, Vector2 size, Vector2 anchor)

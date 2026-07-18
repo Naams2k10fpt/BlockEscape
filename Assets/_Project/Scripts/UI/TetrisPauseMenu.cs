@@ -17,7 +17,9 @@ namespace BlockEscape.UI
         [Header("Pause buttons")]
         [SerializeField] private Button _resumeButton;
         [SerializeField] private Button _resetButton;
+        [SerializeField] private Button _optionsButton;
         [SerializeField] private Button _mainMenuButton;
+        [SerializeField] private OptionsMenu _optionsMenu;
 
         [Header("Reset confirmation buttons")]
         [SerializeField] private Button _confirmResetButton;
@@ -35,7 +37,8 @@ namespace BlockEscape.UI
 
         public bool IsConfirmationVisible =>
             (_resetConfirmationPanel != null && _resetConfirmationPanel.activeSelf) ||
-            (_mainMenuConfirmationPanel != null && _mainMenuConfirmationPanel.activeSelf);
+            (_mainMenuConfirmationPanel != null && _mainMenuConfirmationPanel.activeSelf) ||
+            (_optionsMenu != null && _optionsMenu.IsVisible);
 
         private void OnEnable()
         {
@@ -54,7 +57,9 @@ namespace BlockEscape.UI
             Text runStatsText,
             Button resumeButton,
             Button resetButton,
+            Button optionsButton,
             Button mainMenuButton,
+            OptionsMenu optionsMenu,
             Button confirmResetButton,
             Button cancelResetButton,
             Button confirmMainMenuButton,
@@ -67,7 +72,9 @@ namespace BlockEscape.UI
             _runStatsText = runStatsText;
             _resumeButton = resumeButton;
             _resetButton = resetButton;
+            _optionsButton = optionsButton;
             _mainMenuButton = mainMenuButton;
+            _optionsMenu = optionsMenu;
             _confirmResetButton = confirmResetButton;
             _cancelResetButton = cancelResetButton;
             _confirmMainMenuButton = confirmMainMenuButton;
@@ -100,11 +107,13 @@ namespace BlockEscape.UI
                 return;
             if (_resumeButton != null) _resumeButton.onClick.AddListener(RequestResume);
             if (_resetButton != null) _resetButton.onClick.AddListener(ShowResetConfirmation);
+            if (_optionsButton != null) _optionsButton.onClick.AddListener(ShowOptions);
             if (_mainMenuButton != null) _mainMenuButton.onClick.AddListener(ShowMainMenuConfirmation);
             if (_confirmResetButton != null) _confirmResetButton.onClick.AddListener(ConfirmReset);
             if (_cancelResetButton != null) _cancelResetButton.onClick.AddListener(ShowPause);
             if (_confirmMainMenuButton != null) _confirmMainMenuButton.onClick.AddListener(ConfirmMainMenu);
             if (_cancelMainMenuButton != null) _cancelMainMenuButton.onClick.AddListener(ShowPause);
+            if (_optionsMenu != null) _optionsMenu.Closed += ShowPause;
             _listenersBound = true;
         }
 
@@ -114,11 +123,13 @@ namespace BlockEscape.UI
                 return;
             if (_resumeButton != null) _resumeButton.onClick.RemoveListener(RequestResume);
             if (_resetButton != null) _resetButton.onClick.RemoveListener(ShowResetConfirmation);
+            if (_optionsButton != null) _optionsButton.onClick.RemoveListener(ShowOptions);
             if (_mainMenuButton != null) _mainMenuButton.onClick.RemoveListener(ShowMainMenuConfirmation);
             if (_confirmResetButton != null) _confirmResetButton.onClick.RemoveListener(ConfirmReset);
             if (_cancelResetButton != null) _cancelResetButton.onClick.RemoveListener(ShowPause);
             if (_confirmMainMenuButton != null) _confirmMainMenuButton.onClick.RemoveListener(ConfirmMainMenu);
             if (_cancelMainMenuButton != null) _cancelMainMenuButton.onClick.RemoveListener(ShowPause);
+            if (_optionsMenu != null) _optionsMenu.Closed -= ShowPause;
             _listenersBound = false;
         }
 
@@ -127,7 +138,16 @@ namespace BlockEscape.UI
             if (_pausePanel != null) _pausePanel.SetActive(true);
             if (_resetConfirmationPanel != null) _resetConfirmationPanel.SetActive(false);
             if (_mainMenuConfirmationPanel != null) _mainMenuConfirmationPanel.SetActive(false);
+            if (_optionsMenu != null) _optionsMenu.Hide();
             if (_resumeButton != null) _resumeButton.Select();
+        }
+
+        public void ShowOptions()
+        {
+            if (_pausePanel != null) _pausePanel.SetActive(false);
+            if (_resetConfirmationPanel != null) _resetConfirmationPanel.SetActive(false);
+            if (_mainMenuConfirmationPanel != null) _mainMenuConfirmationPanel.SetActive(false);
+            _optionsMenu?.Show();
         }
 
         public void ShowResetConfirmation()
@@ -135,6 +155,7 @@ namespace BlockEscape.UI
             if (_pausePanel != null) _pausePanel.SetActive(false);
             if (_resetConfirmationPanel != null) _resetConfirmationPanel.SetActive(true);
             if (_mainMenuConfirmationPanel != null) _mainMenuConfirmationPanel.SetActive(false);
+            if (_optionsMenu != null) _optionsMenu.Hide();
             if (_cancelResetButton != null) _cancelResetButton.Select();
         }
 
@@ -143,6 +164,7 @@ namespace BlockEscape.UI
             if (_pausePanel != null) _pausePanel.SetActive(false);
             if (_resetConfirmationPanel != null) _resetConfirmationPanel.SetActive(false);
             if (_mainMenuConfirmationPanel != null) _mainMenuConfirmationPanel.SetActive(true);
+            if (_optionsMenu != null) _optionsMenu.Hide();
             if (_cancelMainMenuButton != null) _cancelMainMenuButton.Select();
         }
 
@@ -151,6 +173,7 @@ namespace BlockEscape.UI
             if (_pausePanel != null) _pausePanel.SetActive(false);
             if (_resetConfirmationPanel != null) _resetConfirmationPanel.SetActive(false);
             if (_mainMenuConfirmationPanel != null) _mainMenuConfirmationPanel.SetActive(false);
+            if (_optionsMenu != null) _optionsMenu.Hide();
         }
 
         private void RequestResume()

@@ -107,7 +107,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Drone AI | 42% | Có runtime drone trong TetrisDemo từ phase 1, state patrol/detect/telegraph/dash/recover, Enemy damage, bắn đạn xuống, nổ nhỏ khi chạm block/world, bị falling block phá và respawn | NguyenNgu2005 |
 | Dynamic Events | 42% | Có Event Director runtime, seed-based schedule sớm, Block Overdrive 3 piece và Meteor Shower bay chậm hơn từ sát mép trong hai cạnh nửa trên arena tới X rơi ngẫu nhiên, Y rơi bám theo block cao nhất, chỉ nổ khi chạm thật và phá block bán kính 2 sau 0.5 giây nhấp nháy; chưa có Cutter Sweep | NguyenNgu2005 |
 | Pickup và power-up | 0% | Chưa làm | Chưa phân công |
-| HUD và game flow | 59% | HUD/Pause/Game Over đọc cùng session score, hiển thị 3 tim, phase, drone/event state, respawn crush và thời gian sống sót | NguyenNgu2005 |
+| HUD và game flow | 59% | HUD/Pause/Game Over đọc cùng session score; 3 tim nằm ở góc trên phải và vùng trên danger row nháy đỏ khi Overflow; có phase, drone/event state, respawn crush và thời gian sống sót | NguyenNgu2005 |
 | Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
 | Test và Windows build | 40% | Build .NET runtime/test/editor xanh; có thêm test gravity, health reset, session phase, phase speed config và meteor event config; cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
