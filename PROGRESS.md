@@ -1,6 +1,6 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
-- **Cập nhật lần cuối:** 19/07/2026
+- **Cập nhật lần cuối:** 20/07/2026
 - **Cột mốc hiện tại:** Gameplay tích hợp playable
 - **Tiến độ tổng thể ước tính:** 61%
 - **Unity bắt buộc:** `6000.4.4f1`
@@ -573,6 +573,7 @@ Nghiệm thu:
 - [x] Restart/resume không tạo spawn coroutine hoặc active tetromino trùng lặp.
 - [ ] Pause chỉ được quản lý tại GameSession.
 - [x] Timer/score không tăng khi Pause hoặc GameOver.
+- [x] Điểm xóa hàng chỉ được cộng khi session đang `Playing`.
 - [x] HP 0 hoặc overflow đều tạo `RunResult` và GameOver.
 - [x] Phase đổi đúng mốc và cập nhật config của spawner.
 - [x] Phase cập nhật drone và event director khi AI/Event được triển khai.
@@ -892,6 +893,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 19/07/2026 | ITEM-01/EVENT-01 | Thêm pickup/power-up, Cutter bám hàng player, Overdrive feedback và Meteor Shower hoàn chỉnh | Gameplay tích hợp có đủ ba pickup và ba dynamic event để playtest |
 | 19/07/2026 | SESSION-01 | Thêm countdown 3 giây trước mỗi run và khóa gameplay tới khi chuyển sang Playing | Reset/restart chạy lại countdown sạch |
 | 19/07/2026 | Spawn regression | Dừng spawn coroutine cũ, làm `StartSpawning` idempotent và dọn active piece mồ côi khi restart | Không còn nhiều tetromino rơi đồng thời hoặc spawn trong countdown |
+| 20/07/2026 | SESSION-01/Reset lifecycle | Chặn điểm xóa hàng ngoài `Playing`; `ResetBoard` dừng toàn bộ coroutine row-clear/phá block của run cũ | Build xanh và 3/3 regression test mục tiêu pass |
 
 ## 13. Cách cập nhật file này
 

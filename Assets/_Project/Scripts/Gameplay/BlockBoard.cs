@@ -205,8 +205,9 @@ namespace BlockEscape.Tetris
 
         public void ResetBoard()
         {
-            if (_resolveRoutine != null)
-                StopCoroutine(_resolveRoutine);
+            // Delayed destruction routines can otherwise resume after reset and
+            // remove cells that belong to the next run.
+            StopAllCoroutines();
             _resolveRoutine = null;
             _pendingDestroyedCells.Clear();
 
