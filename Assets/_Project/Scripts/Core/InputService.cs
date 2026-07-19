@@ -227,6 +227,7 @@ namespace BlockEscape.Core
         public float SurvivalTime { get; private set; }
         public int Phase { get; private set; } = 1;
         public float TimeUntilNextPhase { get; private set; } = 45f;
+        public float CountdownRemaining { get; private set; }
         public RunResult LastResult { get; private set; }
 
         public void StartRun()
@@ -236,18 +237,33 @@ namespace BlockEscape.Core
 
         public void StartRun(float phaseDurationSeconds)
         {
-            _scoreService.Reset();
-            _phaseDurationSeconds = Mathf.Max(1f, phaseDurationSeconds);
-            SurvivalTime = 0f;
-            Phase = 1;
-            TimeUntilNextPhase = _phaseDurationSeconds;
-            LastResult = default;
+            ResetRun(phaseDurationSeconds);
             SetState(GameSessionState.Playing);
+        }
+
+        public void StartCountdown(float countdownSeconds, float phaseDurationSeconds)
+        {
+            ResetRun(phaseDurationSeconds);
+            CountdownRemaining = Mathf.Max(0f, countdownSeconds);
+            SetState(GameSessionState.Countdown);
+            if (CountdownRemaining <= 0f)
+                SetState(GameSessionState.Playing);
         }
 
         public void Tick(float deltaTime)
         {
-            if (State != GameSessionState.Playing || deltaTime <= 0f)
+            if (deltaTime <= 0f)
+                return;
+
+            if (State == GameSessionState.Countdown)
+            {
+                CountdownRemaining = Mathf.Max(0f, CountdownRemaining - deltaTime);
+                if (CountdownRemaining <= 0f)
+                    SetState(GameSessionState.Playing);
+                return;
+            }
+
+            if (State != GameSessionState.Playing)
                 return;
 
             SurvivalTime += deltaTime;
@@ -302,6 +318,17 @@ namespace BlockEscape.Core
             TimeUntilNextPhase = Mathf.Max(0f, nextPhaseAt - SurvivalTime);
             if (Phase != previousPhase)
                 PhaseChanged?.Invoke(Phase);
+        }
+
+        private void ResetRun(float phaseDurationSeconds)
+        {
+            _scoreService.Reset();
+            _phaseDurationSeconds = Mathf.Max(1f, phaseDurationSeconds);
+            SurvivalTime = 0f;
+            Phase = 1;
+            TimeUntilNextPhase = _phaseDurationSeconds;
+            CountdownRemaining = 0f;
+            LastResult = default;
         }
 
         private void SetState(GameSessionState state)

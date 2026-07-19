@@ -34,7 +34,7 @@ namespace BlockEscape.Tetris
         public float FallSpeedMultiplier => _fallSpeedMultiplier;
         public bool OverdriveVisualActive => _overdriveVisualActive;
 
-        public void Initialize(BlockBoard board, TetrisBalanceConfig config, InputService input)
+        public void Initialize(BlockBoard board, TetrisBalanceConfig config, InputService input, bool startSpawning = true)
         {
             _board = board;
             _config = config;
@@ -49,7 +49,8 @@ namespace BlockEscape.Tetris
             RefreshFallSpeed();
             _board.Overflowed += Stop;
             NextPieceChanged?.Invoke(_nextKind);
-            StartSpawning();
+            if (startSpawning)
+                StartSpawning();
         }
 
         private void OnDestroy()
@@ -62,7 +63,9 @@ namespace BlockEscape.Tetris
 
         public void StartSpawning()
         {
-            StopRoutineOnly();
+            if (_spawnRoutine != null)
+                return;
+
             _stopped = false;
             _spawnRoutine = StartCoroutine(SpawnLoop());
         }
@@ -73,12 +76,13 @@ namespace BlockEscape.Tetris
             StopRoutineOnly();
         }
 
-        public void Restart()
+        public void Restart(bool startSpawning = true)
         {
-            if (_activePiece != null)
+            Stop();
+            foreach (var activePiece in _board.GetComponentsInChildren<ActiveTetromino>(true))
             {
-                _activePiece.PlayerCrushed -= OnActivePiecePlayerCrushed;
-                _activePiece.Cancel();
+                activePiece.PlayerCrushed -= OnActivePiecePlayerCrushed;
+                activePiece.Cancel();
             }
             _activePiece = null;
             PiecesSpawned = 0;
@@ -90,7 +94,8 @@ namespace BlockEscape.Tetris
             _overdriveVisualActive = false;
             RefreshFallSpeed();
             NextPieceChanged?.Invoke(_nextKind);
-            StartSpawning();
+            if (startSpawning)
+                StartSpawning();
         }
 
         public void ApplyDifficultyPhase(int phase)
@@ -126,7 +131,8 @@ namespace BlockEscape.Tetris
                 while (_board.IsResolving)
                     yield return null;
 
-                SpawnNext();
+                if (_activePiece == null)
+                    SpawnNext();
                 while (_activePiece != null && !_stopped)
                     yield return null;
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Reflection;
 using BlockEscape.Core;
@@ -6,6 +7,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.TestTools;
 
 namespace BlockEscape.Tetris.Tests
 {
@@ -127,6 +129,25 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void GameSession_CountdownTransitionsToPlayingOnce()
+        {
+            var sessionType = typeof(InputService).Assembly.GetType("BlockEscape.Core.GameSession");
+            Assert.That(sessionType, Is.Not.Null);
+            var session = Activator.CreateInstance(sessionType);
+            sessionType.GetMethod("StartCountdown", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(session, new object[] { 3f, 45f });
+
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 2.9f });
+            Assert.That(sessionType.GetProperty("State").GetValue(session).ToString(), Is.EqualTo("Countdown"));
+
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 0.11f });
+            Assert.That(sessionType.GetProperty("State").GetValue(session).ToString(), Is.EqualTo("Playing"));
+
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 1f });
+            Assert.That((float)sessionType.GetProperty("SurvivalTime").GetValue(session), Is.EqualTo(1f));
+        }
+
+        [Test]
         public void TetrominoSpawner_FallSpeedMultiplierStacksWithPhaseSpeed()
         {
             var spawnerObject = new GameObject("Spawner");
@@ -159,6 +180,44 @@ namespace BlockEscape.Tetris.Tests
             {
                 UnityEngine.Object.DestroyImmediate(config);
                 UnityEngine.Object.DestroyImmediate(spawnerObject);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator TetrominoSpawner_StartAndStoppedRestartDoNotDuplicateSpawns()
+        {
+            var boardObject = new GameObject("Stopped Spawner Test");
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            try
+            {
+                config.initialSpawnDelay = 0f;
+                config.spawnDelay = 0f;
+                config.Sanitize();
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+                var spawner = boardObject.AddComponent<TetrominoSpawner>();
+                spawner.Initialize(board, config, null);
+                Assert.That(spawner.ActivePiece, Is.Not.Null);
+
+                var activePiece = spawner.ActivePiece;
+                spawner.StartSpawning();
+                yield return null;
+                Assert.That(spawner.ActivePiece, Is.SameAs(activePiece));
+
+                var orphan = new GameObject("Orphan Active Piece");
+                orphan.transform.SetParent(board.transform);
+                orphan.AddComponent<ActiveTetromino>();
+                spawner.Restart(startSpawning: false);
+                yield return null;
+
+                Assert.That(spawner.ActivePiece, Is.Null);
+                Assert.That(spawner.PiecesSpawned, Is.Zero);
+                Assert.That(board.GetComponentsInChildren<ActiveTetromino>(), Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(config);
+                UnityEngine.Object.DestroyImmediate(boardObject);
             }
         }
 

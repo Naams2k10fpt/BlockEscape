@@ -24,7 +24,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Main Menu có nút Bắt đầu/Thoát và màn Game Over tổng kết lượt chơi.
 - Pause Menu có nút trở về Main Menu với hộp xác nhận để tránh mất lượt nhầm.
 - Input System được tách thành ba map `Tetris`, `Player`, `System` và quản lý tập trung qua `InputService`.
-- Game session runtime quản lý trạng thái Playing/Paused/Game Over, thời gian sống sót, phase độ khó, điểm theo thời gian và điểm xóa hàng.
+- Game session runtime quản lý Countdown 3 giây trước mỗi run cùng các trạng thái Playing/Paused/Game Over, thời gian sống sót, phase độ khó và score.
 - HUD, Pause Menu và Game Over summary đọc cùng một nguồn session/score nên số liệu không bị lệch nhau.
 - Phase độ khó tăng theo thời gian sống và làm piece mới rơi nhanh dần theo config.
 - Player runtime spawn trong `TetrisDemo`, có di chuyển, nhảy, cúi, health, iFrame và death event.
