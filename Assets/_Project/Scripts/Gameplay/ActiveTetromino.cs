@@ -178,7 +178,7 @@ namespace BlockEscape.Tetris
 
             SetVisualColor(_visualColor);
             if (_warningBar != null)
-                Destroy(_warningBar);
+                DestroySafely(_warningBar);
             _warningBar = null;
             _telegraphing = false;
         }
@@ -241,8 +241,7 @@ namespace BlockEscape.Tetris
                 {
                     if (hit == null || !hit.enabled || hit.isTrigger)
                         continue;
-                    if (PlayerCrushEscape.IsPinnedFromAbove(hit, center) ||
-                        PlayerCrushEscape.ShouldCrush(
+                    if (PlayerCrushEscape.ShouldCrush(
                             hit,
                             center,
                             _board,
@@ -500,7 +499,7 @@ namespace BlockEscape.Tetris
             _rigidbody.position = _board.WorldForCell(_origin);
             _board.CommitPiece(_kind, _rotation, _origin);
             _owner.NotifyPieceFinished(this);
-            Destroy(gameObject);
+            DestroySafely(gameObject);
         }
 
         public void Cancel()
@@ -510,8 +509,8 @@ namespace BlockEscape.Tetris
             _finished = true;
             DestroyGhostPiece();
             if (_warningBar != null)
-                Destroy(_warningBar);
-            Destroy(gameObject);
+                DestroySafely(_warningBar);
+            DestroySafely(gameObject);
         }
 
         private void OnDestroy()
@@ -528,7 +527,18 @@ namespace BlockEscape.Tetris
             ghostObject.SetActive(false);
             _ghostRoot = null;
             _ghostRenderers = null;
-            Destroy(ghostObject);
+            DestroySafely(ghostObject);
+        }
+
+        private static void DestroySafely(Object target)
+        {
+            if (target == null)
+                return;
+
+            if (Application.isPlaying)
+                Destroy(target);
+            else
+                DestroyImmediate(target);
         }
     }
 }

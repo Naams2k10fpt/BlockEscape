@@ -98,7 +98,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 | Module | Tiến độ | Trạng thái | Phụ trách |
 |---|---:|---|---|
-| Tetris Core | 96% | Test assembly build xanh; cần chạy lại Unity Test Runner cho regression mới và playtest 50 piece | NguyenNgu2005 |
+| Tetris Core | 96% | EditMode Test Runner 60/60 xanh; còn playtest 50 piece | NguyenNgu2005 |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | NguyenNgu2005 |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | NguyenNgu2005 |
 | Player Controller | 79% | Có movement, jump cao hơn, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
@@ -111,7 +111,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | HUD và game flow | 62% | HUD hiển thị countdown; khóa player/Tetris/drone/event/pickup trước Playing; Pause/Game Over đọc cùng session score | NguyenNgu2005 |
 | Main Menu, Options và Save | 55% | Có Start/Options/Exit, high score/best time, JSON save v1 và audio/display settings; còn Bootstrap scene và input rebind | NguyenNgu2005 |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 42% | Build .NET runtime/test/editor xanh; có test transition Countdown → Playing cùng các test gameplay hiện có; cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
+| Test và Windows build | 42% | Build runtime/test/editor 0 warning/0 error; EditMode Test Runner 60/60 xanh; còn PlayMode QA và Windows build cuối | NguyenNgu2005 |
 
 ## 5. Phần đã hoàn thành
 
@@ -340,7 +340,7 @@ Nghiệm thu:
 - [ ] Preview đúng 100%.
 - [ ] Ghost luôn chỉ đúng vị trí khóa cuối cùng và không có collider.
 - [ ] Row clear và compaction không sai occupancy.
-- [ ] Chạy lại toàn bộ EditMode Test Runner cho code countdown/spawner hiện tại.
+- [x] EditMode Test Runner 60/60 xanh trên code countdown/spawner hiện tại.
 
 ### INPUT-01 — Chuẩn hóa Input System
 
@@ -820,7 +820,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 - [ ] `A/D/W/S` không cho đi xuyên board hoặc locked block.
 - [ ] Xóa đúng 1–4 hàng và compaction đúng.
 - [ ] Overflow dừng spawn; reset tạo run sạch.
-- [ ] EditMode tests xanh toàn bộ trên code countdown/spawner hiện tại.
+- [x] EditMode tests 60/60 xanh toàn bộ trên code countdown/spawner hiện tại.
 - [ ] Hai thành viên đã playtest độc lập.
 
 ## 11. Ghi chú và giới hạn hiện tại
@@ -894,6 +894,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 19/07/2026 | SESSION-01 | Thêm countdown 3 giây trước mỗi run và khóa gameplay tới khi chuyển sang Playing | Reset/restart chạy lại countdown sạch |
 | 19/07/2026 | Spawn regression | Dừng spawn coroutine cũ, làm `StartSpawning` idempotent và dọn active piece mồ côi khi restart | Không còn nhiều tetromino rơi đồng thời hoặc spawn trong countdown |
 | 20/07/2026 | SESSION-01/Reset lifecycle | Chặn điểm xóa hàng ngoài `Playing`; `ResetBoard` dừng toàn bộ coroutine row-clear/phá block của run cũ | Build xanh và 3/3 regression test mục tiêu pass |
+| 20/07/2026 | TEST/crush lifecycle | Dọn object an toàn trong EditMode, sửa test khởi tạo Player/Drone, hoàn nguyên collision matrix và yêu cầu đường thoát crush liên tục | Build 0 warning/0 error; EditMode Test Runner 60/60 pass |
 
 ## 13. Cách cập nhật file này
 

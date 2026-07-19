@@ -403,12 +403,10 @@ namespace BlockEscape.Tetris
         private const float CrushContactTolerance = 0.02f;
         private const float RisingVelocityThreshold = 0.05f;
 
-        private static readonly Vector2[] EscapeOffsets =
+        private static readonly Vector2[] EscapeDirections =
         {
-            Vector2.left * EscapeStep,
-            Vector2.right * EscapeStep,
-            Vector2.left * EscapeStep * 2f,
-            Vector2.right * EscapeStep * 2f
+            Vector2.left,
+            Vector2.right
         };
 
         public static bool TryEvaluateCellOverlap(
@@ -674,14 +672,23 @@ namespace BlockEscape.Tetris
                 Mathf.Max(0.05f, bounds.size.y - ProbeSkin));
             var blockingMask = LayerMask.GetMask("World", "FallingBlock");
 
-            foreach (var offset in EscapeOffsets)
+            foreach (var direction in EscapeDirections)
             {
-                var center = (Vector2)bounds.center + offset;
-                if (!IsInsideBoard(center, probeSize, board))
-                    continue;
-                if (OverlapsPredictedCells(center, probeSize, predictedCells, predictedOrigin, predictedCellSize, board))
-                    continue;
-                if (!OverlapsBlockingCollider(center, probeSize, blockingMask, playerCollider))
+                var hasReachableSpace = false;
+                for (var step = 1; step <= 2; step++)
+                {
+                    var center = (Vector2)bounds.center + direction * (EscapeStep * step);
+                    if (!IsInsideBoard(center, probeSize, board))
+                        break;
+                    if (OverlapsPredictedCells(center, probeSize, predictedCells, predictedOrigin, predictedCellSize, board))
+                        break;
+                    if (OverlapsBlockingCollider(center, probeSize, blockingMask, playerCollider))
+                        break;
+
+                    hasReachableSpace = true;
+                }
+
+                if (hasReachableSpace)
                     return true;
             }
 

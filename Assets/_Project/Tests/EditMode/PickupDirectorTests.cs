@@ -14,6 +14,11 @@ namespace BlockEscape.Tetris.Tests
             var boardObject = new GameObject("Pickup Board Test");
             var playerObject = new GameObject("Pickup Player Test");
             var directorObject = new GameObject("Pickup Director Test");
+            var pickupLayer = LayerMask.NameToLayer("Pickup");
+            var originalCollisionStates = pickupLayer >= 0 ? new bool[32] : null;
+            if (originalCollisionStates != null)
+                for (var layer = 0; layer < originalCollisionStates.Length; layer++)
+                    originalCollisionStates[layer] = Physics2D.GetIgnoreLayerCollision(pickupLayer, layer);
             try
             {
                 boardObject.transform.position = new Vector3(-config.boardWidth * 0.5f, -10f);
@@ -64,6 +69,9 @@ namespace BlockEscape.Tetris.Tests
             }
             finally
             {
+                if (originalCollisionStates != null)
+                    for (var layer = 0; layer < originalCollisionStates.Length; layer++)
+                        Physics2D.IgnoreLayerCollision(pickupLayer, layer, originalCollisionStates[layer]);
                 Object.DestroyImmediate(directorObject);
                 Object.DestroyImmediate(playerObject);
                 Object.DestroyImmediate(boardObject);

@@ -1,3 +1,4 @@
+using System.Reflection;
 using BlockEscape.Core;
 using BlockEscape.Player;
 using NUnit.Framework;
@@ -69,7 +70,8 @@ namespace BlockEscape.Tetris.Tests
             {
                 player.AddComponent<Rigidbody2D>();
                 var collider = player.AddComponent<CapsuleCollider2D>();
-                player.AddComponent<PlayerController>();
+                var controller = player.AddComponent<PlayerController>();
+                InvokeAwake(controller);
 
                 Assert.That(collider.sharedMaterial, Is.Not.Null);
                 Assert.That(collider.sharedMaterial.friction, Is.EqualTo(0f));
@@ -90,6 +92,7 @@ namespace BlockEscape.Tetris.Tests
                 player.AddComponent<Rigidbody2D>();
                 player.AddComponent<CapsuleCollider2D>();
                 var controller = player.AddComponent<PlayerController>();
+                InvokeAwake(controller);
                 var boostedVelocity = controller.Config.jumpVelocity * 1.2f;
 
                 controller.ApplyJumpBoost(1.2f, 8f);
@@ -116,6 +119,7 @@ namespace BlockEscape.Tetris.Tests
             {
                 var body = player.AddComponent<Rigidbody2D>();
                 var health = player.AddComponent<PlayerHealth>();
+                InvokeAwake(health);
 
                 var accepted = health.TakeDamage(new DamageInfo(1, new Vector2(2f, 3f), null, DamageType.Enemy));
 
@@ -142,6 +146,7 @@ namespace BlockEscape.Tetris.Tests
             {
                 player.AddComponent<Rigidbody2D>();
                 var health = player.AddComponent<PlayerHealth>();
+                InvokeAwake(health);
                 var deathCount = 0;
                 health.Died += () => deathCount++;
 
@@ -168,6 +173,7 @@ namespace BlockEscape.Tetris.Tests
             {
                 player.AddComponent<Rigidbody2D>();
                 var health = player.AddComponent<PlayerHealth>();
+                InvokeAwake(health);
 
                 health.TakeDamage(new DamageInfo(3, Vector2.zero, null, DamageType.Hazard));
                 health.ResetHealth();
@@ -191,6 +197,7 @@ namespace BlockEscape.Tetris.Tests
             {
                 player.AddComponent<Rigidbody2D>();
                 var health = player.AddComponent<PlayerHealth>();
+                InvokeAwake(health);
 
                 health.StartInvulnerability(3f);
                 var accepted = health.TakeDamage(new DamageInfo(1, Vector2.zero, null, DamageType.Crush));
@@ -203,6 +210,13 @@ namespace BlockEscape.Tetris.Tests
             {
                 Object.DestroyImmediate(player);
             }
+        }
+
+        private static void InvokeAwake(Component component)
+        {
+            var awake = component.GetType().GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(awake, Is.Not.Null, $"{component.GetType().Name} must define Awake for runtime initialization.");
+            awake.Invoke(component, null);
         }
     }
 }
