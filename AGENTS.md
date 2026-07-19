@@ -102,8 +102,9 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   make a small explosion on World/FallingBlock, and respawns 6 seconds after a
   falling block destroys it.
 - Phase 1+ also enables the runtime dynamic event director. Shipped events are
-  Block Overdrive, which multiplies fall speed for the next 3 spawned
-  tetrominoes, Cutter Sweep, which warns a populated row before crossing it,
+  Block Overdrive, which multiplies fall speed and adds a purple tint for the
+  next 3 spawned tetrominoes while the HUD counts the pieces left, Cutter Sweep,
+  whose warning tracks the player's row before locking and crossing it,
   damaging the player, and clearing it through `BlockBoard`, and Meteor Shower,
   which warns a trajectory before a slower meteor
   falls, starts from a random inner left/right upper-arena edge, targets a random

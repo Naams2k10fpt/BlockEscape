@@ -29,6 +29,7 @@ namespace BlockEscape.Tetris
         private float _horizontalHoldTime;
         private float _horizontalRepeatTime;
         private float _softDropRepeatTime;
+        private Color _visualColor;
 
         private const float HorizontalRepeatDelay = 0.18f;
         private const float HorizontalRepeatInterval = 0.07f;
@@ -38,6 +39,7 @@ namespace BlockEscape.Tetris
         private const float CrushProbeSize = 0.86f;
         private const float PlayerBounceVelocity = -8f;
         private const float PlayerBounceSkin = 0.03f;
+        private static readonly Color OverdriveColor = new(1f, 0.25f, 0.95f);
 
         public event System.Action PlayerCrushed;
 
@@ -54,7 +56,8 @@ namespace BlockEscape.Tetris
             Vector2Int origin,
             float fallSpeed,
             float telegraphSeconds,
-            float lockDelay)
+            float lockDelay,
+            bool overdriveVisual = false)
         {
             _board = board;
             _owner = owner;
@@ -64,6 +67,7 @@ namespace BlockEscape.Tetris
             _origin = origin;
             _fallSpeed = Mathf.Max(0.1f, fallSpeed);
             _lockDelay = Mathf.Max(0f, lockDelay);
+            _visualColor = overdriveVisual ? OverdriveColor : TetrominoCatalog.GetColor(kind);
             _localCells = TetrominoCatalog.GetCells(kind, rotation);
             var spawnWorldPosition = _board.WorldForCell(_origin);
             transform.position = spawnWorldPosition;
@@ -158,12 +162,11 @@ namespace BlockEscape.Tetris
         private IEnumerator TelegraphRoutine(float duration)
         {
             _telegraphing = true;
-            var baseColor = TetrominoCatalog.GetColor(_kind);
             var elapsed = 0f;
             while (elapsed < duration && !_finished)
             {
                 var pulse = 0.25f + Mathf.PingPong(elapsed * 2.5f, 0.45f);
-                SetVisualColor(new Color(baseColor.r, baseColor.g, baseColor.b, pulse));
+                SetVisualColor(new Color(_visualColor.r, _visualColor.g, _visualColor.b, pulse));
                 if (_warningBar != null)
                 {
                     var renderer = _warningBar.GetComponent<SpriteRenderer>();
@@ -173,7 +176,7 @@ namespace BlockEscape.Tetris
                 yield return null;
             }
 
-            SetVisualColor(baseColor);
+            SetVisualColor(_visualColor);
             if (_warningBar != null)
                 Destroy(_warningBar);
             _warningBar = null;
@@ -183,7 +186,6 @@ namespace BlockEscape.Tetris
         private void BuildCells()
         {
             _renderers = new SpriteRenderer[_localCells.Length];
-            var color = TetrominoCatalog.GetColor(_kind);
             for (var i = 0; i < _localCells.Length; i++)
             {
                 var cell = new GameObject($"Cell {i}");
@@ -194,7 +196,7 @@ namespace BlockEscape.Tetris
 
                 var renderer = cell.AddComponent<SpriteRenderer>();
                 renderer.sprite = RuntimeVisuals.Square;
-                renderer.color = color;
+                renderer.color = _visualColor;
                 renderer.sortingOrder = 20;
                 _renderers[i] = renderer;
 
@@ -263,8 +265,7 @@ namespace BlockEscape.Tetris
             _ghostRoot = ghostObject.transform;
 
             _ghostRenderers = new SpriteRenderer[_localCells.Length];
-            var pieceColor = TetrominoCatalog.GetColor(_kind);
-            var ghostColor = new Color(pieceColor.r, pieceColor.g, pieceColor.b, GhostAlpha);
+            var ghostColor = new Color(_visualColor.r, _visualColor.g, _visualColor.b, GhostAlpha);
 
             for (var i = 0; i < _localCells.Length; i++)
             {

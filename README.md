@@ -40,7 +40,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Nếu player nhảy lên hoặc chạm cạnh block đang xuống, player chỉ bị bật ngược xuống và block vẫn tiếp tục rơi; nếu không chạy ra kịp và hết đường thoát thì mới bị crush.
 - Nếu player bị kẹt chồng collider vào block/world, TetrisDemo tự tìm điểm trống gần nhất để giải kẹt.
 - Runtime Drone AI xuất hiện từ phase 1, patrol ở nửa trên arena, detect/telegraph/dash gây Enemy damage; drone bắn đạn xuống, đạn chạm block/world tạo vụ nổ nhỏ; falling block phá drone cộng 300 điểm và drone respawn sau 6 giây.
-- Dynamic Event Director chạy từ phase 1 với Block Overdrive, Cutter Sweep và Meteor Shower: Cutter cảnh báo hàng 1.2 giây, quét ngang gây Hazard damage rồi clear hàng qua `BlockBoard`; Meteor báo đường bay, gây Hazard damage và phá block đã khóa trong bán kính 2 cell.
+- Dynamic Event Director chạy từ phase 1 với Block Overdrive, Cutter Sweep và Meteor Shower: ba piece Overdrive có tint tím và HUD đếm số piece còn lại; Cutter bám theo hàng của player trong 1.2 giây cảnh báo, sau đó khóa hàng và quét ngang gây Hazard damage rồi clear hàng qua `BlockBoard`; Meteor báo đường bay, gây Hazard damage và phá block đã khóa trong bán kính 2 cell.
 - TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho các quy tắc của board.

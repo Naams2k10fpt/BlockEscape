@@ -206,7 +206,7 @@ namespace BlockEscape.Bootstrap
             }
 
             var eventConfig = Resources.Load<DynamicEventConfig>("DynamicEventConfig");
-            _eventDirector.Initialize(eventConfig, _spawner, _spawner != null ? _spawner.Seed : 0);
+            _eventDirector.Initialize(eventConfig, _spawner, _spawner != null ? _spawner.Seed : 0, _player);
             _eventDirector.StatusChanged += OnDynamicEventStatusChanged;
             _lastDynamicEvent = "NONE";
         }

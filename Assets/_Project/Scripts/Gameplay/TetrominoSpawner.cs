@@ -17,6 +17,7 @@ namespace BlockEscape.Tetris
         private TetrominoKind _nextKind;
         private float _currentFallSpeed;
         private float _fallSpeedMultiplier = 1f;
+        private bool _overdriveVisualActive;
         private int _currentPhase = 1;
         private bool _stopped;
 
@@ -31,6 +32,7 @@ namespace BlockEscape.Tetris
         public BlockBoard Board => _board;
         public float CurrentFallSpeed => _currentFallSpeed;
         public float FallSpeedMultiplier => _fallSpeedMultiplier;
+        public bool OverdriveVisualActive => _overdriveVisualActive;
 
         public void Initialize(BlockBoard board, TetrisBalanceConfig config, InputService input)
         {
@@ -43,6 +45,7 @@ namespace BlockEscape.Tetris
             _nextKind = _bag.Next();
             _currentPhase = 1;
             _fallSpeedMultiplier = 1f;
+            _overdriveVisualActive = false;
             RefreshFallSpeed();
             _board.Overflowed += Stop;
             NextPieceChanged?.Invoke(_nextKind);
@@ -84,6 +87,7 @@ namespace BlockEscape.Tetris
             _nextKind = _bag.Next();
             _currentPhase = 1;
             _fallSpeedMultiplier = 1f;
+            _overdriveVisualActive = false;
             RefreshFallSpeed();
             NextPieceChanged?.Invoke(_nextKind);
             StartSpawning();
@@ -98,9 +102,10 @@ namespace BlockEscape.Tetris
             RefreshFallSpeed();
         }
 
-        public void SetFallSpeedMultiplier(float multiplier)
+        public void SetFallSpeedMultiplier(float multiplier, bool overdriveVisual = false)
         {
             _fallSpeedMultiplier = Mathf.Max(0.1f, multiplier);
+            _overdriveVisualActive = overdriveVisual;
             RefreshFallSpeed();
         }
 
@@ -156,7 +161,8 @@ namespace BlockEscape.Tetris
                 origin,
                 _currentFallSpeed,
                 _config.telegraphSeconds,
-                _config.lockDelaySeconds);
+                _config.lockDelaySeconds,
+                _overdriveVisualActive);
 
             PiecesSpawned++;
             PieceSpawned?.Invoke(kind);
@@ -251,6 +257,7 @@ namespace BlockEscape.Events
 
         private BlockEscape.Tetris.TetrominoSpawner _spawner;
         private BlockEscape.Tetris.BlockBoard _board;
+        private Transform _player;
         private System.Random _random;
         private Coroutine _cutterRoutine;
         private Coroutine _meteorRoutine;
@@ -278,13 +285,18 @@ namespace BlockEscape.Events
             UnbindSpawner();
         }
 
-        public void Initialize(DynamicEventConfig config, BlockEscape.Tetris.TetrominoSpawner spawner, int seed)
+        public void Initialize(
+            DynamicEventConfig config,
+            BlockEscape.Tetris.TetrominoSpawner spawner,
+            int seed,
+            Transform player)
         {
             _config = config != null ? config : ScriptableObject.CreateInstance<DynamicEventConfig>();
             _config.Sanitize();
             _random = new System.Random(seed ^ 0x6d2b79f5);
             BindSpawner(spawner);
             _board = spawner != null ? spawner.Board : null;
+            _player = player;
             ResetDirector(seed);
         }
 
@@ -323,6 +335,14 @@ namespace BlockEscape.Events
         public static bool CanRunEvents(int phase)
         {
             return phase >= 1;
+        }
+
+        public static int GetCutterTargetRow(BlockEscape.Tetris.BlockBoard board, Vector2 playerPosition)
+        {
+            if (board == null || board.Height <= 1)
+                return -1;
+
+            return Mathf.Clamp(board.CellForWorld(playerPosition).y, 1, board.Height - 1);
         }
 
         public static float GetNextIntervalForPhase(int phase, DynamicEventConfig config, System.Random random)
@@ -380,27 +400,28 @@ namespace BlockEscape.Events
         {
             ActiveEvent = DynamicEventKind.BlockOverdrive;
             _remainingOverdrivePieces = _config.overdrivePieceCount;
-            _spawner.SetFallSpeedMultiplier(_config.overdriveFallSpeedMultiplier);
-            StatusChanged?.Invoke($"EVENT: OVERDRIVE x{_config.overdriveFallSpeedMultiplier:0.0}");
+            _spawner.SetFallSpeedMultiplier(_config.overdriveFallSpeedMultiplier, overdriveVisual: true);
+            StatusChanged?.Invoke(
+                $"EVENT: OVERDRIVE x{_config.overdriveFallSpeedMultiplier:0.0} ({_remainingOverdrivePieces} LEFT)");
         }
 
         private bool TryStartCutterSweep()
         {
-            var row = _board != null ? _board.GetDensestEligibleRow(1) : -1;
-            if (row < 1)
+            if (_board == null || _player == null)
                 return false;
 
             ActiveEvent = DynamicEventKind.CutterSweep;
             var fromLeft = _random.Next(0, 2) == 0;
-            _cutterRoutine = StartCoroutine(CutterSweepRoutine(row, fromLeft));
-            StatusChanged?.Invoke($"EVENT: CUTTER WARNING ROW {row + 1}");
+            _cutterRoutine = StartCoroutine(CutterSweepRoutine(fromLeft));
+            StatusChanged?.Invoke("EVENT: CUTTER TRACKING");
             return true;
         }
 
-        private IEnumerator CutterSweepRoutine(int row, bool fromLeft)
+        private IEnumerator CutterSweepRoutine(bool fromLeft)
         {
             var boardLeft = _board.transform.position.x;
             var boardRight = boardLeft + _board.Width;
+            var row = GetCutterTargetRow(_board, _player.position);
             var rowY = _board.WorldForCell(new Vector2Int(0, row)).y;
             var root = GetCutterRoot();
             var warning = BlockEscape.Tetris.RuntimeVisuals.CreateQuad(
@@ -411,7 +432,18 @@ namespace BlockEscape.Events
                 new Color(1f, 0.1f, 0.15f, 0.6f),
                 24);
 
-            yield return new WaitForSeconds(_config.cutterWarningSeconds);
+            for (var elapsed = 0f; elapsed < _config.cutterWarningSeconds; elapsed += Time.deltaTime)
+            {
+                if (_player != null)
+                {
+                    row = GetCutterTargetRow(_board, _player.position);
+                    rowY = _board.WorldForCell(new Vector2Int(0, row)).y;
+                    warning.transform.position = new Vector3((boardLeft + boardRight) * 0.5f, rowY, 0f);
+                }
+
+                yield return null;
+            }
+
             if (warning != null)
                 Destroy(warning);
             if (_board == null)
@@ -628,7 +660,10 @@ namespace BlockEscape.Events
 
             _remainingOverdrivePieces--;
             if (_remainingOverdrivePieces > 0)
+            {
+                StatusChanged?.Invoke($"EVENT: OVERDRIVE {_remainingOverdrivePieces} LEFT");
                 return;
+            }
 
             StopActiveEvent();
             _timer = GetNextIntervalForPhase(_phase, _config, _random);

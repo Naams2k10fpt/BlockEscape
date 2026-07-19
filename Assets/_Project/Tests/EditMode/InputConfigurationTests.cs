@@ -146,9 +146,14 @@ namespace BlockEscape.Tetris.Tests
                 spawner.ApplyDifficultyPhase(3);
                 Assert.That(spawner.CurrentFallSpeed, Is.EqualTo(3f));
 
-                spawner.SetFallSpeedMultiplier(1.6f);
+                spawner.SetFallSpeedMultiplier(1.6f, overdriveVisual: true);
                 Assert.That(spawner.FallSpeedMultiplier, Is.EqualTo(1.6f));
                 Assert.That(spawner.CurrentFallSpeed, Is.EqualTo(4.8f).Within(0.001f));
+                Assert.That(spawner.OverdriveVisualActive, Is.True);
+
+                spawner.SetFallSpeedMultiplier(1f);
+                Assert.That(spawner.CurrentFallSpeed, Is.EqualTo(3f));
+                Assert.That(spawner.OverdriveVisualActive, Is.False);
             }
             finally
             {
@@ -245,6 +250,33 @@ namespace BlockEscape.Tetris.Tests
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
+        public void EventDirector_CutterTargetRowTracksAndClampsPlayerHeight()
+        {
+            var eventDirectorType = typeof(InputService).Assembly.GetType("BlockEscape.Events.EventDirector");
+            var getTargetRow = eventDirectorType?.GetMethod("GetCutterTargetRow", BindingFlags.Public | BindingFlags.Static);
+            var boardObject = new GameObject("Cutter Target Board");
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            try
+            {
+                config.boardWidth = 14;
+                config.boardHeight = 20;
+                boardObject.transform.position = new Vector3(-7f, -10f, 0f);
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                Assert.That(getTargetRow, Is.Not.Null);
+                Assert.That((int)getTargetRow.Invoke(null, new object[] { board, new Vector2(0f, -4.2f) }), Is.EqualTo(5));
+                Assert.That((int)getTargetRow.Invoke(null, new object[] { board, new Vector2(0f, -20f) }), Is.EqualTo(1));
+                Assert.That((int)getTargetRow.Invoke(null, new object[] { board, new Vector2(0f, 20f) }), Is.EqualTo(19));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(boardObject);
                 UnityEngine.Object.DestroyImmediate(config);
             }
         }

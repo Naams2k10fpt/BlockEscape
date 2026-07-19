@@ -289,6 +289,48 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void ActiveTetromino_UsesOverdriveTintForFallingCells()
+        {
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            var boardObject = new GameObject("Overdrive Board Test");
+            var pieceObject = new GameObject("Overdrive Piece Test");
+            try
+            {
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                piece.Initialize(
+                    board,
+                    null,
+                    null,
+                    TetrominoKind.O,
+                    0,
+                    new Vector2Int(1, 4),
+                    1f,
+                    0f,
+                    0f,
+                    overdriveVisual: true);
+
+                var renderers = pieceObject.GetComponentsInChildren<SpriteRenderer>();
+                Assert.That(renderers, Has.Length.EqualTo(4));
+                foreach (var renderer in renderers)
+                {
+                    Assert.That(renderer.color, Is.EqualTo(new Color(1f, 0.25f, 0.95f)));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
         public void ActiveTetromino_RaisesPlayerCrushedWhenFallingBlockPinsPlayerWithoutSideEscape()
         {
             var boardObject = new GameObject("Board");
