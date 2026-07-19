@@ -39,6 +39,8 @@ For most gameplay work, inspect only the relevant files:
   - `Assets/_Project/Tests/EditMode/InputConfigurationTests.cs`
   - `Assets/_Project/Tests/EditMode/ArenaPrefabTests.cs`
   - `Assets/_Project/Tests/EditMode/PickupDirectorTests.cs`
+  - `Assets/_Project/Tests/EditMode/PickupDirectorEdgeCaseTests.cs`
+  - `Assets/_Project/Tests/EditMode/PlayerHealthHealingTests.cs`
   - `Assets/_Project/Tests/EditMode/SaveServiceTests.cs`
 
 Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
