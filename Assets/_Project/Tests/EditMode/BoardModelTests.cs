@@ -223,11 +223,12 @@ namespace BlockEscape.Tetris.Tests
         {
             var boardObject = new GameObject("Board");
             var player = new GameObject("Player Probe");
+            var rightBlocker = new GameObject("Right Escape Blocker");
             try
             {
                 boardObject.transform.position = Vector3.zero;
                 var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
-                config.boardWidth = 2;
+                config.boardWidth = 4;
                 config.boardHeight = 8;
                 config.rowClearWarningSeconds = 0f;
                 config.rowCollapseSeconds = 0f;
@@ -239,6 +240,7 @@ namespace BlockEscape.Tetris.Tests
                 player.transform.position = board.WorldForCell(new Vector2Int(1, 0)) + Vector3.up * 0.5f;
                 var collider = player.AddComponent<CapsuleCollider2D>();
                 collider.size = new Vector2(0.72f, 1.45f);
+                CreateBlockingBox(rightBlocker, new Vector2(2.5f, 1f), new Vector2(0.96f, 1.6f));
                 Physics2D.SyncTransforms();
 
                 var crushed = false;
@@ -249,6 +251,7 @@ namespace BlockEscape.Tetris.Tests
             }
             finally
             {
+                Object.DestroyImmediate(rightBlocker);
                 Object.DestroyImmediate(player);
                 Object.DestroyImmediate(boardObject);
             }

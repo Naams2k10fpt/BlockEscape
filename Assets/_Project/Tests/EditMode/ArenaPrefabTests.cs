@@ -105,10 +105,10 @@ namespace BlockEscape.Tetris.Tests
             var scene = EditorSceneManager.OpenScene(ArenaSandboxScenePath, OpenSceneMode.Single);
             Assert.That(scene.IsValid(), Is.True, $"Arena sandbox scene is missing at {ArenaSandboxScenePath}.");
 
-            var inputService = Object.FindFirstObjectByType<InputService>();
+            var inputService = Object.FindAnyObjectByType<InputService>();
             Assert.That(inputService, Is.Not.Null);
 
-            var player = Object.FindFirstObjectByType<PlayerController>();
+            var player = Object.FindAnyObjectByType<PlayerController>();
             Assert.That(player, Is.Not.Null);
             Assert.That(player.GetComponent<PlayerHealth>(), Is.Not.Null);
             Assert.That(player.GetComponent<Rigidbody2D>(), Is.Not.Null);

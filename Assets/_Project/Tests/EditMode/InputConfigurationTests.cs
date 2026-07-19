@@ -412,6 +412,7 @@ namespace BlockEscape.Tetris.Tests
                 droneConfigType.GetField("telegraphSeconds").SetValue(config, 0.8f);
 
                 droneType.GetMethod("Initialize").Invoke(drone, new object[] { config, player.transform, board });
+                player.transform.position = droneObject.GetComponent<Rigidbody2D>().position + Vector2.left * 2f;
                 Assert.That(droneType.GetProperty("State").GetValue(drone).ToString(), Is.EqualTo("Patrol"));
 
                 droneType.GetMethod("SetPhase").Invoke(drone, new object[] { 1 });
