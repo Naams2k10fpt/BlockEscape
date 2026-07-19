@@ -1,10 +1,11 @@
 # Block Escape — Tiến độ và hướng dẫn triển khai chung
 
-- **Cập nhật lần cuối:** 30/06/2026
-- **Cột mốc hiện tại:** Player sandbox playable
-- **Tiến độ tổng thể ước tính:** 58%
+- **Cập nhật lần cuối:** 19/07/2026
+- **Cột mốc hiện tại:** Gameplay tích hợp playable
+- **Tiến độ tổng thể ước tính:** 61%
 - **Unity bắt buộc:** `6000.4.4f1`
-- **Scene chạy hiện tại:** `Assets/_Project/Scenes/TetrisDemo.unity` cho Tetris; `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity` cho player sandbox
+- **Luồng chạy hiện tại:** `MainMenu.unity` → `TetrisDemo.unity`; `ArenaSandbox.unity` dùng để playtest vật lý player
+- **Branch tích hợp đang chờ merge:** `feature/pickups-powerups` tại `5659406`
 
 > Đây là nguồn thông tin chung của cả team. Thành viên phải đọc phần **Quyết định kỹ thuật**, task mình nhận và **Checklist trước khi merge** trước khi bắt đầu code.
 
@@ -97,7 +98,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 | Module | Tiến độ | Trạng thái | Phụ trách |
 |---|---:|---|---|
-| Tetris Core | 96% | EditMode Test Runner xanh, còn playtest 50 piece độc lập | NguyenNgu2005 |
+| Tetris Core | 96% | Test assembly build xanh; cần chạy lại Unity Test Runner cho regression mới và playtest 50 piece | NguyenNgu2005 |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | NguyenNgu2005 |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | NguyenNgu2005 |
 | Player Controller | 79% | Có movement, jump cao hơn, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
@@ -108,7 +109,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Dynamic Events | 64% | Có Event Director runtime, Block Overdrive tint tím 3 piece kèm HUD đếm số còn lại, Cutter Sweep bám theo hàng của player trong 1.2 giây rồi gây Hazard damage/clear hàng, và Meteor Shower phá block bán kính 2; chờ Play Mode test để cân bằng lịch event | NguyenNgu2005 |
 | Pickup và power-up | 70% | Có Score Crystal, Health Pack, Jump Boost 8 giây, pool tối đa 2 item, spawn từ mép trên, rơi xuống mặt đỡ và tồn tại 1 giây sau khi chạm đất; chờ Play Mode test | NguyenNgu2005 |
 | HUD và game flow | 62% | HUD hiển thị countdown; khóa player/Tetris/drone/event/pickup trước Playing; Pause/Game Over đọc cùng session score | NguyenNgu2005 |
-| Main Menu, Options và Save | 20% | Có Main Menu Start/Exit; chưa có Options/Save | Chưa phân công |
+| Main Menu, Options và Save | 55% | Có Start/Options/Exit, high score/best time, JSON save v1 và audio/display settings; còn Bootstrap scene và input rebind | NguyenNgu2005 |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
 | Test và Windows build | 42% | Build .NET runtime/test/editor xanh; có test transition Countdown → Playing cùng các test gameplay hiện có; cần chạy lại Unity Test Runner khi local ổn định | NguyenNgu2005 |
 
@@ -339,7 +340,7 @@ Nghiệm thu:
 - [ ] Preview đúng 100%.
 - [ ] Ghost luôn chỉ đúng vị trí khóa cuối cùng và không có collider.
 - [ ] Row clear và compaction không sai occupancy.
-- [x] Test Runner EditMode xanh toàn bộ.
+- [ ] Chạy lại toàn bộ EditMode Test Runner cho code countdown/spawner hiện tại.
 
 ### INPUT-01 — Chuẩn hóa Input System
 
@@ -531,8 +532,9 @@ Nghiệm thu:
 ### SESSION-01 — Game state, score và difficulty phase
 
 - **Dependency:** INPUT-01, HEALTH-01
-- **Branch:** `feature/game-session`
-- **File tạo:** `Core/GameSession.cs`, `Core/ScoreService.cs`, `Configs/DifficultyConfig.asset`
+- **Countdown đã triển khai tại:** `feature/pickups-powerups`
+- **Branch tiếp theo:** `feature/session-pause-flow`
+- **File hiện tại:** `Core/InputService.cs` (`GameSession`, `ScoreService`), `Gameplay/TetrisBalanceConfig.cs`
 
 State:
 
@@ -549,21 +551,26 @@ Score thống nhất:
 | Xóa 2 hàng cùng lúc | 600 |
 | Xóa 3 hàng cùng lúc | 1000 |
 | Xóa 4 hàng cùng lúc | 1500 |
-| Near miss | 50 |
 | Score Crystal | 100 |
 | Block phá hủy drone | 300 |
 
+Near miss +50 vẫn là backlog, chưa có trong runtime hiện tại.
+
 Difficulty:
 
-| Phase | Thời gian | Spawn delay | Tốc độ rơi | Event |
-|---|---:|---:|---:|---|
-| 1 | 0–60s | 3.0s | 2 cell/s | Không drone/event trong 20s đầu |
-| 2 | 60–120s | 2.5s | 3 cell/s | 1 drone, event 25–30s |
-| 3 | 120–240s | 2.0s | 4 cell/s | Event 18–24s |
-| 4 | Trên 240s | giảm đến 1.4s | tối đa 6 cell/s | Event 14–20s |
+| Phase | Thời gian | Tốc độ rơi piece mới | Drone/Event |
+|---|---:|---:|---|
+| 1 | 0–<45s | 2 cell/s | Bật từ phase 1 |
+| 2 | 45–<90s | 2.35 cell/s | Theo config runtime |
+| 3 | 90–<135s | 2.7 cell/s | Theo config runtime |
+| 4+ | Mỗi 45s | +0.35 cell/s, tối đa 5 | Theo config runtime |
+
+Spawner hiện dùng initial delay `0.5s` và delay giữa hai piece `0.6s`.
 
 Nghiệm thu:
 
+- [x] Countdown 3 giây khóa player/Tetris/drone/event/pickup và chạy lại sạch khi reset.
+- [x] Restart/resume không tạo spawn coroutine hoặc active tetromino trùng lặp.
 - [ ] Pause chỉ được quản lý tại GameSession.
 - [x] Timer/score không tăng khi Pause hoặc GameOver.
 - [x] HP 0 hoặc overflow đều tạo `RunResult` và GameOver.
@@ -591,7 +598,7 @@ Thông số ban đầu:
 - Telegraph `0.8s`, khóa vị trí mục tiêu trước khi dash.
 - Dash gây `1 Enemy damage` và knockback.
 - Recover `1.5s`.
-- FallingBlock chạm drone sẽ phá hủy drone, cộng 300 điểm và respawn sau 12 giây.
+- FallingBlock chạm drone sẽ phá hủy drone, cộng 300 điểm và respawn sau 6 giây.
 
 Nghiệm thu:
 
@@ -621,7 +628,7 @@ Nghiệm thu:
 3. Đổi màu visual để người chơi nhận biết.
 4. Sau ba piece phải trả đúng tốc độ phase hiện tại.
 
-Event không chạy khi row clear, Countdown, Pause, GameOver hoặc tutorial.
+Event không chạy khi row clear, Countdown, Pause hoặc GameOver.
 
 Nghiệm thu:
 
@@ -632,7 +639,7 @@ Nghiệm thu:
 ### ITEM-01 — Pickup và power-up
 
 - **Dependency:** HEALTH-01, SESSION-01, LEVEL-01
-- **Branch:** `feature/pickups`
+- **Branch triển khai:** `feature/pickups-powerups`
 
 Ba loại:
 
@@ -685,36 +692,43 @@ Nghiệm thu:
 
 - **Dependency:** SESSION-01, UI-01, INPUT-01
 - **Branch:** `feature/app-flow`
+- **Hiện có:** MainMenu → TetrisDemo, Options, JSON save v1, high score/best time và display/audio settings.
+- **Còn thiếu:** Bootstrap scene/app services và input rebind persistence.
 
-Scene:
+Scene mục tiêu:
 
 1. `Bootstrap`: tạo `AppServices`, sau đó load MainMenu.
 2. `MainMenu`: Start, Options, High Score, Best Time, Exit.
 3. `Gameplay`: arena, Tetris, player, AI, HUD.
 
-Options:
+Options hiện có:
 
 - Master/Music/SFX volume.
 - Fullscreen, resolution, VSync.
+
+Options còn thiếu:
+
 - Rebind Move Left/Right, Jump, Crouch và Tetris actions.
 - Reset binding mặc định.
 
-JSON save version 1:
+JSON save version 1 hiện có:
 
 - `highScore`.
 - `bestSurvivalTime`.
 - Audio/display settings.
-- Input binding override JSON.
-- `hasSeenTutorial`.
+
+Save backlog: input binding override JSON và `hasSeenTutorial`.
 
 Nếu file thiếu/hỏng: ghi warning, dùng default, không crash. Chỉ SaveService đọc/ghi file.
 
 Nghiệm thu:
 
 - [ ] Mở game đi qua Bootstrap → MainMenu → Gameplay.
-- [ ] High score/best time chỉ cập nhật khi tốt hơn.
-- [ ] Settings và rebind còn sau khi mở lại game.
-- [ ] Exit chỉ gọi `Application.Quit` trong build.
+- [x] High score/best time chỉ cập nhật khi tốt hơn.
+- [x] Audio/display settings còn sau khi mở lại game.
+- [ ] Input rebind còn sau khi mở lại game.
+- [x] Save thiếu/hỏng dùng default và giữ file corrupt để chẩn đoán.
+- [x] Exit chỉ gọi `Application.Quit` trong build.
 
 ### ART-01 — Art, animation, VFX và audio
 
@@ -805,7 +819,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 - [ ] `A/D/W/S` không cho đi xuyên board hoặc locked block.
 - [ ] Xóa đúng 1–4 hàng và compaction đúng.
 - [ ] Overflow dừng spawn; reset tạo run sạch.
-- [x] EditMode tests xanh toàn bộ.
+- [ ] EditMode tests xanh toàn bộ trên code countdown/spawner hiện tại.
 - [ ] Hai thành viên đã playtest độc lập.
 
 ## 11. Ghi chú và giới hạn hiện tại
@@ -875,6 +889,9 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 30/06/2026 | Grounded step jitter clamp | PlayerController triệt tiêu vận tốc Y nhỏ khi đang grounded và không chủ động jump | Giảm hiện tượng nảy khi bước từ block cao xuống block thấp |
 | 30/06/2026 | Falling block downward-only deflect | Bỏ side-release của falling block; overlap không-crush chỉ đặt player xuống dưới/velocity Y âm, còn crush chỉ xảy ra khi probe nhỏ xác nhận bị kẹp và hết đường thoát | Tránh văng ngang khỏi arena nhưng vẫn giữ luật không chạy kịp thì mất tim |
 | 30/06/2026 | Falling block trigger sensor | Đổi active falling block sang trigger sensor và bootstrap unstuck bỏ qua `FallingBlock` overlap | Chặn nguồn physics/unstuck tự đẩy player ra hai bên; falling block vẫn xử lý bounce/crush bằng overlap logic |
+| 19/07/2026 | ITEM-01/EVENT-01 | Thêm pickup/power-up, Cutter bám hàng player, Overdrive feedback và Meteor Shower hoàn chỉnh | Gameplay tích hợp có đủ ba pickup và ba dynamic event để playtest |
+| 19/07/2026 | SESSION-01 | Thêm countdown 3 giây trước mỗi run và khóa gameplay tới khi chuyển sang Playing | Reset/restart chạy lại countdown sạch |
+| 19/07/2026 | Spawn regression | Dừng spawn coroutine cũ, làm `StartSpawning` idempotent và dọn active piece mồ côi khi restart | Không còn nhiều tetromino rơi đồng thời hoặc spawn trong countdown |
 
 ## 13. Cách cập nhật file này
 

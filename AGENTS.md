@@ -6,8 +6,9 @@ or `PROGRESS.md` only when a task needs details not covered here.
 ## Project Snapshot
 
 - Unity project: `BlockEscape`, Unity `6000.4.4f1`, Windows.
-- Current branch used by Codex work: `feature/player-crouch-health`.
-- Current milestone: Player sandbox playable, about 58%.
+- Current integration branch: `feature/pickups-powerups`, pushed at `5659406`
+  and pending merge.
+- Current milestone: Integrated gameplay demo playable, about 61%.
 - Main playable/demo scenes:
   - `Assets/_Project/Scenes/TetrisDemo.unity`
   - `Assets/_Project/Scenes/Sandbox/ArenaSandbox.unity`
@@ -37,6 +38,8 @@ For most gameplay work, inspect only the relevant files:
   - `Assets/_Project/Tests/EditMode/PlayerPrefabTests.cs`
   - `Assets/_Project/Tests/EditMode/InputConfigurationTests.cs`
   - `Assets/_Project/Tests/EditMode/ArenaPrefabTests.cs`
+  - `Assets/_Project/Tests/EditMode/PickupDirectorTests.cs`
+  - `Assets/_Project/Tests/EditMode/SaveServiceTests.cs`
 
 Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 
@@ -47,7 +50,9 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 - Player controls: arrow keys move/jump/crouch.
 - `InputService` owns `Tetris`, `Player`, and `System` maps.
 - `GameSession`/`ScoreService` live in `BlockEscape.Core` and track
-  Playing/Paused/GameOver, survival time, phase, row score, total score, and run result.
+  Countdown/Playing/Paused/GameOver, survival time, phase, row score, total score, and run result.
+- Every new run has a three-second HUD countdown. Player physics/input, Tetris
+  spawning, drone, events, and pickups stay disabled until `Playing`.
 - `GameSession.AddBonusScore(points)` is used for non-row rewards such as drone destruction.
 - `TetrisDemoBootstrap` is the integration point for session state, time scale,
   input enable/disable, HUD, Pause Menu, and Game Over summary.
@@ -59,6 +64,8 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 - HP reaching 0 fires `PlayerHealth.Died`, and `TetrisDemoBootstrap` ends the run.
 - Session phase advances by survival time and updates new-piece fall speed through
   `TetrominoSpawner.ApplyDifficultyPhase`.
+- `TetrominoSpawner.StartSpawning` is idempotent. Restart must stop the old
+  coroutine and remove every active tetromino before an optional new spawn loop.
 - Player is spawned in the lower-center of `TetrisDemo` at runtime if missing.
 - Arena left/right/bottom borders have `World` colliders at runtime.
 - Falling blocks use trigger `BoxCollider2D` sensors and manual overlap logic so
@@ -111,6 +118,10 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   in-arena X with Y based on the highest locked block, deals Hazard damage to the
   player, explodes only on real player/block/floor contact, and destroys locked
   block cells in a 2-cell radius after 0.5 seconds of flashing.
+- Runtime pickups are Score Crystal (+100), Health Pack (+1 HP), and Jump Boost
+  (+20% jump velocity for 8 seconds). At most two are active.
+- Main Menu and Pause expose Options for audio volumes, resolution, fullscreen,
+  and VSync. `SaveService` persists those settings plus high score and best time.
 - Player/block/border runtime colliders use frictionless material to reduce wall cling.
 - `TetrisDemoBootstrap` clamps the player inside the arena as a safety net.
 
@@ -118,7 +129,7 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 
 - Keep changes narrow and follow existing namespaces:
   `BlockEscape.Core`, `BlockEscape.Tetris`, `BlockEscape.Player`,
-  `BlockEscape.UI`, `BlockEscape.Bootstrap`.
+  `BlockEscape.AI`, `BlockEscape.Events`, `BlockEscape.UI`, `BlockEscape.Bootstrap`.
 - Use C# events for cross-system signals.
 - Do not read `Keyboard.current` directly in gameplay scripts; use `InputService`.
 - Do not add new singletons unless the architecture already says so.
@@ -137,6 +148,8 @@ There may be unrelated local Unity/editor changes:
 - `ProjectSettings/ProjectSettings.asset`
 - `ProjectSettings/ShaderGraphSettings.asset`
 - `.vsconfig`
+- `PROJECT_SYSTEM_OVERVIEW.md` is a user-owned untracked document. Do not edit,
+  stage, or commit it unless the user explicitly changes that instruction.
 
 Do not stage or revert them unless the user explicitly asks. When committing,
 stage only files related to the current task.

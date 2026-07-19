@@ -8,8 +8,9 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 
 ## Trạng thái hiện tại
 
-**Cột mốc:** Player sandbox playable
-**Tiến độ tổng thể ước tính:** 51%
+**Cột mốc:** Gameplay tích hợp playable
+
+**Tiến độ tổng thể ước tính:** 61%
 
 Đã có:
 
@@ -21,7 +22,8 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Ghost piece trong suốt hiển thị vị trí block sẽ khóa.
 - Khóa block, phát hiện/xóa nhiều hàng và dịch địa hình.
 - Board overflow, Pause Menu có thống kê lượt chơi, xác nhận reset và HUD demo.
-- Main Menu có nút Bắt đầu/Thoát và màn Game Over tổng kết lượt chơi.
+- Main Menu có Bắt đầu/Tùy chọn/Thoát, hiển thị high score/best time và màn Game Over tổng kết lượt chơi.
+- Options lưu Master/Music/SFX volume, resolution, fullscreen và VSync bằng JSON version 1; input rebind chưa triển khai.
 - Pause Menu có nút trở về Main Menu với hộp xác nhận để tránh mất lượt nhầm.
 - Input System được tách thành ba map `Tetris`, `Player`, `System` và quản lý tập trung qua `InputService`.
 - Game session runtime quản lý Countdown 3 giây trước mỗi run cùng các trạng thái Playing/Paused/Game Over, thời gian sống sót, phase độ khó và score.
@@ -43,9 +45,10 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Dynamic Event Director chạy từ phase 1 với Block Overdrive, Cutter Sweep và Meteor Shower: ba piece Overdrive có tint tím và HUD đếm số piece còn lại; Cutter bám theo hàng của player trong 1.2 giây cảnh báo, sau đó khóa hàng và quét ngang gây Hazard damage rồi clear hàng qua `BlockBoard`; Meteor báo đường bay, gây Hazard damage và phá block đã khóa trong bán kính 2 cell.
 - TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
-- EditMode tests cho các quy tắc của board.
+- EditMode tests cho board, input, player, session, pickup và save data.
+- Ba pickup runtime spawn ở mép trên, rơi xuống bề mặt trống và biến mất sau 1 giây chạm đất: Score Crystal +100 điểm, Health Pack +1 HP và Jump Boost +20% trong 8 giây.
 
-Ba pickup runtime spawn ở mép trên, rơi xuống bề mặt trống và biến mất sau 1 giây chạm đất: Score Crystal +100 điểm, Health Pack +1 HP và Jump Boost +20% trong 8 giây; art, animation/audio hoàn chỉnh và Windows build cuối vẫn còn thiếu.
+Còn thiếu chính: input rebind, Bootstrap/app flow hoàn chỉnh, art/animation/audio và Windows build cuối.
 
 ## Yêu cầu
 
@@ -124,7 +127,7 @@ Assets/_Project/
 │   ├── Gameplay/     Board, tetromino và gameplay
 │   ├── Player/       Player controller, config và health
 │   └── UI/           HUD và preview
-├── Tests/            EditMode và PlayMode tests
+├── Tests/            EditMode tests hiện tại
 └── Tilemaps/         Tile và Tilemap của đấu trường
 ```
 
@@ -143,6 +146,8 @@ BoardModel
     ↓ phát hiện hàng đầy
 GameSession + Score
     ↓ HUD / Pause / Game Over
+EventDirector + PickupDirector
+    ↓ hazard, terrain event và power-up runtime
 ```
 
 - `BoardModel` chỉ quản lý dữ liệu lưới, không phụ thuộc scene.
@@ -173,7 +178,8 @@ git switch -c fix/row-clear-collision
 ### Khi hoàn thành một phần nhỏ
 
 ```bash
-git add Assets Packages ProjectSettings README.md PROGRESS.md
+git status --short
+git add -- <cac-file-thuoc-task>
 git commit -m "feat: add player movement"
 git push -u origin feature/player-controller
 ```
@@ -226,9 +232,9 @@ Cập nhật bảng này khi nhóm chốt thành viên:
 
 | Thành viên | Phụ trách |
 |---|---|
-| NguyenNgu2005 | Các phần đã sửa trong branch hiện tại: gameplay, player, input, HUD/session và test |
-| Chưa phân công | Drone AI, dynamic events, pickup và power-up |
-| Chưa phân công | Options, save data, art, animation và audio |
+| NguyenNgu2005 | Gameplay, player, input, HUD/session, save/options, drone/event, pickup và test hiện có |
+| Chưa phân công | Input rebind, app/bootstrap flow và UI hoàn thiện |
+| Chưa phân công | Art, animation, VFX, audio và final QA |
 
 ## License và asset bên ngoài
 
