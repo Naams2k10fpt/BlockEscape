@@ -1,7 +1,9 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace BlockEscape.Tetris.Tests
 {
@@ -83,6 +85,40 @@ namespace BlockEscape.Tetris.Tests
             Assert.That(board.IsOccupied(2, 0), Is.True);
             Assert.That(board.HighestOccupiedRow(), Is.EqualTo(2));
             Assert.That(board.OccupiedCount, Is.EqualTo(4));
+        }
+
+        [UnityTest]
+        public IEnumerator ResetBoard_CancelsPendingCellDestructionFromPreviousRun()
+        {
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            var boardObject = new GameObject("Reset During Destruction Board");
+            try
+            {
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+                config.rowClearWarningSeconds = 0f;
+                config.rowCollapseSeconds = 0f;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+                Assert.That(board.CommitPiece(TetrominoKind.O, 0, Vector2Int.zero), Is.True);
+                Assert.That(
+                    board.DestroyCellsInRadius(board.WorldForCell(Vector2Int.zero), 0, 0.05f),
+                    Is.EqualTo(1));
+
+                board.ResetBoard();
+                Assert.That(board.CommitPiece(TetrominoKind.O, 0, Vector2Int.zero), Is.True);
+
+                yield return new WaitForSeconds(0.1f);
+
+                Assert.That(board.Model.OccupiedCount, Is.EqualTo(4));
+                Assert.That(board.Model.IsOccupied(0, 0), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(boardObject);
+                Object.DestroyImmediate(config);
+            }
         }
 
         [Test]

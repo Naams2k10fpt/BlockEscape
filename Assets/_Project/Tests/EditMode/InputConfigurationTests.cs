@@ -86,7 +86,13 @@ namespace BlockEscape.Tetris.Tests
             Assert.That(sessionType, Is.Not.Null);
 
             var session = Activator.CreateInstance(sessionType);
-            sessionType.GetMethod("StartRun", BindingFlags.Instance | BindingFlags.Public).Invoke(session, null);
+            sessionType.GetMethod(
+                    "StartRun",
+                    BindingFlags.Instance | BindingFlags.Public,
+                    null,
+                    Type.EmptyTypes,
+                    null)
+                .Invoke(session, null);
             sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 1.1f });
             var rowPoints = (int)sessionType
                 .GetMethod("AddRowsCleared", BindingFlags.Instance | BindingFlags.Public)
@@ -111,6 +117,39 @@ namespace BlockEscape.Tetris.Tests
             Assert.That((int)resultType.GetProperty("Phase").GetValue(result), Is.EqualTo(1));
             Assert.That((int)resultType.GetProperty("Seed").GetValue(result), Is.EqualTo(1234));
             Assert.That((string)resultType.GetProperty("Reason").GetValue(result), Is.EqualTo("TEST END"));
+        }
+
+        [Test]
+        public void GameSession_RejectsRowScoreOutsidePlaying()
+        {
+            var sessionType = typeof(InputService).Assembly.GetType("BlockEscape.Core.GameSession");
+            Assert.That(sessionType, Is.Not.Null);
+
+            var session = Activator.CreateInstance(sessionType);
+            var addRows = sessionType.GetMethod(
+                "AddRowsCleared",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new[] { typeof(int) },
+                null);
+            Assert.That(addRows, Is.Not.Null);
+
+            sessionType.GetMethod("StartCountdown", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(session, new object[] { 3f, 45f });
+            Assert.That((int)addRows.Invoke(session, new object[] { 1 }), Is.Zero, "Countdown must reject row score.");
+
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(session, new object[] { 3.1f });
+            Assert.That((int)addRows.Invoke(session, new object[] { 1 }), Is.EqualTo(250));
+
+            sessionType.GetMethod("Pause", BindingFlags.Instance | BindingFlags.Public).Invoke(session, null);
+            Assert.That((int)addRows.Invoke(session, new object[] { 1 }), Is.Zero, "Pause must reject row score.");
+
+            sessionType.GetMethod("EndRun", BindingFlags.Instance | BindingFlags.Public)
+                .Invoke(session, new object[] { "TEST END", 0, 1234 });
+            Assert.That((int)addRows.Invoke(session, new object[] { 1 }), Is.Zero, "Game Over must reject row score.");
+            Assert.That((int)sessionType.GetProperty("RowsCleared").GetValue(session), Is.EqualTo(1));
+            Assert.That((int)sessionType.GetProperty("Score").GetValue(session), Is.EqualTo(250));
         }
 
         [Test]

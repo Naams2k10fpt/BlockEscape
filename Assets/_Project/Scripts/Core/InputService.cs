@@ -273,7 +273,7 @@ namespace BlockEscape.Core
 
         public int AddRowsCleared(int rowCount)
         {
-            if (State == GameSessionState.GameOver)
+            if (State != GameSessionState.Playing)
                 return 0;
 
             return _scoreService.AddRowsCleared(rowCount);
