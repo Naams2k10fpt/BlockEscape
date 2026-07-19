@@ -119,7 +119,10 @@ Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
   player, explodes only on real player/block/floor contact, and destroys locked
   block cells in a 2-cell radius after 0.5 seconds of flashing.
 - Runtime pickups are Score Crystal (+100), Health Pack (+1 HP), and Jump Boost
-  (+20% jump velocity for 8 seconds). At most two are active.
+  (+20% jump velocity for 8 seconds), weighted 45/20/35. The first pickup waits
+  12–18 seconds, later pickups wait 18–28 seconds, and landed pickups last
+  10–15 seconds. At most two are active. Health Pack uses `TryHeal` before it is
+  collected, and a pickup retargets downward when its supporting block is removed.
 - Main Menu and Pause expose Options for audio volumes, resolution, fullscreen,
   and VSync. `SaveService` persists those settings plus high score and best time.
 - Player/block/border runtime colliders use frictionless material to reduce wall cling.

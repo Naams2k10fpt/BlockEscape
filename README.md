@@ -46,7 +46,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - TetrisDemo có clamp bảo vệ để player không bị ép văng khỏi đấu trường.
 - Scene có Hierarchy rõ ràng để kiểm tra và trình bày.
 - EditMode tests cho board, input, player, session, pickup và save data.
-- Ba pickup runtime spawn ở mép trên, rơi xuống bề mặt trống và biến mất sau 1 giây chạm đất: Score Crystal +100 điểm, Health Pack +1 HP và Jump Boost +20% trong 8 giây.
+- Ba pickup runtime spawn ở mép trên sau 12–18 giây, các lần sau cách nhau 18–28 giây, rơi bằng Kinematic Rigidbody2D xuống bề mặt hợp lệ và tồn tại 10–15 giây sau khi đáp: Score Crystal +100 điểm, Health Pack +1 HP và Jump Boost +20% trong 8 giây. Trọng số lần lượt là 45/20/35; Health Pack không spawn hoặc bị thu khi HP đang đầy.
 
 Còn thiếu chính: input rebind, Bootstrap/app flow hoàn chỉnh, art/animation/audio và Windows build cuối.
 

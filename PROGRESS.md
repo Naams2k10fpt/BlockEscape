@@ -98,7 +98,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 | Module | Tiến độ | Trạng thái | Phụ trách |
 |---|---:|---|---|
-| Tetris Core | 96% | EditMode Test Runner 60/60 xanh; còn playtest 50 piece | NguyenNgu2005 |
+| Tetris Core | 96% | EditMode Test Runner 64/64 xanh; còn playtest 50 piece | NguyenNgu2005 |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | NguyenNgu2005 |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | NguyenNgu2005 |
 | Player Controller | 79% | Có movement, jump cao hơn, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
@@ -107,11 +107,11 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | Game Session và scoring | 62% | Có countdown 3 giây chạy lại sạch khi reset, `GameSession`, score, phase cơ bản và kết quả cuối nối vào TetrisDemo | NguyenNgu2005 |
 | Drone AI | 42% | Có runtime drone trong TetrisDemo từ phase 1, state patrol/detect/telegraph/dash/recover, Enemy damage, bắn đạn xuống, nổ nhỏ khi chạm block/world, bị falling block phá và respawn | NguyenNgu2005 |
 | Dynamic Events | 64% | Có Event Director runtime, Block Overdrive tint tím 3 piece kèm HUD đếm số còn lại, Cutter Sweep bám theo hàng của player trong 1.2 giây rồi gây Hazard damage/clear hàng, và Meteor Shower phá block bán kính 2; chờ Play Mode test để cân bằng lịch event | NguyenNgu2005 |
-| Pickup và power-up | 70% | Có Score Crystal, Health Pack, Jump Boost 8 giây, pool tối đa 2 item, spawn từ mép trên, rơi xuống mặt đỡ và tồn tại 1 giây sau khi chạm đất; chờ Play Mode test | NguyenNgu2005 |
+| Pickup và power-up | 78% | Có ba pickup weighted 45/35/20, spawn đầu 12–18 giây, lần sau 18–28 giây, Kinematic Rigidbody2D, rơi lại khi mất mặt đỡ và tồn tại 10–15 giây sau khi chạm đất; chờ Play Mode test | NguyenNgu2005 |
 | HUD và game flow | 62% | HUD hiển thị countdown; khóa player/Tetris/drone/event/pickup trước Playing; Pause/Game Over đọc cùng session score | NguyenNgu2005 |
 | Main Menu, Options và Save | 55% | Có Start/Options/Exit, high score/best time, JSON save v1 và audio/display settings; còn Bootstrap scene và input rebind | NguyenNgu2005 |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 42% | Build runtime/test/editor 0 warning/0 error; EditMode Test Runner 60/60 xanh; còn PlayMode QA và Windows build cuối | NguyenNgu2005 |
+| Test và Windows build | 42% | Build runtime/test/editor 0 warning/0 error; EditMode Test Runner 64/64 xanh; còn PlayMode QA và Windows build cuối | NguyenNgu2005 |
 
 ## 5. Phần đã hoàn thành
 
@@ -340,7 +340,7 @@ Nghiệm thu:
 - [ ] Preview đúng 100%.
 - [ ] Ghost luôn chỉ đúng vị trí khóa cuối cùng và không có collider.
 - [ ] Row clear và compaction không sai occupancy.
-- [x] EditMode Test Runner 60/60 xanh trên code countdown/spawner hiện tại.
+- [x] EditMode Test Runner 64/64 xanh trên code countdown/spawner/pickup hiện tại.
 
 ### INPUT-01 — Chuẩn hóa Input System
 
@@ -653,15 +653,19 @@ Ba loại:
 Quy tắc spawn:
 
 - Tối đa hai pickup tồn tại.
+- Pickup đầu xuất hiện ngẫu nhiên sau `12–18s`; các lần sau cách nhau `18–28s` khi pool chưa đầy.
+- Trọng số mặc định: Score Crystal `45`, Jump Boost `35`, Health Pack `20`.
 - Spawn từ mép trên và rơi xuống mặt block/platform cao nhất có hai ô trống phía trên.
-- Health Pack không spawn khi player đang đầy HP nếu đã có item khác hợp lệ.
+- Pickup dùng Kinematic Rigidbody2D; nếu mặt đỡ bị phá thì retarget xuống mặt đỡ mới hoặc floor.
+- Pickup tồn tại `10–15s` sau khi chạm đất.
+- Health Pack không spawn khi player đầy HP và chỉ biến mất nếu `TryHeal(1)` thành công.
 - Pickup dùng trigger layer `Pickup`; effect chỉ áp dụng một lần rồi trả object về pool.
 
 Nghiệm thu:
 
-- [ ] Item không spawn trong block hoặc ngoài arena.
-- [ ] Timer Jump Boost refresh rõ ràng nếu nhặt thêm, không nhân multiplier nhiều lần.
-- [ ] Item biến mất đúng một lần khi nhặt.
+- [x] Item không spawn trong block hoặc ngoài arena.
+- [x] Timer Jump Boost refresh rõ ràng nếu nhặt thêm, không nhân multiplier nhiều lần.
+- [x] Item biến mất đúng một lần khi nhặt; Health Pack đầy máu vẫn còn.
 
 ### UI-01 — HUD, Pause và Game Over
 
@@ -820,7 +824,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 - [ ] `A/D/W/S` không cho đi xuyên board hoặc locked block.
 - [ ] Xóa đúng 1–4 hàng và compaction đúng.
 - [ ] Overflow dừng spawn; reset tạo run sạch.
-- [x] EditMode tests 60/60 xanh toàn bộ trên code countdown/spawner hiện tại.
+- [x] EditMode tests 64/64 xanh toàn bộ trên code countdown/spawner/pickup hiện tại.
 - [ ] Hai thành viên đã playtest độc lập.
 
 ## 11. Ghi chú và giới hạn hiện tại
@@ -895,6 +899,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 19/07/2026 | Spawn regression | Dừng spawn coroutine cũ, làm `StartSpawning` idempotent và dọn active piece mồ côi khi restart | Không còn nhiều tetromino rơi đồng thời hoặc spawn trong countdown |
 | 20/07/2026 | SESSION-01/Reset lifecycle | Chặn điểm xóa hàng ngoài `Playing`; `ResetBoard` dừng toàn bộ coroutine row-clear/phá block của run cũ | Build xanh và 3/3 regression test mục tiêu pass |
 | 20/07/2026 | TEST/crush lifecycle | Dọn object an toàn trong EditMode, sửa test khởi tạo Player/Drone, hoàn nguyên collision matrix và yêu cầu đường thoát crush liên tục | Build 0 warning/0 error; EditMode Test Runner 60/60 pass |
+| 20/07/2026 | ITEM-01/HEALTH-01 | Cân bằng nhịp spawn/lifetime, thêm weighted pickup, Kinematic Rigidbody2D, retarget khi mất mặt đỡ và `TryHeal` trước khi thu Health Pack | Build 0 warning/0 error; EditMode Test Runner 64/64 pass |
 
 ## 13. Cách cập nhật file này
 
