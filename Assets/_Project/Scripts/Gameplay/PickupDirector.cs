@@ -15,8 +15,16 @@ namespace BlockEscape.Tetris
     public sealed class PickupDirector : MonoBehaviour
     {
         private const int MaxActivePickups = 2;
-        private const float FirstSpawnDelay = 1f;
-        private const float SpawnInterval = 8f;
+        private const float FirstSpawnDelayMin = 12f;
+        private const float FirstSpawnDelayMax = 18f;
+        private const float SpawnIntervalMin = 18f;
+        private const float SpawnIntervalMax = 28f;
+        private const float SpawnRetryDelay = 1f;
+        private const float LifetimeAfterLandingMin = 10f;
+        private const float LifetimeAfterLandingMax = 15f;
+        private const int ScoreCrystalWeight = 45;
+        private const int JumpBoostWeight = 35;
+        private const int HealthPackWeight = 20;
 
         private readonly List<PickupItem> _pool = new(MaxActivePickups);
         private readonly List<SpawnSlot> _spawnSlots = new();
@@ -25,7 +33,6 @@ namespace BlockEscape.Tetris
         private System.Random _random;
         private bool _running;
         private float _spawnTimer;
-        private int _nextKindIndex;
 
         public event Action<PickupKind> PickupCollected;
 
@@ -44,7 +51,6 @@ namespace BlockEscape.Tetris
         {
             _board = board;
             _playerHealth = playerHealth;
-            ConfigureLayerCollisions();
             EnsurePool();
             ResetDirector(seed);
         }
@@ -57,8 +63,7 @@ namespace BlockEscape.Tetris
         public void ResetDirector(int seed)
         {
             _random = new System.Random(seed);
-            _spawnTimer = FirstSpawnDelay;
-            _nextKindIndex = 0;
+            _spawnTimer = NextDelay(FirstSpawnDelayMin, FirstSpawnDelayMax);
             foreach (var item in _pool)
                 item.Deactivate();
         }
@@ -77,7 +82,14 @@ namespace BlockEscape.Tetris
                 return false;
 
             var slot = _spawnSlots[_random.Next(_spawnSlots.Count)];
-            item.Activate(ChooseNextKind(), slot.spawnPosition, slot.landingPosition, slot.x, slot.supportRow);
+            item.Activate(
+                ChooseNextKind(),
+                slot.spawnPosition,
+                slot.landingPosition,
+                slot.x,
+                slot.supportRow,
+                NextDelay(LifetimeAfterLandingMin, LifetimeAfterLandingMax));
+            _spawnTimer = NextDelay(SpawnIntervalMin, SpawnIntervalMax);
             return true;
         }
 
@@ -87,11 +99,15 @@ namespace BlockEscape.Tetris
             if (!_running || _board == null)
                 return;
 
-            _spawnTimer -= Time.deltaTime;
-            if (_spawnTimer > 0f || ActiveCount >= MaxActivePickups)
+            if (ActiveCount >= MaxActivePickups)
                 return;
 
-            _spawnTimer = TrySpawnNow() ? SpawnInterval : 1f;
+            _spawnTimer -= Time.deltaTime;
+            if (_spawnTimer > 0f)
+                return;
+
+            if (!TrySpawnNow())
+                _spawnTimer = SpawnRetryDelay;
         }
 
         private void EnsurePool()
@@ -110,6 +126,10 @@ namespace BlockEscape.Tetris
                 gameObject.layer = pickupLayer >= 0 ? pickupLayer : 0;
                 var collider = gameObject.AddComponent<BoxCollider2D>();
                 collider.isTrigger = true;
+                var body = gameObject.AddComponent<Rigidbody2D>();
+                body.bodyType = RigidbodyType2D.Kinematic;
+                body.gravityScale = 0f;
+                body.freezeRotation = true;
 
                 var labelObject = new GameObject("Label");
                 labelObject.transform.SetParent(gameObject.transform, false);
@@ -124,21 +144,10 @@ namespace BlockEscape.Tetris
                 labelObject.GetComponent<MeshRenderer>().sortingOrder = 32;
 
                 var item = gameObject.AddComponent<PickupItem>();
-                item.Initialize(this, gameObject.GetComponent<SpriteRenderer>(), label);
+                item.Initialize(this, gameObject.GetComponent<SpriteRenderer>(), label, body);
                 item.Deactivate();
                 _pool.Add(item);
             }
-        }
-
-        private static void ConfigureLayerCollisions()
-        {
-            var pickupLayer = LayerMask.NameToLayer("Pickup");
-            var playerLayer = LayerMask.NameToLayer("Player");
-            if (pickupLayer < 0 || playerLayer < 0)
-                return;
-
-            for (var layer = 0; layer < 32; layer++)
-                Physics2D.IgnoreLayerCollision(pickupLayer, layer, layer != playerLayer);
         }
 
         private void BuildSpawnSlots()
@@ -151,26 +160,38 @@ namespace BlockEscape.Tetris
                 if (_pool.Exists(item => item.IsActive && item.SupportX == x))
                     continue;
 
-                var supportRow = -1;
-                for (var row = _board.Height - 1; row >= 0; row--)
-                {
-                    if (!_board.Model.IsOccupied(x, row))
-                        continue;
-
-                    supportRow = row;
-                    break;
-                }
-
-                if (!IsSurfaceValid(x, supportRow))
+                if (!TryGetSurface(x, out var supportRow, out var landingPosition))
                     continue;
 
-                var landingPosition = _board.WorldForCell(new Vector2Int(x, supportRow + 1));
                 if (blockingMask != 0 && Physics2D.OverlapBox(landingPosition, new Vector2(0.7f, 0.7f), 0f, blockingMask) != null)
                     continue;
 
                 var spawnPosition = _board.WorldForCell(new Vector2Int(x, _board.Height - 1));
                 _spawnSlots.Add(new SpawnSlot(x, supportRow, spawnPosition, landingPosition));
             }
+        }
+
+        private bool TryGetSurface(int x, out int supportRow, out Vector3 landingPosition)
+        {
+            supportRow = -1;
+            landingPosition = default;
+            if (_board == null || _board.Model == null || x < 0 || x >= _board.Width)
+                return false;
+
+            for (var row = _board.Height - 1; row >= 0; row--)
+            {
+                if (!_board.Model.IsOccupied(x, row))
+                    continue;
+
+                supportRow = row;
+                break;
+            }
+
+            if (!IsSurfaceValid(x, supportRow))
+                return false;
+
+            landingPosition = _board.WorldForCell(new Vector2Int(x, supportRow + 1));
+            return true;
         }
 
         private bool IsSurfaceValid(int x, int supportRow)
@@ -188,22 +209,38 @@ namespace BlockEscape.Tetris
             {
                 if (!item.IsActive || IsSurfaceValid(item.SupportX, item.SupportRow))
                     continue;
+
+                if (TryGetSurface(item.SupportX, out var supportRow, out var landingPosition) &&
+                    landingPosition.y <= item.transform.position.y + 0.01f)
+                {
+                    item.RetargetLanding(landingPosition, supportRow);
+                    continue;
+                }
+
                 item.Deactivate();
-                _spawnTimer = Mathf.Min(_spawnTimer, 1f);
             }
         }
 
         private PickupKind ChooseNextKind()
         {
-            for (var i = 0; i < 3; i++)
-            {
-                var kind = (PickupKind)_nextKindIndex;
-                _nextKindIndex = (_nextKindIndex + 1) % 3;
-                if (kind != PickupKind.HealthPack || _playerHealth != null && _playerHealth.CurrentHp < _playerHealth.MaxHp)
-                    return kind;
-            }
+            var canSpawnHealth = _playerHealth != null &&
+                                 !_playerHealth.IsDead &&
+                                 _playerHealth.CurrentHp < _playerHealth.MaxHp;
+            var totalWeight = ScoreCrystalWeight + JumpBoostWeight + (canSpawnHealth ? HealthPackWeight : 0);
+            var roll = _random.Next(totalWeight);
+            if (roll < ScoreCrystalWeight)
+                return PickupKind.ScoreCrystal;
+            if (roll < ScoreCrystalWeight + JumpBoostWeight)
+                return PickupKind.JumpBoost;
 
-            return PickupKind.ScoreCrystal;
+            return PickupKind.HealthPack;
+        }
+
+        private float NextDelay(float minimum, float maximum)
+        {
+            if (_random == null)
+                _random = new System.Random(0);
+            return Mathf.Lerp(minimum, maximum, (float)_random.NextDouble());
         }
 
         private PickupItem GetInactiveItem()
@@ -213,15 +250,18 @@ namespace BlockEscape.Tetris
             return null;
         }
 
-        internal void Collect(PickupItem item)
+        internal bool Collect(PickupItem item)
         {
             if (item == null || !item.IsActive)
-                return;
+                return false;
 
             var kind = item.Kind;
+            if (kind == PickupKind.HealthPack && (_playerHealth == null || !_playerHealth.TryHeal(1)))
+                return false;
+
             item.Deactivate();
-            _spawnTimer = Mathf.Min(_spawnTimer, 1f);
             PickupCollected?.Invoke(kind);
+            return true;
         }
 
         internal void Expire(PickupItem item)
@@ -230,7 +270,6 @@ namespace BlockEscape.Tetris
                 return;
 
             item.Deactivate();
-            _spawnTimer = Mathf.Min(_spawnTimer, 1f);
         }
 
         private readonly struct SpawnSlot
@@ -253,28 +292,40 @@ namespace BlockEscape.Tetris
     internal sealed class PickupItem : MonoBehaviour
     {
         private const float FallSpeed = 5f;
-        private const float LifetimeAfterLanding = 1f;
 
         private PickupDirector _owner;
         private SpriteRenderer _renderer;
         private TextMesh _label;
+        private Rigidbody2D _body;
         private bool _collected;
         private Vector3 _landingPosition;
         private float _landedAt;
+        private float _lifetimeAfterLanding;
 
         public PickupKind Kind { get; private set; }
         public int SupportX { get; private set; }
         public int SupportRow { get; private set; }
         public bool IsActive => gameObject.activeSelf;
 
-        public void Initialize(PickupDirector owner, SpriteRenderer spriteRenderer, TextMesh label)
+        public void Initialize(
+            PickupDirector owner,
+            SpriteRenderer spriteRenderer,
+            TextMesh label,
+            Rigidbody2D body)
         {
             _owner = owner;
             _renderer = spriteRenderer;
             _label = label;
+            _body = body;
         }
 
-        public void Activate(PickupKind kind, Vector3 spawnPosition, Vector3 landingPosition, int supportX, int supportRow)
+        public void Activate(
+            PickupKind kind,
+            Vector3 spawnPosition,
+            Vector3 landingPosition,
+            int supportX,
+            int supportRow,
+            float lifetimeAfterLanding)
         {
             Kind = kind;
             SupportX = supportX;
@@ -282,41 +333,67 @@ namespace BlockEscape.Tetris
             _collected = false;
             _landingPosition = landingPosition;
             _landedAt = float.PositiveInfinity;
+            _lifetimeAfterLanding = Mathf.Max(0f, lifetimeAfterLanding);
             transform.position = spawnPosition;
+            gameObject.SetActive(true);
+            if (_body != null)
+                _body.position = spawnPosition;
             gameObject.name = $"Pickup {kind}";
             _renderer.color = GetColor(kind);
             _label.text = GetLabel(kind);
-            gameObject.SetActive(true);
+        }
+
+        private void FixedUpdate()
+        {
+            var currentPosition = _body != null ? _body.position : (Vector2)transform.position;
+            var nextPosition = Vector2.MoveTowards(currentPosition, _landingPosition, FallSpeed * Time.fixedDeltaTime);
+            if (_body != null)
+                _body.MovePosition(nextPosition);
+            else
+                transform.position = nextPosition;
+
+            if (nextPosition != (Vector2)_landingPosition || !float.IsPositiveInfinity(_landedAt))
+                return;
+
+            _landedAt = Time.time;
         }
 
         private void Update()
         {
-            transform.position = Vector3.MoveTowards(transform.position, _landingPosition, FallSpeed * Time.deltaTime);
-            if (transform.position != _landingPosition)
-                return;
-
-            if (float.IsPositiveInfinity(_landedAt))
-            {
-                _landedAt = Time.time;
-                return;
-            }
-
-            if (Time.time - _landedAt >= LifetimeAfterLanding)
+            if (!float.IsPositiveInfinity(_landedAt) && Time.time - _landedAt >= _lifetimeAfterLanding)
                 _owner.Expire(this);
+        }
+
+        public void RetargetLanding(Vector3 landingPosition, int supportRow)
+        {
+            _landingPosition = landingPosition;
+            SupportRow = supportRow;
+            _landedAt = float.PositiveInfinity;
         }
 
         public void Deactivate()
         {
+            if (_body != null)
+                _body.linearVelocity = Vector2.zero;
             gameObject.SetActive(false);
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
+            TryCollect(other);
+        }
+
+        private void OnTriggerStay2D(Collider2D other)
+        {
+            TryCollect(other);
+        }
+
+        private void TryCollect(Collider2D other)
+        {
             if (_collected || other == null || other.gameObject.layer != LayerMask.NameToLayer("Player"))
                 return;
 
-            _collected = true;
-            _owner.Collect(this);
+            _collected = _owner.Collect(this);
         }
 
         private static Color GetColor(PickupKind kind)

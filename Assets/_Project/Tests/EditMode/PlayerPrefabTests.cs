@@ -190,6 +190,33 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void PlayerHealth_TryHealOnlySucceedsWhenHpIncreases()
+        {
+            var player = new GameObject("Health Heal Test");
+            try
+            {
+                player.AddComponent<Rigidbody2D>();
+                var health = player.AddComponent<PlayerHealth>();
+                InvokeAwake(health);
+
+                Assert.That(health.TryHeal(1), Is.False, "Full health must reject healing.");
+                Assert.That(health.TakeDamage(new DamageInfo(1, Vector2.zero, null, DamageType.Enemy)), Is.True);
+
+                var healthChangedCount = 0;
+                health.HealthChanged += (_, _) => healthChangedCount++;
+                Assert.That(health.TryHeal(1), Is.True);
+                Assert.That(health.CurrentHp, Is.EqualTo(health.MaxHp));
+                Assert.That(healthChangedCount, Is.EqualTo(1));
+                Assert.That(health.TryHeal(1), Is.False, "Healing must report false when HP cannot increase.");
+                Assert.That(healthChangedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
         public void PlayerHealth_StartInvulnerabilityBlocksDamage()
         {
             var player = new GameObject("Health Invulnerability Test");

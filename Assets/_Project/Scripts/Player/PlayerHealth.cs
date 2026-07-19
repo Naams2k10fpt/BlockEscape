@@ -63,15 +63,18 @@ namespace BlockEscape.Player
             return true;
         }
 
-        public void Heal(int amount)
+        public bool TryHeal(int amount)
         {
-            if (_isDead || amount <= 0)
-                return;
+            if (_isDead || amount <= 0 || CurrentHp >= _maxHp)
+                return false;
 
             var previous = CurrentHp;
             CurrentHp = Mathf.Clamp(CurrentHp + amount, 0, _maxHp);
-            if (CurrentHp != previous)
-                HealthChanged?.Invoke(CurrentHp, _maxHp);
+            if (CurrentHp == previous)
+                return false;
+
+            HealthChanged?.Invoke(CurrentHp, _maxHp);
+            return true;
         }
 
         public void ResetHealth()

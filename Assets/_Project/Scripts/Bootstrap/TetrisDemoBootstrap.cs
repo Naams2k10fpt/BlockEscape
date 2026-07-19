@@ -987,9 +987,7 @@ namespace BlockEscape.Bootstrap
                 _ => "JUMP BOOST 8s"
             };
 
-            if (kind == PickupKind.HealthPack)
-                _playerHealth?.Heal(1);
-            else if (kind == PickupKind.JumpBoost)
+            if (kind == PickupKind.JumpBoost)
                 _playerController?.ApplyJumpBoost(1.2f, 8f);
 
             if (_statusText != null && !_paused && !_gameOver)
