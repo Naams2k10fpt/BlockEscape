@@ -67,6 +67,50 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void CollapseColumns_DropsCellsIntoUnsupportedGaps()
+        {
+            var board = new BoardModel(3, 8);
+            board.SetOccupied(0, 0);
+            board.SetOccupied(0, 3);
+            board.SetOccupied(0, 5);
+            board.SetOccupied(2, 4);
+
+            board.CollapseColumns();
+
+            Assert.That(board.IsOccupied(0, 0), Is.True);
+            Assert.That(board.IsOccupied(0, 1), Is.True);
+            Assert.That(board.IsOccupied(0, 2), Is.True);
+            Assert.That(board.IsOccupied(2, 0), Is.True);
+            Assert.That(board.HighestOccupiedRow(), Is.EqualTo(2));
+            Assert.That(board.OccupiedCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void CutterTarget_ChoosesDensestOccupiedRowAboveGround()
+        {
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            var boardObject = new GameObject("Cutter Target Board");
+            try
+            {
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+                board.Model.SetOccupied(0, 0);
+                board.Model.SetOccupied(0, 2);
+                board.Model.SetOccupied(1, 2);
+                board.Model.SetOccupied(0, 4);
+
+                Assert.That(board.GetDensestEligibleRow(1), Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(boardObject);
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        [Test]
         public void TetrisBalanceConfig_IncreasesFallSpeedByPhaseAndClampsToMax()
         {
             var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
@@ -241,6 +285,48 @@ namespace BlockEscape.Tetris.Tests
             {
                 Object.DestroyImmediate(pieceObject);
                 Object.DestroyImmediate(boardObject);
+            }
+        }
+
+        [Test]
+        public void ActiveTetromino_UsesOverdriveTintForFallingCells()
+        {
+            var config = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
+            var boardObject = new GameObject("Overdrive Board Test");
+            var pieceObject = new GameObject("Overdrive Piece Test");
+            try
+            {
+                config.boardWidth = 4;
+                config.boardHeight = 8;
+
+                var board = boardObject.AddComponent<BlockBoard>();
+                board.Initialize(config);
+
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                piece.Initialize(
+                    board,
+                    null,
+                    null,
+                    TetrominoKind.O,
+                    0,
+                    new Vector2Int(1, 4),
+                    1f,
+                    0f,
+                    0f,
+                    overdriveVisual: true);
+
+                var renderers = pieceObject.GetComponentsInChildren<SpriteRenderer>();
+                Assert.That(renderers, Has.Length.EqualTo(4));
+                foreach (var renderer in renderers)
+                {
+                    Assert.That(renderer.color, Is.EqualTo(new Color(1f, 0.25f, 0.95f)));
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(pieceObject);
+                Object.DestroyImmediate(boardObject);
+                Object.DestroyImmediate(config);
             }
         }
 

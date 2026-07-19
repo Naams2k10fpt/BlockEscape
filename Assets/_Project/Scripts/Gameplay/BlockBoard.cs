@@ -115,7 +115,7 @@ namespace BlockEscape.Tetris
             }
 
             var fullRows = _model.GetFullRows();
-            if (fullRows.Count > 0)
+            if (fullRows.Count > 0 && _pendingDestroyedCells.Count == 0)
                 _resolveRoutine = StartCoroutine(ResolveRowsRoutine(fullRows));
             return true;
         }
@@ -259,6 +259,49 @@ namespace BlockEscape.Tetris
                     _model.SetOccupied(cell.x, cell.y, false);
                 _pendingDestroyedCells.Remove(cell);
             }
+
+            if (_pendingDestroyedCells.Count > 0)
+                yield break;
+
+            if (CollapseUnsupportedCells() && _config.rowCollapseSeconds > 0f)
+                yield return new WaitForSeconds(_config.rowCollapseSeconds);
+
+            if (_pendingDestroyedCells.Count > 0 || IsResolving)
+                yield break;
+
+            var fullRows = _model.GetFullRows();
+            if (fullRows.Count > 0)
+                _resolveRoutine = StartCoroutine(ResolveRowsRoutine(fullRows));
+        }
+
+        private bool CollapseUnsupportedCells()
+        {
+            var moved = false;
+            var compacted = new BlockCellView[Width, Height];
+            for (var x = 0; x < Width; x++)
+            {
+                var targetY = 0;
+                for (var sourceY = 0; sourceY < Height; sourceY++)
+                {
+                    var view = _views[x, sourceY];
+                    if (view == null)
+                        continue;
+
+                    compacted[x, targetY] = view;
+                    if (sourceY != targetY)
+                    {
+                        var targetCell = new Vector2Int(x, targetY);
+                        view.MoveTo(targetCell, WorldForCell(targetCell), _config.rowCollapseSeconds);
+                        moved = true;
+                    }
+
+                    targetY++;
+                }
+            }
+
+            _views = compacted;
+            _model.CollapseColumns();
+            return moved;
         }
 
         private bool IsValidCell(Vector2Int cell)

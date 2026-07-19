@@ -38,19 +38,23 @@ namespace BlockEscape.Bootstrap
         private bool _paused;
         private bool _gameOver;
         private Transform _player;
+        private PlayerController _playerController;
         private PlayerHealth _playerHealth;
         private SpriteRenderer _overflowWarningRenderer;
         private Coroutine _respawnHoverRoutine;
         private DroneController _drone;
         private EventDirector _eventDirector;
+        private PickupDirector _pickupDirector;
         private string _lastDynamicEvent = "NONE";
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
         private const float CrushRespawnHeightAboveHighestBlock = 5f;
         private const float CrushRespawnInvulnerabilitySeconds = 3f;
         private const float CrushRespawnHoverSeconds = 0.75f;
+        private const float PlayerUnstuckPenetrationThreshold = 0.05f;
         private const float RespawnProbeStep = 1f;
         private const int RespawnProbeSteps = 12;
+        private const float CountdownSeconds = 3f;
 
         private void Awake()
         {
@@ -90,15 +94,10 @@ namespace BlockEscape.Bootstrap
             }
             InitializeSystems();
             InitializeAiAndEvents();
+            InitializePickups();
+            _session.StateChanged += OnSessionStateChanged;
             _session.PhaseChanged += OnSessionPhaseChanged;
-            _session.StartRun(_config.phaseDurationSeconds);
-            ApplySessionPhase();
-            SetAuxiliaryGameplayRunning(true);
-            if (_statusText != null)
-            {
-                _statusText.text = "RUNNING";
-                _statusText.color = Color.white;
-            }
+            StartCountdown();
             InitializePauseFlow();
             InitializeGameOverFlow();
         }
@@ -141,6 +140,7 @@ namespace BlockEscape.Bootstrap
             if (_spawner != null)
                 _spawner.PlayerCrushed -= OnPlayerCrushed;
             UnbindAiAndEvents();
+            _session.StateChanged -= OnSessionStateChanged;
             _session.PhaseChanged -= OnSessionPhaseChanged;
             UnbindPlayerHealth();
             StopRespawnHover(restoreGravity: true);
@@ -177,7 +177,7 @@ namespace BlockEscape.Bootstrap
             _spawner.PieceSpawned += kind => _lastSpawned = kind;
             _spawner.NextPieceChanged += OnNextPieceChanged;
             _spawner.PlayerCrushed += OnPlayerCrushed;
-            _spawner.Initialize(_board, _config, _inputService);
+            _spawner.Initialize(_board, _config, _inputService, startSpawning: false);
         }
 
         private void InitializeAiAndEvents()
@@ -202,7 +202,7 @@ namespace BlockEscape.Bootstrap
             }
 
             var eventConfig = Resources.Load<DynamicEventConfig>("DynamicEventConfig");
-            _eventDirector.Initialize(eventConfig, _spawner, _spawner != null ? _spawner.Seed : 0);
+            _eventDirector.Initialize(eventConfig, _spawner, _spawner != null ? _spawner.Seed : 0, _player);
             _eventDirector.StatusChanged += OnDynamicEventStatusChanged;
             _lastDynamicEvent = "NONE";
         }
@@ -221,6 +221,9 @@ namespace BlockEscape.Bootstrap
                 _eventDirector.SetPhase(_session.Phase);
                 _eventDirector.ResetDirector(_spawner != null ? _spawner.Seed : 0);
             }
+
+            _playerController?.ClearJumpBoost();
+            _pickupDirector?.ResetDirector(_spawner != null ? _spawner.Seed : 0);
         }
 
         private void UnbindAiAndEvents()
@@ -229,6 +232,8 @@ namespace BlockEscape.Bootstrap
                 _drone.DestroyedByFallingBlock -= OnDroneDestroyedByFallingBlock;
             if (_eventDirector != null)
                 _eventDirector.StatusChanged -= OnDynamicEventStatusChanged;
+            if (_pickupDirector != null)
+                _pickupDirector.PickupCollected -= OnPickupCollected;
         }
 
         private void SetAuxiliaryGameplayRunning(bool running)
@@ -237,6 +242,25 @@ namespace BlockEscape.Bootstrap
                 _drone.SetRunning(running);
             if (_eventDirector != null)
                 _eventDirector.SetRunning(running);
+            if (_pickupDirector != null)
+                _pickupDirector.SetRunning(running);
+        }
+
+        private void InitializePickups()
+        {
+            if (_board == null)
+                return;
+
+            if (_pickupDirector == null)
+            {
+                var pickupObject = new GameObject("Pickup Director");
+                pickupObject.transform.SetParent(transform, false);
+                _pickupDirector = pickupObject.AddComponent<PickupDirector>();
+            }
+
+            _pickupDirector.PickupCollected -= OnPickupCollected;
+            _pickupDirector.Initialize(_board, _playerHealth, _spawner != null ? _spawner.Seed : 0);
+            _pickupDirector.PickupCollected += OnPickupCollected;
         }
 
         private DroneController CreateRuntimeDrone()
@@ -540,6 +564,12 @@ namespace BlockEscape.Bootstrap
 
         private void UpdateHud()
         {
+            if (_session.State == GameSessionState.Countdown && _statusText != null && !_paused)
+            {
+                _statusText.text = $"GET READY  {Mathf.CeilToInt(_session.CountdownRemaining)}";
+                _statusText.color = new Color(1f, 0.85f, 0.25f);
+            }
+
             if (_healthText != null)
                 _healthText.text = FormatHealth();
             if (_statsText == null || _board == null || _spawner == null)
@@ -554,6 +584,7 @@ namespace BlockEscape.Bootstrap
                 $"LOCKED     {_board.Model.OccupiedCount} CELLS\n" +
                 $"DRONE      {FormatDroneState()}\n" +
                 $"EVENT      {_lastDynamicEvent}\n" +
+                $"POWER      {FormatPowerUpState()}\n" +
                 $"ROWS       {_session.RowsCleared}\n" +
                 $"SCORE      {_session.Score}";
         }
@@ -564,22 +595,17 @@ namespace BlockEscape.Bootstrap
             _paused = false;
             _gameOver = false;
             StopRespawnHover(restoreGravity: true);
-            if (_inputService != null) _inputService.SetGameplayEnabled(true);
             if (_pauseMenu != null) _pauseMenu.HideAll();
             if (_gameOverMenu != null) _gameOverMenu.Hide();
-            _session.StartRun(_config != null ? _config.phaseDurationSeconds : 45f);
-            ApplySessionPhase();
             _board.ResetBoard();
             if (_player != null)
                 _player.position = PlayerSpawnPosition;
             if (_playerHealth != null)
                 _playerHealth.ResetHealth();
             ClampPlayerToArena();
-            _spawner.Restart();
+            _spawner.Restart(startSpawning: false);
             ResetAiAndEvents();
-            SetAuxiliaryGameplayRunning(true);
-            _statusText.text = "RUNNING";
-            _statusText.color = Color.white;
+            StartCountdown();
         }
 
         private void ClampPlayerToArena()
@@ -640,7 +666,7 @@ namespace BlockEscape.Bootstrap
             var probeSize = new Vector2(
                 Mathf.Max(0.05f, bounds.size.x - 0.04f),
                 Mathf.Max(0.05f, bounds.size.y - 0.04f));
-            if (IsPlayerClearAt(bounds.center, probeSize, playerCollider, includeFallingBlocks: false))
+            if (!HasDeepWorldOverlap(playerCollider))
                 return;
 
             var boardOrigin = (Vector2)_board.transform.position;
@@ -686,6 +712,30 @@ namespace BlockEscape.Bootstrap
                 _player.position = new Vector3(fallback.x, fallback.y, _player.position.z);
             }
             Physics2D.SyncTransforms();
+        }
+
+        private static bool HasDeepWorldOverlap(Collider2D playerCollider)
+        {
+            var worldMask = LayerMask.GetMask("World");
+            if (playerCollider == null || worldMask == 0)
+                return false;
+
+            Physics2D.SyncTransforms();
+            var bounds = playerCollider.bounds;
+            var hits = Physics2D.OverlapBoxAll(bounds.center, bounds.size, 0f, worldMask);
+            foreach (var hit in hits)
+            {
+                if (hit == null || !hit.enabled || hit.isTrigger || hit == playerCollider)
+                    continue;
+                if (hit.transform.IsChildOf(playerCollider.transform))
+                    continue;
+
+                var distance = playerCollider.Distance(hit);
+                if (distance.isOverlapped && distance.distance < -PlayerUnstuckPenetrationThreshold)
+                    return true;
+            }
+
+            return false;
         }
 
         private bool TryResolveLockedBlockSideOverlap(
@@ -838,17 +888,20 @@ namespace BlockEscape.Bootstrap
         {
             _paused = false;
             _session.Resume();
-            SetAuxiliaryGameplayRunning(true);
+            var playing = _session.State == GameSessionState.Playing;
+            SetAuxiliaryGameplayRunning(playing);
             Time.timeScale = 1f;
             if (_inputService != null)
-                _inputService.SetGameplayEnabled(_board != null && !_board.IsOverflowed);
+                _inputService.SetGameplayEnabled(playing && _board != null && !_board.IsOverflowed);
             if (_pauseMenu != null) _pauseMenu.HideAll();
             if (_statusText != null)
             {
-                _statusText.text = _board != null && _board.IsOverflowed ? "BOARD OVERFLOW — PRESS R" : "RUNNING";
-                _statusText.color = _board != null && _board.IsOverflowed
-                    ? new Color(1f, 0.2f, 0.25f)
-                    : Color.white;
+                _statusText.text = !playing
+                    ? $"GET READY  {Mathf.CeilToInt(_session.CountdownRemaining)}"
+                    : _board != null && _board.IsOverflowed ? "BOARD OVERFLOW — PRESS R" : "RUNNING";
+                _statusText.color = !playing
+                    ? new Color(1f, 0.85f, 0.25f)
+                    : _board != null && _board.IsOverflowed ? new Color(1f, 0.2f, 0.25f) : Color.white;
             }
         }
 
@@ -925,6 +978,29 @@ namespace BlockEscape.Bootstrap
             }
         }
 
+        private void OnPickupCollected(PickupKind kind)
+        {
+            var message = kind switch
+            {
+                PickupKind.ScoreCrystal => $"SCORE CRYSTAL +{_session.AddBonusScore(100)}",
+                PickupKind.HealthPack => "HEALTH +1",
+                _ => "JUMP BOOST 8s"
+            };
+
+            if (kind == PickupKind.HealthPack)
+                _playerHealth?.Heal(1);
+            else if (kind == PickupKind.JumpBoost)
+                _playerController?.ApplyJumpBoost(1.2f, 8f);
+
+            if (_statusText != null && !_paused && !_gameOver)
+            {
+                _statusText.text = message;
+                _statusText.color = kind == PickupKind.HealthPack
+                    ? new Color(1f, 0.3f, 0.4f)
+                    : new Color(1f, 0.8f, 0.2f);
+            }
+        }
+
         private void OnOverflowChanged(bool dangerous, float normalized)
         {
             if (_overflowWarningRenderer != null)
@@ -983,6 +1059,46 @@ namespace BlockEscape.Bootstrap
                 _statusText.text = $"PHASE {phase}";
                 _statusText.color = new Color(1f, 0.75f, 0.25f);
             }
+        }
+
+        private void OnSessionStateChanged(GameSessionState state)
+        {
+            if (state != GameSessionState.Playing || _paused || _gameOver)
+                return;
+
+            SetPlayerRunning(true);
+            if (_inputService != null)
+                _inputService.SetGameplayEnabled(true);
+            _spawner?.StartSpawning();
+            SetAuxiliaryGameplayRunning(true);
+            if (_statusText != null)
+            {
+                _statusText.text = "RUNNING";
+                _statusText.color = Color.white;
+            }
+        }
+
+        private void StartCountdown()
+        {
+            _session.StartCountdown(CountdownSeconds, _config != null ? _config.phaseDurationSeconds : 45f);
+            ApplySessionPhase();
+            SetPlayerRunning(false);
+            if (_inputService != null)
+                _inputService.SetGameplayEnabled(false);
+            SetAuxiliaryGameplayRunning(false);
+            UpdateHud();
+        }
+
+        private void SetPlayerRunning(bool running)
+        {
+            if (_playerController != null)
+                _playerController.enabled = running;
+            if (_player == null || !_player.TryGetComponent<Rigidbody2D>(out var body))
+                return;
+
+            if (!running)
+                body.linearVelocity = Vector2.zero;
+            body.simulated = running;
         }
 
         private void EndRun(string reason)
@@ -1213,10 +1329,18 @@ namespace BlockEscape.Bootstrap
             return _drone.State.ToString().ToUpperInvariant();
         }
 
+        private string FormatPowerUpState()
+        {
+            return _playerController != null && _playerController.JumpBoostActive
+                ? $"JUMP {Mathf.CeilToInt(_playerController.JumpBoostSecondsRemaining)}s"
+                : "NONE";
+        }
+
         private void SetPlayer(Transform player)
         {
             UnbindPlayerHealth();
             _player = player;
+            _playerController = _player != null ? _player.GetComponent<PlayerController>() : null;
             _playerHealth = _player != null ? _player.GetComponent<PlayerHealth>() : null;
             if (_playerHealth != null)
                 _playerHealth.Died += OnPlayerDied;
@@ -1226,6 +1350,7 @@ namespace BlockEscape.Bootstrap
         {
             if (_playerHealth != null)
                 _playerHealth.Died -= OnPlayerDied;
+            _playerController = null;
             _playerHealth = null;
         }
 

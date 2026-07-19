@@ -82,6 +82,33 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void PlayerController_JumpBoostRefreshesWithoutStacking()
+        {
+            var player = new GameObject("Jump Boost Test");
+            try
+            {
+                player.AddComponent<Rigidbody2D>();
+                player.AddComponent<CapsuleCollider2D>();
+                var controller = player.AddComponent<PlayerController>();
+                var boostedVelocity = controller.Config.jumpVelocity * 1.2f;
+
+                controller.ApplyJumpBoost(1.2f, 8f);
+                controller.ApplyJumpBoost(1.2f, 8f);
+
+                Assert.That(controller.EffectiveJumpVelocity, Is.EqualTo(boostedVelocity).Within(0.001f));
+                Assert.That(controller.JumpBoostSecondsRemaining, Is.GreaterThan(7.9f));
+
+                controller.ClearJumpBoost();
+                Assert.That(controller.JumpBoostActive, Is.False);
+                Assert.That(controller.EffectiveJumpVelocity, Is.EqualTo(controller.Config.jumpVelocity));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
+        }
+
+        [Test]
         public void PlayerHealth_AppliesDamageKnockbackAndInvulnerability()
         {
             var player = new GameObject("Health Test");

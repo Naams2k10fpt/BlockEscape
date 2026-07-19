@@ -124,6 +124,25 @@ namespace BlockEscape.Tetris
             Recount();
         }
 
+        public void CollapseColumns()
+        {
+            var compacted = new bool[Width, Height];
+            for (var x = 0; x < Width; x++)
+            {
+                var targetY = 0;
+                for (var sourceY = 0; sourceY < Height; sourceY++)
+                {
+                    if (!_occupied[x, sourceY])
+                        continue;
+
+                    compacted[x, targetY] = true;
+                    targetY++;
+                }
+            }
+
+            _occupied = compacted;
+        }
+
         public bool HasOccupiedAtOrAbove(int row)
         {
             for (var y = Mathf.Clamp(row, 0, Height - 1); y < Height; y++)
