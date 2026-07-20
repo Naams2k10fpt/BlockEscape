@@ -98,7 +98,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 
 | Module | Tiến độ | Trạng thái | Phụ trách |
 |---|---:|---|---|
-| Tetris Core | 96% | EditMode Test Runner 80/80 xanh; còn playtest 50 piece | NguyenNgu2005 |
+| Tetris Core | 96% | EditMode Test Runner 687/687 xanh; còn playtest 50 piece | NguyenNgu2005 |
 | Chuẩn hóa Input System | 95% | Binding và bật/tắt map đã có test; còn kiểm thử Play Mode đổi scene | NguyenNgu2005 |
 | Tilemap và đấu trường | 55% | Có Arena prefab, sandbox scene, player thật tại spawn và test collider/support; còn playtest vật lý | NguyenNgu2005 |
 | Player Controller | 79% | Có movement, jump cao hơn, crouch, gravity config, prefab, sandbox integration, runtime spawn trong TetrisDemo và clamp trong biên arena; còn playtest cảm giác điều khiển | NguyenNgu2005 |
@@ -111,7 +111,7 @@ Nếu nhóm có hai người: người 1 nhận Tetris + Player + tích hợp; n
 | HUD và game flow | 62% | HUD hiển thị countdown; khóa player/Tetris/drone/event/pickup trước Playing; Pause/Game Over đọc cùng session score | NguyenNgu2005 |
 | Main Menu, Options và Save | 55% | Có Start/Options/Exit, high score/best time, JSON save v1 và audio/display settings; còn Bootstrap scene và input rebind | NguyenNgu2005 |
 | Art, animation và audio | 5% | Placeholder | Chưa phân công |
-| Test và Windows build | 42% | Build runtime/test/editor 0 warning/0 error; EditMode Test Runner 80/80 xanh; còn PlayMode QA và Windows build cuối | NguyenNgu2005 |
+| Test và Windows build | 42% | Build runtime/test/editor 0 warning/0 error; EditMode Test Runner 687/687 xanh; còn PlayMode QA và Windows build cuối | NguyenNgu2005 |
 
 ## 5. Phần đã hoàn thành
 
@@ -340,7 +340,7 @@ Nghiệm thu:
 - [ ] Preview đúng 100%.
 - [ ] Ghost luôn chỉ đúng vị trí khóa cuối cùng và không có collider.
 - [ ] Row clear và compaction không sai occupancy.
-- [x] EditMode Test Runner 80/80 xanh trên code countdown/spawner/pickup hiện tại.
+- [x] EditMode Test Runner 687/687 xanh trên code countdown/spawner/pickup hiện tại.
 
 ### INPUT-01 — Chuẩn hóa Input System
 
@@ -824,7 +824,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 - [ ] `A/D/W/S` không cho đi xuyên board hoặc locked block.
 - [ ] Xóa đúng 1–4 hàng và compaction đúng.
 - [ ] Overflow dừng spawn; reset tạo run sạch.
-- [x] EditMode tests 80/80 xanh toàn bộ trên code countdown/spawner/pickup hiện tại.
+- [x] EditMode tests 687/687 xanh toàn bộ trên code countdown/spawner/pickup hiện tại.
 - [ ] Hai thành viên đã playtest độc lập.
 
 ## 11. Ghi chú và giới hạn hiện tại
@@ -901,6 +901,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 20/07/2026 | TEST/crush lifecycle | Dọn object an toàn trong EditMode, sửa test khởi tạo Player/Drone, hoàn nguyên collision matrix và yêu cầu đường thoát crush liên tục | Build 0 warning/0 error; EditMode Test Runner 60/60 pass |
 | 20/07/2026 | ITEM-01/HEALTH-01 | Cân bằng nhịp spawn/lifetime, thêm weighted pickup, Kinematic Rigidbody2D, retarget khi mất mặt đỡ và `TryHeal` trước khi thu Health Pack | Build 0 warning/0 error; EditMode Test Runner 64/64 pass |
 | 20/07/2026 | TEST/ITEM-01/HEALTH-01 | Bổ sung regression test cho pool/capacity/reset/trigger/support của pickup và các trường hợp biên của `TryHeal`, `HealthChanged`, reset/death | Thêm 16 test case; EditMode Test Runner 80/80 pass |
+| 20/07/2026 | TEST/full project | Thêm 5 exhaustive suite cho board/tetromino, core/save/input, player/combat, runtime event/pickup và UI/asset integration; sửa overflow khi `TryHeal(int.MaxValue)` | Thêm 607 test case; EditMode Test Runner 687/687 pass |
 
 ## 13. Cách cập nhật file này
 
