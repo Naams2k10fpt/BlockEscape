@@ -42,6 +42,11 @@ For most gameplay work, inspect only the relevant files:
   - `Assets/_Project/Tests/EditMode/PickupDirectorEdgeCaseTests.cs`
   - `Assets/_Project/Tests/EditMode/PlayerHealthHealingTests.cs`
   - `Assets/_Project/Tests/EditMode/SaveServiceTests.cs`
+  - `Assets/_Project/Tests/EditMode/BoardAndTetrominoExhaustiveTests.cs`
+  - `Assets/_Project/Tests/EditMode/CoreServicesAndPersistenceExhaustiveTests.cs`
+  - `Assets/_Project/Tests/EditMode/PlayerControllerAndCombatExhaustiveTests.cs`
+  - `Assets/_Project/Tests/EditMode/GameplayRuntimeSystemsExhaustiveTests.cs`
+  - `Assets/_Project/Tests/EditMode/UiAssetsAndIntegrationExhaustiveTests.cs`
 
 Use targeted search/reads instead of loading full `PROGRESS.md`; it is long.
 

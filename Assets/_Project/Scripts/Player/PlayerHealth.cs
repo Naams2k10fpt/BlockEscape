@@ -69,7 +69,7 @@ namespace BlockEscape.Player
                 return false;
 
             var previous = CurrentHp;
-            CurrentHp = Mathf.Clamp(CurrentHp + amount, 0, _maxHp);
+            CurrentHp += Mathf.Min(amount, _maxHp - CurrentHp);
             if (CurrentHp == previous)
                 return false;
 
