@@ -9,12 +9,14 @@ namespace BlockEscape.Editor
         private const string ConfigPath = "Assets/_Project/Resources/PlayerConfig.asset";
         private const string PrefabPath = "Assets/_Project/Prefabs/Player/Player.prefab";
         private const string SquareAssetPath = "Assets/_Project/Art/GeneratedSquare.asset";
+        private const string PlayerSpritePath = "Assets/_Project/Resources/Art/PlayerRunner.png";
 
         [MenuItem("Block Escape/Build Player Prefab")]
         public static void BuildPlayerPrefab()
         {
             EnsureFolders();
             EnsureLayer("Player");
+            ConfigurePlayerSprite();
 
             var config = CreateOrLoadConfig();
             var player = CreatePlayer(config);
@@ -45,13 +47,14 @@ namespace BlockEscape.Editor
 
             var visual = new GameObject("Visual");
             visual.transform.SetParent(player.transform, false);
-            visual.transform.localScale = new Vector3(0.72f, 1.45f, 1f);
+            var playerSprite = AssetDatabase.LoadAssetAtPath<Sprite>(PlayerSpritePath);
+            visual.transform.localScale = playerSprite != null
+                ? Vector3.one
+                : new Vector3(0.72f, 1.45f, 1f);
             var renderer = visual.AddComponent<SpriteRenderer>();
-            renderer.sprite = CreateOrLoadSquareSprite();
-            renderer.color = new Color(0.95f, 0.86f, 0.30f);
+            renderer.sprite = playerSprite != null ? playerSprite : CreateOrLoadSquareSprite();
+            renderer.color = playerSprite != null ? Color.white : new Color(0.95f, 0.86f, 0.30f);
             renderer.sortingOrder = 25;
-            visual.AddComponent<Animator>();
-
             var groundCheck = new GameObject("Ground Check");
             groundCheck.transform.SetParent(player.transform, false);
             groundCheck.transform.localPosition = new Vector3(0f, config.groundCheckOffsetY, 0f);
@@ -64,11 +67,29 @@ namespace BlockEscape.Editor
             controllerData.ApplyModifiedPropertiesWithoutUndo();
 
             var health = player.AddComponent<PlayerHealth>();
+            player.AddComponent<PlayerPresentation>();
             var healthData = new SerializedObject(health);
             healthData.FindProperty("_spriteRenderer").objectReferenceValue = renderer;
             healthData.ApplyModifiedPropertiesWithoutUndo();
 
             return player;
+        }
+
+        private static void ConfigurePlayerSprite()
+        {
+            AssetDatabase.Refresh();
+            if (AssetImporter.GetAtPath(PlayerSpritePath) is not TextureImporter importer)
+                return;
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = 16f;
+            importer.filterMode = FilterMode.Point;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.mipmapEnabled = false;
+            importer.alphaIsTransparency = true;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.SaveAndReimport();
         }
 
         private static PlayerConfig CreateOrLoadConfig()

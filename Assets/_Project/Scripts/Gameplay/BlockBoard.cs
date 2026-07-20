@@ -31,6 +31,7 @@ namespace BlockEscape.Tetris
         public int Height => _model?.Height ?? (_config != null ? _config.boardHeight : 20);
         public bool IsResolving { get; private set; }
         public bool IsOverflowed => _overflowTriggered;
+        public bool LastCommitCrushedPlayer { get; private set; }
         public float OverflowNormalized => _config == null ? 0f : Mathf.Clamp01(_overflowTime / _config.overflowGraceSeconds);
 
         public void Initialize(TetrisBalanceConfig config)
@@ -86,6 +87,7 @@ namespace BlockEscape.Tetris
 
         public bool CommitPiece(TetrominoKind kind, int rotation, Vector2Int origin)
         {
+            LastCommitCrushedPlayer = false;
             if (_model == null || IsResolving || _overflowTriggered)
                 return false;
 
@@ -105,7 +107,8 @@ namespace BlockEscape.Tetris
             }
 
             PieceLocked?.Invoke(kind);
-            if (DetectPlayerCrush(localCells, origin))
+            LastCommitCrushedPlayer = DetectPlayerCrush(localCells, origin);
+            if (LastCommitCrushedPlayer)
                 PlayerCrushed?.Invoke();
 
             if (aboveTop)
@@ -226,6 +229,7 @@ namespace BlockEscape.Tetris
             _overflowTime = 0f;
             _overflowTriggered = false;
             IsResolving = false;
+            LastCommitCrushedPlayer = false;
             OverflowChanged?.Invoke(false, 0f);
         }
 

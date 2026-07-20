@@ -19,6 +19,7 @@ namespace BlockEscape.Player
         private bool _isDead;
 
         public event Action<int, int> HealthChanged;
+        public event Action Damaged;
         public event Action Died;
 
         public int CurrentHp { get; private set; }
@@ -52,6 +53,7 @@ namespace BlockEscape.Player
                 _body.linearVelocity = damage.Knockback;
 
             HealthChanged?.Invoke(CurrentHp, _maxHp);
+            Damaged?.Invoke();
 
             if (CurrentHp <= 0)
             {

@@ -4,6 +4,8 @@ using BlockEscape.Core;
 using BlockEscape.Tetris;
 using BlockEscape.UI;
 using UnityEditor;
+using UnityEditor.Build;
+using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -19,10 +21,35 @@ namespace BlockEscape.Editor
     {
         private const string ScenePath = "Assets/_Project/Scenes/TetrisDemo.unity";
         private const string MainMenuScenePath = "Assets/_Project/Scenes/MainMenu.unity";
+        private const string BootstrapScenePath = "Assets/_Project/Scenes/Bootstrap.unity";
         private const string ConfigPath = "Assets/_Project/Resources/TetrisBalanceConfig.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string PlayerPrefabPath = "Assets/_Project/Prefabs/Player/Player.prefab";
         private const string SquareAssetPath = "Assets/_Project/Art/GeneratedSquare.asset";
+        private const string DroneSpritePath = "Assets/_Project/Resources/Art/Drone.png";
+        private const string MenuBackgroundPath = "Assets/_Project/Resources/Art/MainMenuBackground.png";
+        private const string ScoreCrystalSpritePath = "Assets/_Project/Resources/Art/PickupScoreCrystal.png";
+        private const string HealthPackSpritePath = "Assets/_Project/Resources/Art/PickupHealthPack.png";
+        private const string JumpBoostSpritePath = "Assets/_Project/Resources/Art/PickupJumpBoost.png";
+        private const string CutterRocketSpritePath = "Assets/_Project/Resources/Art/CutterRocket.png";
+        private static readonly string[] BgmAssetPaths =
+        {
+            "Assets/_Project/Resources/Audio/BGM/BGM_01.ogg",
+            "Assets/_Project/Resources/Audio/BGM/BGM_02.ogg",
+            "Assets/_Project/Resources/Audio/BGM/BGM_03.mp3",
+            "Assets/_Project/Resources/Audio/BGM/BGM_04.ogg"
+        };
+        private static readonly string[] SfxAssetPaths =
+        {
+            "Assets/_Project/Resources/Audio/SFX/click.ogg",
+            "Assets/_Project/Resources/Audio/SFX/collected.ogg",
+            "Assets/_Project/Resources/Audio/SFX/extra_heart.ogg",
+            "Assets/_Project/Resources/Audio/SFX/game_over.mp3",
+            "Assets/_Project/Resources/Audio/SFX/laser.ogg",
+            "Assets/_Project/Resources/Audio/SFX/meteor.ogg",
+            "Assets/_Project/Resources/Audio/SFX/player_hurt.mp3",
+            "Assets/_Project/Resources/Audio/SFX/rocket.ogg"
+        };
         private const string ClassroomMarker = "m_Name: Player Health";
 
         static BlockEscapeTetrisSetup()
@@ -41,6 +68,15 @@ namespace BlockEscape.Editor
         public static void BuildTetrisDemo()
         {
             EnsureLayers();
+            ConfigureSpriteAsset(DroneSpritePath, 16f);
+            ConfigureSpriteAsset(MenuBackgroundPath, 100f);
+            ConfigureSpriteAsset(ScoreCrystalSpritePath, 640f, 128);
+            ConfigureSpriteAsset(HealthPackSpritePath, 640f, 128);
+            ConfigureSpriteAsset(JumpBoostSpritePath, 640f, 128);
+            ConfigureSpriteAsset(CutterRocketSpritePath, 640f, 128);
+            ConfigureBgmAssets();
+            ConfigureSfxAssets();
+            BlockEscapePlayerSetup.BuildPlayerPrefab();
             var config = CreateOrLoadConfig();
             var squareSprite = CreateOrLoadSquareSprite();
 
@@ -48,13 +84,6 @@ namespace BlockEscape.Editor
             scene.name = "TetrisDemo";
 
             var camera = CreateCamera();
-
-            var inputObject = new GameObject("Input Service (Persistent)");
-            var inputService = inputObject.AddComponent<InputService>();
-            var inputData = new SerializedObject(inputService);
-            inputData.FindProperty("_actions").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
-            inputData.ApplyModifiedPropertiesWithoutUndo();
 
             var gameManagerObject = new GameObject("Game Manager");
             var gameManager = gameManagerObject.AddComponent<TetrisDemoBootstrap>();
@@ -86,7 +115,6 @@ namespace BlockEscape.Editor
             managerData.FindProperty("_arenaVisuals").objectReferenceValue = arenaRoot;
             managerData.FindProperty("_board").objectReferenceValue = board;
             managerData.FindProperty("_spawner").objectReferenceValue = spawner;
-            managerData.FindProperty("_inputService").objectReferenceValue = inputService;
             managerData.FindProperty("_statsText").objectReferenceValue = hud.stats;
             managerData.FindProperty("_statusText").objectReferenceValue = hud.status;
             managerData.FindProperty("_healthText").objectReferenceValue = hud.health;
@@ -97,8 +125,10 @@ namespace BlockEscape.Editor
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             CreateMainMenuScene();
+            CreateBootstrapScene();
             EditorBuildSettings.scenes = new[]
             {
+                new EditorBuildSettingsScene(BootstrapScenePath, true),
                 new EditorBuildSettingsScene(MainMenuScenePath, true),
                 new EditorBuildSettingsScene(ScenePath, true)
             };
@@ -114,7 +144,23 @@ namespace BlockEscape.Editor
             AssetDatabase.Refresh();
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             Selection.activeGameObject = GameObject.Find("Game Manager");
-            Debug.Log($"Demo scenes built successfully: {MainMenuScenePath}, {ScenePath}");
+            Debug.Log($"Demo scenes built successfully: {BootstrapScenePath}, {MainMenuScenePath}, {ScenePath}");
+        }
+
+        [MenuItem("Block Escape/Build Windows Demo")]
+        public static void BuildWindowsDemo()
+        {
+            BuildTetrisDemo();
+            Directory.CreateDirectory("Builds/Windows");
+            var report = BuildPipeline.BuildPlayer(
+                new[] { BootstrapScenePath, MainMenuScenePath, ScenePath },
+                "Builds/Windows/BlockEscape.exe",
+                BuildTarget.StandaloneWindows64,
+                BuildOptions.None);
+            if (report.summary.result != BuildResult.Succeeded)
+                throw new BuildFailedException($"Windows build failed: {report.summary.result}");
+
+            Debug.Log($"Windows build succeeded: {report.summary.outputPath}");
         }
 
         private static void UpgradeOldDemoOnce()
@@ -124,10 +170,26 @@ namespace BlockEscape.Editor
 
             if (File.Exists(ScenePath) &&
                 File.ReadAllText(ScenePath).Contains(ClassroomMarker) &&
-                File.Exists(MainMenuScenePath))
+                File.Exists(MainMenuScenePath) &&
+                File.Exists(BootstrapScenePath))
                 return;
 
             BuildTetrisDemo();
+        }
+
+        private static void CreateBootstrapScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            scene.name = "Bootstrap";
+
+            new GameObject("App Bootstrap").AddComponent<AppBootstrap>();
+            var input = new GameObject("Input Service (Persistent)").AddComponent<InputService>();
+            var inputData = new SerializedObject(input);
+            inputData.FindProperty("_actions").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
+            inputData.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.SaveScene(scene, BootstrapScenePath);
         }
 
         private static void CreateMainMenuScene()
@@ -150,7 +212,10 @@ namespace BlockEscape.Editor
             var backgroundObject = new GameObject("Menu Background");
             backgroundObject.transform.SetParent(canvasObject.transform, false);
             var background = backgroundObject.AddComponent<Image>();
-            background.color = new Color(0.025f, 0.035f, 0.075f, 1f);
+            background.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(MenuBackgroundPath);
+            background.color = background.sprite != null
+                ? new Color(0.48f, 0.55f, 0.72f, 1f)
+                : new Color(0.025f, 0.035f, 0.075f, 1f);
             StretchFullScreen(background.rectTransform);
 
             var accentObject = new GameObject("Title Accent");
@@ -187,10 +252,46 @@ namespace BlockEscape.Editor
             controllerObject.transform.SetParent(uiRoot, false);
             var controller = controllerObject.AddComponent<MainMenuController>();
             var optionsMenu = CreateOptionsMenu(canvasObject.transform);
-            controller.Configure(startButton, optionsButton, exitButton, records, optionsMenu);
+            var tutorial = CreateTutorialPanel(canvasObject.transform);
+            controller.Configure(
+                startButton,
+                optionsButton,
+                exitButton,
+                records,
+                optionsMenu,
+                tutorial.panel,
+                tutorial.continueButton);
 
             CreateEventSystem(uiRoot);
             EditorSceneManager.SaveScene(scene, MainMenuScenePath);
+        }
+
+        private static (GameObject panel, Button continueButton) CreateTutorialPanel(Transform canvasRoot)
+        {
+            var panel = CreateOverlay(canvasRoot, "First Run Tutorial Overlay", new Color(0f, 0f, 0f, 0.9f));
+            var dialog = CreatePanel(panel.transform, "Tutorial Dialog", new Vector2(760f, 700f));
+
+            var title = CreateText(dialog.transform, "Tutorial Title", "HOW TO SURVIVE", 44, TextAnchor.UpperCenter);
+            SetRect(title.rectTransform, new Vector2(0f, -35f), new Vector2(680f, 65f), new Vector2(0.5f, 1f));
+            title.color = new Color(0.35f, 0.85f, 1f);
+
+            var body = CreateText(
+                dialog.transform,
+                "Tutorial Body",
+                "TETRIS\nA / D  MOVE    W  ROTATE    S  SOFT DROP\n\nPLAYER\nARROWS  MOVE / JUMP / CROUCH\n\nBUILD SAFE GROUND, DODGE HAZARDS,\nAND SURVIVE AS LONG AS POSSIBLE.",
+                25,
+                TextAnchor.MiddleCenter);
+            SetRect(body.rectTransform, new Vector2(0f, 35f), new Vector2(650f, 390f), new Vector2(0.5f, 0.5f));
+            body.color = new Color(0.82f, 0.9f, 1f);
+
+            var continueButton = CreateButton(
+                dialog.transform,
+                "Tutorial Continue Button",
+                "START RUN",
+                new Vector2(0f, -260f),
+                new Vector2(340f, 64f));
+            panel.SetActive(false);
+            return (panel, continueButton);
         }
 
         private static Camera CreateCamera()
@@ -277,7 +378,7 @@ namespace BlockEscape.Editor
             title.color = new Color(0.35f, 0.85f, 1f);
 
             var stats = CreateText(canvasObject.transform, "Game Statistics", "Statistics appear in Play Mode", 24, TextAnchor.UpperLeft);
-            SetRect(stats.rectTransform, new Vector2(24f, -80f), new Vector2(520f, 220f), new Vector2(0f, 1f));
+            SetRect(stats.rectTransform, new Vector2(24f, -80f), new Vector2(320f, 150f), new Vector2(0f, 1f));
 
             var help = CreateText(canvasObject.transform, "Tetris Controls (WASD)", "A / D  MOVE\nW  ROTATE\nS  SOFT DROP\nR  RESET MENU\nESC  PAUSE", 21, TextAnchor.LowerRight);
             SetRect(help.rectTransform, new Vector2(-24f, 24f), new Vector2(500f, 190f), new Vector2(1f, 0f));
@@ -446,7 +547,7 @@ namespace BlockEscape.Editor
             var controller = controllerObject.AddComponent<OptionsMenu>();
 
             var panel = CreateOverlay(canvasRoot, "Options Overlay", new Color(0f, 0f, 0f, 0.86f));
-            var dialog = CreatePanel(panel.transform, "Options Dialog", new Vector2(760f, 760f));
+            var dialog = CreatePanel(panel.transform, "Options Dialog", new Vector2(760f, 840f));
             var title = CreateText(dialog.transform, "Options Title", "TÙY CHỌN", 42, TextAnchor.UpperCenter);
             SetRect(title.rectTransform, new Vector2(0f, -30f), new Vector2(660f, 60f), new Vector2(0.5f, 1f));
             title.color = new Color(0.35f, 0.85f, 1f);
@@ -473,8 +574,10 @@ namespace BlockEscape.Editor
             var fullscreenToggle = CreateToggle(dialog.transform, "Fullscreen Toggle", "FULLSCREEN", new Vector2(-145f, -100f));
             var vSyncToggle = CreateToggle(dialog.transform, "VSync Toggle", "VSYNC", new Vector2(190f, -100f));
 
-            var applyButton = CreateButton(dialog.transform, "Apply Options Button", "ÁP DỤNG", new Vector2(-170f, -245f), new Vector2(280f, 60f));
-            var backButton = CreateButton(dialog.transform, "Back Options Button", "QUAY LẠI", new Vector2(170f, -245f), new Vector2(280f, 60f));
+            var controlsButton = CreateButton(dialog.transform, "Controls Button", "CONTROLS / REBIND", new Vector2(0f, -180f), new Vector2(360f, 58f));
+            var applyButton = CreateButton(dialog.transform, "Apply Options Button", "ÁP DỤNG", new Vector2(-170f, -285f), new Vector2(280f, 60f));
+            var backButton = CreateButton(dialog.transform, "Back Options Button", "QUAY LẠI", new Vector2(170f, -285f), new Vector2(280f, 60f));
+            var inputRebindMenu = CreateInputRebindMenu(canvasRoot);
 
             controller.Configure(
                 panel,
@@ -487,7 +590,51 @@ namespace BlockEscape.Editor
                 fullscreenToggle,
                 vSyncToggle,
                 applyButton,
-                backButton);
+                backButton,
+                controlsButton,
+                inputRebindMenu);
+            panel.SetActive(false);
+            return controller;
+        }
+
+        private static InputRebindMenu CreateInputRebindMenu(Transform canvasRoot)
+        {
+            var controllerObject = new GameObject("Input Rebind Menu Controller");
+            controllerObject.transform.SetParent(canvasRoot, false);
+            var controller = controllerObject.AddComponent<InputRebindMenu>();
+
+            var panel = CreateOverlay(canvasRoot, "Input Rebind Overlay", new Color(0f, 0f, 0f, 0.9f));
+            var dialog = CreatePanel(panel.transform, "Input Rebind Dialog", new Vector2(820f, 920f));
+            var title = CreateText(dialog.transform, "Input Rebind Title", "CONTROLS", 42, TextAnchor.UpperCenter);
+            SetRect(title.rectTransform, new Vector2(0f, -28f), new Vector2(700f, 60f), new Vector2(0.5f, 1f));
+            title.color = new Color(0.35f, 0.85f, 1f);
+
+            var labels = new[]
+            {
+                "TETRIS LEFT",
+                "TETRIS RIGHT",
+                "TETRIS ROTATE",
+                "TETRIS SOFT DROP",
+                "PLAYER LEFT",
+                "PLAYER RIGHT",
+                "PLAYER JUMP",
+                "PLAYER CROUCH"
+            };
+            var buttons = new Button[labels.Length];
+            var values = new Text[labels.Length];
+            for (var i = 0; i < labels.Length; i++)
+            {
+                var y = 300f - i * 65f;
+                var label = CreateText(dialog.transform, $"{labels[i]} Label", labels[i], 21, TextAnchor.MiddleLeft);
+                SetRect(label.rectTransform, new Vector2(-205f, y), new Vector2(300f, 46f), new Vector2(0.5f, 0.5f));
+                buttons[i] = CreateButton(dialog.transform, $"{labels[i]} Button", "UNBOUND", new Vector2(205f, y), new Vector2(300f, 48f));
+                values[i] = buttons[i].GetComponentInChildren<Text>();
+                values[i].fontSize = 19;
+            }
+
+            var resetButton = CreateButton(dialog.transform, "Reset Bindings Button", "RESET DEFAULTS", new Vector2(-175f, -330f), new Vector2(300f, 58f));
+            var backButton = CreateButton(dialog.transform, "Back From Bindings Button", "BACK", new Vector2(175f, -330f), new Vector2(300f, 58f));
+            controller.Configure(panel, buttons, values, resetButton, backButton);
             panel.SetActive(false);
             return controller;
         }
@@ -614,6 +761,61 @@ namespace BlockEscape.Editor
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+        }
+
+        private static void ConfigureSpriteAsset(string path, float pixelsPerUnit, int maxTextureSize = 2048)
+        {
+            AssetDatabase.Refresh();
+            if (AssetImporter.GetAtPath(path) is not TextureImporter importer)
+                return;
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = pixelsPerUnit;
+            importer.maxTextureSize = maxTextureSize;
+            importer.filterMode = FilterMode.Point;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.mipmapEnabled = false;
+            importer.alphaIsTransparency = true;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.SaveAndReimport();
+        }
+
+        private static void ConfigureBgmAssets()
+        {
+            AssetDatabase.Refresh();
+            foreach (var path in BgmAssetPaths)
+            {
+                if (AssetImporter.GetAtPath(path) is not AudioImporter importer)
+                    continue;
+
+                var settings = importer.defaultSampleSettings;
+                settings.loadType = AudioClipLoadType.Streaming;
+                settings.compressionFormat = AudioCompressionFormat.Vorbis;
+                settings.quality = 0.7f;
+                settings.preloadAudioData = false;
+                importer.defaultSampleSettings = settings;
+                importer.loadInBackground = true;
+                importer.SaveAndReimport();
+            }
+        }
+
+        private static void ConfigureSfxAssets()
+        {
+            AssetDatabase.Refresh();
+            foreach (var path in SfxAssetPaths)
+            {
+                if (AssetImporter.GetAtPath(path) is not AudioImporter importer)
+                    continue;
+
+                var settings = importer.defaultSampleSettings;
+                settings.loadType = AudioClipLoadType.DecompressOnLoad;
+                settings.compressionFormat = AudioCompressionFormat.PCM;
+                settings.preloadAudioData = true;
+                importer.defaultSampleSettings = settings;
+                importer.loadInBackground = false;
+                importer.SaveAndReimport();
+            }
         }
 
         private static Sprite CreateOrLoadSquareSprite()

@@ -131,6 +131,11 @@ namespace BlockEscape.Tetris
                 body.gravityScale = 0f;
                 body.freezeRotation = true;
 
+                var auraObject = new GameObject("Aura");
+                auraObject.transform.SetParent(gameObject.transform, false);
+                var aura = auraObject.AddComponent<SpriteRenderer>();
+                aura.sortingOrder = 30;
+
                 var labelObject = new GameObject("Label");
                 labelObject.transform.SetParent(gameObject.transform, false);
                 labelObject.transform.localPosition = new Vector3(0f, 0f, -0.1f);
@@ -144,7 +149,7 @@ namespace BlockEscape.Tetris
                 labelObject.GetComponent<MeshRenderer>().sortingOrder = 32;
 
                 var item = gameObject.AddComponent<PickupItem>();
-                item.Initialize(this, gameObject.GetComponent<SpriteRenderer>(), label, body);
+                item.Initialize(this, gameObject.GetComponent<SpriteRenderer>(), aura, label, body);
                 item.Deactivate();
                 _pool.Add(item);
             }
@@ -295,6 +300,7 @@ namespace BlockEscape.Tetris
 
         private PickupDirector _owner;
         private SpriteRenderer _renderer;
+        private SpriteRenderer _aura;
         private TextMesh _label;
         private Rigidbody2D _body;
         private bool _collected;
@@ -310,11 +316,13 @@ namespace BlockEscape.Tetris
         public void Initialize(
             PickupDirector owner,
             SpriteRenderer spriteRenderer,
+            SpriteRenderer aura,
             TextMesh label,
             Rigidbody2D body)
         {
             _owner = owner;
             _renderer = spriteRenderer;
+            _aura = aura;
             _label = label;
             _body = body;
         }
@@ -339,7 +347,12 @@ namespace BlockEscape.Tetris
             if (_body != null)
                 _body.position = spawnPosition;
             gameObject.name = $"Pickup {kind}";
-            _renderer.color = GetColor(kind);
+            var sprite = Resources.Load<Sprite>(GetSpritePath(kind));
+            _renderer.sprite = sprite != null ? sprite : RuntimeVisuals.Square;
+            _renderer.color = sprite != null ? Color.white : GetColor(kind);
+            _aura.sprite = _renderer.sprite;
+            _aura.color = WithAlpha(GetColor(kind), 0.2f);
+            _label.gameObject.SetActive(sprite == null);
             _label.text = GetLabel(kind);
         }
 
@@ -362,6 +375,10 @@ namespace BlockEscape.Tetris
         {
             if (!float.IsPositiveInfinity(_landedAt) && Time.time - _landedAt >= _lifetimeAfterLanding)
                 _owner.Expire(this);
+
+            var pulse = 1.12f + Mathf.Sin(Time.time * 5f) * 0.08f;
+            _aura.transform.localScale = Vector3.one * pulse;
+            _aura.color = WithAlpha(GetColor(Kind), 0.12f + (pulse - 1.04f) * 0.5f);
         }
 
         public void RetargetLanding(Vector3 landingPosition, int supportRow)
@@ -404,6 +421,22 @@ namespace BlockEscape.Tetris
                 PickupKind.HealthPack => new Color(1f, 0.2f, 0.3f),
                 _ => new Color(1f, 0.75f, 0.15f)
             };
+        }
+
+        private static string GetSpritePath(PickupKind kind)
+        {
+            return kind switch
+            {
+                PickupKind.ScoreCrystal => "Art/PickupScoreCrystal",
+                PickupKind.HealthPack => "Art/PickupHealthPack",
+                _ => "Art/PickupJumpBoost"
+            };
+        }
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = alpha;
+            return color;
         }
 
         private static string GetLabel(PickupKind kind)

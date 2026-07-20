@@ -19,6 +19,8 @@ namespace BlockEscape.Core
         public int screenWidth = 1920;
         public int screenHeight = 1080;
         public int vSyncCount = 1;
+        public string inputBindingOverridesJson = string.Empty;
+        public bool hasSeenTutorial;
 
         public void Sanitize()
         {
@@ -31,6 +33,7 @@ namespace BlockEscape.Core
             screenWidth = Mathf.Max(640, screenWidth);
             screenHeight = Mathf.Max(360, screenHeight);
             vSyncCount = vSyncCount > 0 ? 1 : 0;
+            inputBindingOverridesJson ??= string.Empty;
         }
     }
 
@@ -39,6 +42,7 @@ namespace BlockEscape.Core
         private const string FileName = "blockescape-save.json";
         private static string _savePath;
 
+        public static event Action<SaveData> AudioSettingsChanged;
         public static SaveData Data { get; private set; } = new SaveData();
         public static string SavePath => _savePath ?? Path.Combine(Application.persistentDataPath, FileName);
 
@@ -155,6 +159,13 @@ namespace BlockEscape.Core
 
             QualitySettings.vSyncCount = Data.vSyncCount;
             Screen.SetResolution(Data.screenWidth, Data.screenHeight, Data.fullscreen);
+        }
+
+        public static void ApplyAudioSettings()
+        {
+            Data.Sanitize();
+            AudioListener.volume = Data.masterVolume;
+            AudioSettingsChanged?.Invoke(Data);
         }
 
         private static void BackupCorruptFile(string path)

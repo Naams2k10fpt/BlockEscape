@@ -42,6 +42,7 @@ namespace BlockEscape.UI
 
         private void OnEnable()
         {
+            ApplyTheme();
             BindButtons();
         }
 
@@ -79,7 +80,15 @@ namespace BlockEscape.UI
             _cancelResetButton = cancelResetButton;
             _confirmMainMenuButton = confirmMainMenuButton;
             _cancelMainMenuButton = cancelMainMenuButton;
+            ApplyTheme();
             if (isActiveAndEnabled) BindButtons();
+        }
+
+        private void ApplyTheme()
+        {
+            NeonMenuTheme.ApplyOverlay(_pausePanel);
+            NeonMenuTheme.ApplyOverlay(_resetConfirmationPanel);
+            NeonMenuTheme.ApplyOverlay(_mainMenuConfirmationPanel);
         }
 
         public void SetRunStatistics(int piecesSpawned, int rowsCleared, int score, int seed, float survivalTime = 0f, int phase = 1)

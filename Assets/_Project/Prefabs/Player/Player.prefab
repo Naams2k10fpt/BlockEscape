@@ -41,7 +41,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8592636336267446220}
   - component: {fileID: 840619637010080741}
-  - component: {fileID: 3020961896702559616}
   m_Layer: 0
   m_Name: Visual
   m_TagString: Untagged
@@ -59,7 +58,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.72, y: 1.45, z: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4546241359732837370}
@@ -113,38 +112,16 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 25
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -7143018212736263435, guid: 3a1c4cab6c38df84fbfba8dd01c3109d, type: 2}
-  m_Color: {r: 0.95, g: 0.86, b: 0.3, a: 1}
+  m_Sprite: {fileID: 21300000, guid: c873780656f3c624b99945ad401ac069, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 0.9375, y: 1.5}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
---- !u!95 &3020961896702559616
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 408315418767129584}
-  m_Enabled: 1
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 0}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &8862055015753606068
 GameObject:
   m_ObjectHideFlags: 0
@@ -158,6 +135,7 @@ GameObject:
   - component: {fileID: 4099851910730779178}
   - component: {fileID: 461126505445435953}
   - component: {fileID: 1285482479806762412}
+  - component: {fileID: 683548470673056219}
   m_Layer: 10
   m_Name: Player
   m_TagString: Untagged
@@ -256,7 +234,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0cf6cb1d39b7eda4e9598c42bfff5981, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: BlockEscape.Runtime::BlockEscape.Player.PlayerController
   _config: {fileID: 11400000, guid: 4c811cd24ba065140a8d0eed90276f42, type: 2}
   _groundCheck: {fileID: 5706792345519917892}
@@ -273,9 +251,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ba896aaad0758cb4eb7740d61216a2a9, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: BlockEscape.Runtime::BlockEscape.Player.PlayerHealth
   _maxHp: 3
   _iFrameSeconds: 1.2
   _flashIntervalSeconds: 0.1
   _spriteRenderer: {fileID: 840619637010080741}
+--- !u!114 &683548470673056219
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8862055015753606068}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1ab6e6bd71a43d39cf5825d8bb78765, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BlockEscape.Runtime::BlockEscape.Player.PlayerPresentation
+  _visual: {fileID: 0}
+  _renderer: {fileID: 0}

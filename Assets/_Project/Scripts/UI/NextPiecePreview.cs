@@ -39,7 +39,7 @@ namespace BlockEscape.UI
             }
 
             if (_kindText != null)
-                _kindText.text = kind.ToString();
+                _kindText.gameObject.SetActive(false);
         }
     }
 }

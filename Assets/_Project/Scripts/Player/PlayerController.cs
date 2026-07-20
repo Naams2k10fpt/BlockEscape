@@ -19,7 +19,6 @@ namespace BlockEscape.Player
         private float _lastJumpStartedTime = float.NegativeInfinity;
         private bool _jumpReleasedThisFrame;
         private bool _wantsCrouch;
-        private Animator _animator;
         private float _jumpBoostMultiplier = 1f;
         private float _jumpBoostUntil = float.NegativeInfinity;
 
@@ -39,7 +38,6 @@ namespace BlockEscape.Player
         {
             _body = GetComponent<Rigidbody2D>();
             _collider = GetComponent<CapsuleCollider2D>();
-            _animator = GetComponentInChildren<Animator>();
             _input = InputService.Current;
 
             if (_config == null)
@@ -199,8 +197,6 @@ namespace BlockEscape.Player
             else
                 ApplyCollider(_config.standingColliderSize, _config.standingColliderOffset);
 
-            if (_animator != null)
-                _animator.SetBool("IsCrouching", IsCrouching);
         }
 
         private void ApplyCollider(Vector2 size, Vector2 offset)

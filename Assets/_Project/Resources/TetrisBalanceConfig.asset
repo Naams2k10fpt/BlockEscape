@@ -15,15 +15,15 @@ MonoBehaviour:
   boardWidth: 14
   boardHeight: 20
   dangerStartRow: 18
-  overflowGraceSeconds: 3
+  overflowGraceSeconds: 1.75
   initialSpawnDelay: 0.5
-  spawnDelay: 0.6
+  spawnDelay: 0.35
   telegraphSeconds: 0
-  fallSpeedCellsPerSecond: 2
-  maxFallSpeedCellsPerSecond: 5
-  fallSpeedIncreasePerPhase: 0.35
+  fallSpeedCellsPerSecond: 2.5
+  maxFallSpeedCellsPerSecond: 6.5
+  fallSpeedIncreasePerPhase: 0.5
   lockDelaySeconds: 0.12
-  phaseDurationSeconds: 45
+  phaseDurationSeconds: 30
   rowClearWarningSeconds: 0.6
   rowCollapseSeconds: 0.15
   seed: 0

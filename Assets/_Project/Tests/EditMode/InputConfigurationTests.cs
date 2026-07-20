@@ -80,6 +80,43 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
+        public void InputService_LoadsAndResetsSavedBindingOverrides()
+        {
+            if (InputService.Current != null)
+                Assert.Ignore("InputService singleton already exists in the open editor scene.");
+
+            var savePath = System.IO.Path.Combine(
+                Application.temporaryCachePath,
+                $"BlockEscapeInput-{Guid.NewGuid():N}.json");
+            SaveService.Load(savePath);
+            var serviceObject = new GameObject("InputService Rebind Test");
+            var service = serviceObject.AddComponent<InputService>();
+            try
+            {
+                service.EnsureInitialized();
+                service.PlayerJump.ApplyBindingOverride(0, "<Keyboard>/space");
+                var actions = (InputActionAsset)typeof(InputService)
+                    .GetField("_actions", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(service);
+                SaveService.Data.inputBindingOverridesJson = actions.SaveBindingOverridesAsJson();
+                Assert.That(SaveService.Save(), Is.True);
+
+                actions.RemoveAllBindingOverrides();
+                service.LoadSavedBindings();
+                Assert.That(service.GetBindingDisplayString(RebindAction.PlayerJump), Does.Contain("Space"));
+
+                service.ResetBindingsToDefault();
+                Assert.That(service.GetBindingDisplayString(RebindAction.PlayerJump), Does.Contain("Up Arrow"));
+                Assert.That(SaveService.Data.inputBindingOverridesJson, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(serviceObject);
+                if (System.IO.File.Exists(savePath)) System.IO.File.Delete(savePath);
+            }
+        }
+
+        [Test]
         public void GameSession_TracksSurvivalRowsAndFinalResult()
         {
             var sessionType = typeof(InputService).Assembly.GetType("BlockEscape.Core.GameSession");
@@ -184,6 +221,47 @@ namespace BlockEscape.Tetris.Tests
 
             sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 1f });
             Assert.That((float)sessionType.GetProperty("SurvivalTime").GetValue(session), Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void GameSession_PauseStopsTimeAndResumeContinues()
+        {
+            var sessionType = typeof(InputService).Assembly.GetType("BlockEscape.Core.GameSession");
+            var session = Activator.CreateInstance(sessionType);
+            sessionType.GetMethod("StartRun", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null)
+                .Invoke(session, null);
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 1f });
+            sessionType.GetMethod("Pause", BindingFlags.Instance | BindingFlags.Public).Invoke(session, null);
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 5f });
+            Assert.That((float)sessionType.GetProperty("SurvivalTime").GetValue(session), Is.EqualTo(1f));
+
+            sessionType.GetMethod("Resume", BindingFlags.Instance | BindingFlags.Public).Invoke(session, null);
+            sessionType.GetMethod("Tick", BindingFlags.Instance | BindingFlags.Public).Invoke(session, new object[] { 0.5f });
+            Assert.That((float)sessionType.GetProperty("SurvivalTime").GetValue(session), Is.EqualTo(1.5f));
+        }
+
+        [Test]
+        public void TetrominoSpawner_RaisesNearMissOnlyWhenFlagged()
+        {
+            var spawnerObject = new GameObject("Near Miss Spawner");
+            var pieceObject = new GameObject("Near Miss Piece");
+            try
+            {
+                var spawner = spawnerObject.AddComponent<TetrominoSpawner>();
+                var piece = pieceObject.AddComponent<ActiveTetromino>();
+                var raised = 0;
+                spawner.NearMiss += () => raised++;
+
+                spawner.NotifyPieceFinished(piece, nearMiss: false);
+                spawner.NotifyPieceFinished(piece, nearMiss: true);
+
+                Assert.That(raised, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(pieceObject);
+                UnityEngine.Object.DestroyImmediate(spawnerObject);
+            }
         }
 
         [Test]
@@ -380,7 +458,18 @@ namespace BlockEscape.Tetris.Tests
         }
 
         [Test]
-        public void DroneController_EnablesAtPhaseOneAndDetectsNearbyPlayer()
+        public void EventDirector_CrouchDodgesCutterDamage()
+        {
+            var eventDirectorType = typeof(InputService).Assembly.GetType("BlockEscape.Events.EventDirector");
+            var canDamage = eventDirectorType?.GetMethod("CanCutterDamage", BindingFlags.Public | BindingFlags.Static);
+
+            Assert.That(canDamage, Is.Not.Null);
+            Assert.That((bool)canDamage.Invoke(null, new object[] { false }), Is.True);
+            Assert.That((bool)canDamage.Invoke(null, new object[] { true }), Is.False);
+        }
+
+        [Test]
+        public void DroneController_TracksPlayerAboveDangerLineAndDropsDashClone()
         {
             var droneType = typeof(InputService).Assembly.GetType("BlockEscape.AI.DroneController");
             var droneConfigType = typeof(InputService).Assembly.GetType("BlockEscape.AI.DroneConfig");
@@ -392,40 +481,54 @@ namespace BlockEscape.Tetris.Tests
             var player = new GameObject("Player");
             var config = ScriptableObject.CreateInstance(droneConfigType);
             TetrisBalanceConfig balance = null;
+            GameObject clone = null;
             try
             {
                 balance = ScriptableObject.CreateInstance<TetrisBalanceConfig>();
                 balance.boardWidth = 14;
                 balance.boardHeight = 20;
+                balance.dangerStartRow = 18;
+                boardObject.transform.position = new Vector3(-7f, -10f, 0f);
                 var board = boardObject.AddComponent<BlockBoard>();
                 board.Initialize(balance);
 
-                player.transform.position = new Vector3(0f, 4f, 0f);
+                player.transform.position = new Vector3(0f, -4f, 0f);
                 droneObject.AddComponent<Rigidbody2D>();
                 var collider = droneObject.AddComponent<CircleCollider2D>();
                 collider.isTrigger = true;
                 droneObject.AddComponent<SpriteRenderer>();
                 var drone = droneObject.AddComponent(droneType);
 
-                droneConfigType.GetField("detectRange").SetValue(config, 10f);
-                droneConfigType.GetField("detectConfirmSeconds").SetValue(config, 0f);
-                droneConfigType.GetField("telegraphSeconds").SetValue(config, 0.8f);
+                droneConfigType.GetField("followSpeed").SetValue(config, 5f);
+                droneConfigType.GetField("cloneIntervalSeconds").SetValue(config, 0.1f);
+                droneConfigType.GetField("cloneTelegraphSeconds").SetValue(config, 0.1f);
 
                 droneType.GetMethod("Initialize").Invoke(drone, new object[] { config, player.transform, board });
-                player.transform.position = droneObject.GetComponent<Rigidbody2D>().position + Vector2.left * 2f;
                 Assert.That(droneType.GetProperty("State").GetValue(drone).ToString(), Is.EqualTo("Patrol"));
 
                 droneType.GetMethod("SetPhase").Invoke(drone, new object[] { 1 });
                 droneType.GetMethod("SetRunning").Invoke(drone, new object[] { true });
-                Assert.That(droneType.GetProperty("State").GetValue(drone).ToString(), Is.EqualTo("Patrol"));
+                player.transform.position = new Vector3(5f, -4f, 0f);
+                droneType.GetMethod("ManualTick").Invoke(drone, new object[] { 0.1f });
 
-                droneType.GetMethod("ManualTick").Invoke(drone, new object[] { 0.1f });
-                Assert.That(droneType.GetProperty("State").GetValue(drone).ToString(), Is.EqualTo("Detect"));
-                droneType.GetMethod("ManualTick").Invoke(drone, new object[] { 0.1f });
-                Assert.That(droneType.GetProperty("State").GetValue(drone).ToString(), Is.EqualTo("Telegraph"));
+                var position = droneObject.GetComponent<Rigidbody2D>().position;
+                Assert.That(position.x, Is.GreaterThan(0f));
+                Assert.That(position.y, Is.GreaterThan(boardObject.transform.position.y + balance.dangerStartRow));
+                clone = GameObject.Find("Drone Dash Clone");
+                Assert.That(clone, Is.Not.Null);
+                var cloneType = typeof(InputService).Assembly.GetType("BlockEscape.AI.DroneDashClone");
+                Assert.That(cloneType, Is.Not.Null);
+                var cloneBody = clone.GetComponent<Rigidbody2D>();
+                var cloneStart = cloneBody.position;
+                cloneType.GetMethod("ManualTick").Invoke(clone.GetComponent(cloneType), new object[] { 0.05f });
+                Assert.That(cloneBody.position, Is.EqualTo(cloneStart));
+                cloneType.GetMethod("ManualTick").Invoke(clone.GetComponent(cloneType), new object[] { 0.06f });
+                Assert.That(cloneBody.position.y, Is.LessThan(cloneStart.y));
+                Assert.That(droneType.GetEvent("DestroyedByFallingBlock"), Is.Null);
             }
             finally
             {
+                if (clone != null) UnityEngine.Object.DestroyImmediate(clone);
                 UnityEngine.Object.DestroyImmediate(config);
                 if (balance != null) UnityEngine.Object.DestroyImmediate(balance);
                 UnityEngine.Object.DestroyImmediate(player);

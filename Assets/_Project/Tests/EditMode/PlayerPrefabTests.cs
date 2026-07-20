@@ -57,9 +57,35 @@ namespace BlockEscape.Tetris.Tests
             var visual = player.transform.Find("Visual");
             Assert.That(visual, Is.Not.Null);
             Assert.That(visual.GetComponent<SpriteRenderer>(), Is.Not.Null);
-            Assert.That(visual.GetComponent<Animator>(), Is.Not.Null);
+            Assert.That(visual.GetComponent<Animator>(), Is.Null);
 
             Assert.That(player.transform.Find("Ground Check"), Is.Not.Null);
+        }
+
+        [Test]
+        public void PlayerPresentation_CrouchKeepsSpriteFeetOnTheGround()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            var player = Object.Instantiate(prefab);
+            try
+            {
+                var visual = player.transform.Find("Visual");
+                var renderer = visual.GetComponent<SpriteRenderer>();
+                var standingBottom = visual.localPosition.y - renderer.sprite.bounds.size.y * visual.localScale.y * 0.5f;
+                var controller = player.GetComponent<PlayerController>();
+                typeof(PlayerController).GetProperty(nameof(PlayerController.IsCrouching))?.SetValue(controller, true);
+                var presentation = player.GetComponent<PlayerPresentation>();
+                InvokeAwake(presentation);
+                typeof(PlayerPresentation).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(presentation, null);
+
+                var crouchingBottom = visual.localPosition.y - renderer.sprite.bounds.size.y * visual.localScale.y * 0.5f;
+                Assert.That(crouchingBottom, Is.EqualTo(standingBottom).Within(0.001f));
+                Assert.That(visual.localScale.y, Is.EqualTo(0.72f).Within(0.001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+            }
         }
 
         [Test]
@@ -120,6 +146,8 @@ namespace BlockEscape.Tetris.Tests
                 var body = player.AddComponent<Rigidbody2D>();
                 var health = player.AddComponent<PlayerHealth>();
                 InvokeAwake(health);
+                var damagedCount = 0;
+                health.Damaged += () => damagedCount++;
 
                 var accepted = health.TakeDamage(new DamageInfo(1, new Vector2(2f, 3f), null, DamageType.Enemy));
 
@@ -127,10 +155,12 @@ namespace BlockEscape.Tetris.Tests
                 Assert.That(health.CurrentHp, Is.EqualTo(2));
                 Assert.That(health.IsInvulnerable, Is.True);
                 Assert.That(body.linearVelocity, Is.EqualTo(new Vector2(2f, 3f)));
+                Assert.That(damagedCount, Is.EqualTo(1));
 
                 var blocked = health.TakeDamage(new DamageInfo(1, Vector2.zero, null, DamageType.Enemy));
                 Assert.That(blocked, Is.False);
                 Assert.That(health.CurrentHp, Is.EqualTo(2));
+                Assert.That(damagedCount, Is.EqualTo(1));
             }
             finally
             {
