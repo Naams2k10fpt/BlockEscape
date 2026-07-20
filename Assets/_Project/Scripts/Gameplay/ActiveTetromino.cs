@@ -37,6 +37,7 @@ namespace BlockEscape.Tetris
         private const float GhostAlpha = 0.10f;
         private const float CellColliderSize = 1.08f;
         private const float CrushProbeSize = 0.86f;
+        private const float NearMissProbeSize = 2f;
         private const float PlayerBounceVelocity = -8f;
         private const float PlayerBounceSkin = 0.03f;
         private static readonly Color OverdriveColor = new(1f, 0.25f, 0.95f);
@@ -497,9 +498,31 @@ namespace BlockEscape.Tetris
             _finished = true;
             DestroyGhostPiece();
             _rigidbody.position = _board.WorldForCell(_origin);
-            _board.CommitPiece(_kind, _rotation, _origin);
-            _owner.NotifyPieceFinished(this);
+            var nearPlayer = IsNearPlayerAtLock();
+            var committed = _board.CommitPiece(_kind, _rotation, _origin);
+            _owner.NotifyPieceFinished(
+                this,
+                committed && nearPlayer && !_playerCrushRaised && !_board.LastCommitCrushedPlayer);
             DestroySafely(gameObject);
+        }
+
+        private bool IsNearPlayerAtLock()
+        {
+            var playerMask = LayerMask.GetMask("Player");
+            if (playerMask == 0 || _localCells == null)
+                return false;
+
+            Physics2D.SyncTransforms();
+            foreach (var localCell in _localCells)
+            {
+                var center = (Vector2)_board.WorldForCell(_origin + localCell);
+                var hits = Physics2D.OverlapBoxAll(center, Vector2.one * NearMissProbeSize, 0f, playerMask);
+                foreach (var hit in hits)
+                    if (hit != null && hit.enabled && !hit.isTrigger)
+                        return true;
+            }
+
+            return false;
         }
 
         public void Cancel()

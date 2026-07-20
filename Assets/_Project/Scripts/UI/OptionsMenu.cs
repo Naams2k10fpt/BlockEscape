@@ -19,13 +19,21 @@ namespace BlockEscape.UI
         [SerializeField] private Toggle _vSyncToggle;
         [SerializeField] private Button _applyButton;
         [SerializeField] private Button _backButton;
+        [SerializeField] private Button _controlsButton;
+        [SerializeField] private InputRebindMenu _inputRebindMenu;
 
         private readonly List<Vector2Int> _resolutions = new();
         private int _selectedResolution;
         private bool _listenersBound;
+        private bool _previewingAudio;
+        private float _savedMasterVolume;
+        private float _savedMusicVolume;
+        private float _savedSfxVolume;
 
         public event Action Closed;
-        public bool IsVisible => _panel != null && _panel.activeSelf;
+        public bool IsVisible =>
+            _panel != null && _panel.activeSelf ||
+            _inputRebindMenu != null && _inputRebindMenu.IsVisible;
 
         private void OnEnable()
         {
@@ -34,6 +42,7 @@ namespace BlockEscape.UI
 
         private void OnDisable()
         {
+            RestoreAudioPreview();
             UnbindButtons();
         }
 
@@ -48,7 +57,9 @@ namespace BlockEscape.UI
             Toggle fullscreenToggle,
             Toggle vSyncToggle,
             Button applyButton,
-            Button backButton)
+            Button backButton,
+            Button controlsButton = null,
+            InputRebindMenu inputRebindMenu = null)
         {
             UnbindButtons();
             _panel = panel;
@@ -62,12 +73,20 @@ namespace BlockEscape.UI
             _vSyncToggle = vSyncToggle;
             _applyButton = applyButton;
             _backButton = backButton;
+            _controlsButton = controlsButton;
+            _inputRebindMenu = inputRebindMenu;
             ConfigureSliders();
             if (isActiveAndEnabled) BindButtons();
         }
 
         public void Show()
         {
+            _inputRebindMenu?.Hide();
+            var data = SaveService.Data;
+            _savedMasterVolume = data.masterVolume;
+            _savedMusicVolume = data.musicVolume;
+            _savedSfxVolume = data.sfxVolume;
+            _previewingAudio = true;
             PopulateFromSave();
             if (_panel != null) _panel.SetActive(true);
             if (_applyButton != null) _applyButton.Select();
@@ -75,7 +94,21 @@ namespace BlockEscape.UI
 
         public void Hide()
         {
+            RestoreAudioPreview();
             if (_panel != null) _panel.SetActive(false);
+            _inputRebindMenu?.Hide();
+        }
+
+        private void ShowControls()
+        {
+            if (_panel != null) _panel.SetActive(false);
+            _inputRebindMenu?.Show();
+        }
+
+        private void HandleControlsClosed()
+        {
+            if (_panel != null) _panel.SetActive(true);
+            _controlsButton?.Select();
         }
 
         private void ConfigureSliders()
@@ -98,9 +131,9 @@ namespace BlockEscape.UI
         {
             ConfigureSliders();
             var data = SaveService.Data;
-            if (_masterVolume != null) _masterVolume.value = data.masterVolume;
-            if (_musicVolume != null) _musicVolume.value = data.musicVolume;
-            if (_sfxVolume != null) _sfxVolume.value = data.sfxVolume;
+            if (_masterVolume != null) _masterVolume.SetValueWithoutNotify(data.masterVolume);
+            if (_musicVolume != null) _musicVolume.SetValueWithoutNotify(data.musicVolume);
+            if (_sfxVolume != null) _sfxVolume.SetValueWithoutNotify(data.sfxVolume);
             if (_fullscreenToggle != null) _fullscreenToggle.isOn = data.fullscreen;
             if (_vSyncToggle != null) _vSyncToggle.isOn = data.vSyncCount > 0;
 
@@ -177,10 +210,8 @@ namespace BlockEscape.UI
 
         private void Apply()
         {
+            PreviewAudioSettings(0f);
             var data = SaveService.Data;
-            if (_masterVolume != null) data.masterVolume = _masterVolume.value;
-            if (_musicVolume != null) data.musicVolume = _musicVolume.value;
-            if (_sfxVolume != null) data.sfxVolume = _sfxVolume.value;
             if (_fullscreenToggle != null) data.fullscreen = _fullscreenToggle.isOn;
             if (_vSyncToggle != null) data.vSyncCount = _vSyncToggle.isOn ? 1 : 0;
             if (_resolutions.Count > 0)
@@ -192,7 +223,31 @@ namespace BlockEscape.UI
 
             SaveService.Save();
             SaveService.ApplyDisplaySettings();
+            SaveService.ApplyAudioSettings();
+            _previewingAudio = false;
             Close();
+        }
+
+        private void PreviewAudioSettings(float _)
+        {
+            var data = SaveService.Data;
+            if (_masterVolume != null) data.masterVolume = _masterVolume.value;
+            if (_musicVolume != null) data.musicVolume = _musicVolume.value;
+            if (_sfxVolume != null) data.sfxVolume = _sfxVolume.value;
+            SaveService.ApplyAudioSettings();
+        }
+
+        private void RestoreAudioPreview()
+        {
+            if (!_previewingAudio)
+                return;
+
+            var data = SaveService.Data;
+            data.masterVolume = _savedMasterVolume;
+            data.musicVolume = _savedMusicVolume;
+            data.sfxVolume = _savedSfxVolume;
+            _previewingAudio = false;
+            SaveService.ApplyAudioSettings();
         }
 
         private void Close()
@@ -207,8 +262,13 @@ namespace BlockEscape.UI
                 return;
             if (_previousResolutionButton != null) _previousResolutionButton.onClick.AddListener(SelectPreviousResolution);
             if (_nextResolutionButton != null) _nextResolutionButton.onClick.AddListener(SelectNextResolution);
+            if (_masterVolume != null) _masterVolume.onValueChanged.AddListener(PreviewAudioSettings);
+            if (_musicVolume != null) _musicVolume.onValueChanged.AddListener(PreviewAudioSettings);
+            if (_sfxVolume != null) _sfxVolume.onValueChanged.AddListener(PreviewAudioSettings);
             if (_applyButton != null) _applyButton.onClick.AddListener(Apply);
             if (_backButton != null) _backButton.onClick.AddListener(Close);
+            if (_controlsButton != null) _controlsButton.onClick.AddListener(ShowControls);
+            if (_inputRebindMenu != null) _inputRebindMenu.Closed += HandleControlsClosed;
             _listenersBound = true;
         }
 
@@ -218,8 +278,13 @@ namespace BlockEscape.UI
                 return;
             if (_previousResolutionButton != null) _previousResolutionButton.onClick.RemoveListener(SelectPreviousResolution);
             if (_nextResolutionButton != null) _nextResolutionButton.onClick.RemoveListener(SelectNextResolution);
+            if (_masterVolume != null) _masterVolume.onValueChanged.RemoveListener(PreviewAudioSettings);
+            if (_musicVolume != null) _musicVolume.onValueChanged.RemoveListener(PreviewAudioSettings);
+            if (_sfxVolume != null) _sfxVolume.onValueChanged.RemoveListener(PreviewAudioSettings);
             if (_applyButton != null) _applyButton.onClick.RemoveListener(Apply);
             if (_backButton != null) _backButton.onClick.RemoveListener(Close);
+            if (_controlsButton != null) _controlsButton.onClick.RemoveListener(ShowControls);
+            if (_inputRebindMenu != null) _inputRebindMenu.Closed -= HandleControlsClosed;
             _listenersBound = false;
         }
     }

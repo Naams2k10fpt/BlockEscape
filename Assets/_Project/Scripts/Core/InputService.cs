@@ -4,6 +4,18 @@ using UnityEngine.InputSystem;
 
 namespace BlockEscape.Core
 {
+    public enum RebindAction
+    {
+        TetrisLeft,
+        TetrisRight,
+        TetrisRotate,
+        TetrisSoftDrop,
+        PlayerLeft,
+        PlayerRight,
+        PlayerJump,
+        PlayerCrouch
+    }
+
     [DefaultExecutionOrder(-1000)]
     public sealed class InputService : MonoBehaviour
     {
@@ -12,9 +24,13 @@ namespace BlockEscape.Core
         private InputActionMap _tetrisMap;
         private InputActionMap _playerMap;
         private InputActionMap _systemMap;
+        private InputActionRebindingExtensions.RebindingOperation _rebindOperation;
+        private InputAction _rebindAction;
+        private bool _rebindActionWasEnabled;
         private bool _initialized;
 
         public static InputService Current { get; private set; }
+        public event Action BindingsChanged;
 
         public InputAction TetrisMove { get; private set; }
         public InputAction TetrisRotate { get; private set; }
@@ -50,6 +66,8 @@ namespace BlockEscape.Core
             _tetrisMap?.Disable();
             _playerMap?.Disable();
             _systemMap?.Disable();
+            _rebindOperation?.Cancel();
+            _rebindOperation?.Dispose();
             Current = null;
         }
 
@@ -76,9 +94,69 @@ namespace BlockEscape.Core
             Pause = _systemMap.FindAction("Pause", true);
             ResetRun = _systemMap.FindAction("ResetRun", true);
 
+            LoadSavedBindings();
             _systemMap.Enable();
             SetGameplayEnabled(true);
             _initialized = true;
+        }
+
+        public void LoadSavedBindings()
+        {
+            if (_actions == null)
+                return;
+
+            _actions.RemoveAllBindingOverrides();
+            var json = SaveService.Data.inputBindingOverridesJson;
+            if (string.IsNullOrWhiteSpace(json))
+                return;
+
+            try
+            {
+                _actions.LoadBindingOverridesFromJson(json);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"Input bindings could not be loaded. Defaults will be used. {exception.Message}");
+                _actions.RemoveAllBindingOverrides();
+            }
+
+            BindingsChanged?.Invoke();
+        }
+
+        public string GetBindingDisplayString(RebindAction target)
+        {
+            if (!TryResolveBinding(target, out var action, out var bindingIndex))
+                return "UNBOUND";
+
+            return action.GetBindingDisplayString(bindingIndex);
+        }
+
+        public bool StartInteractiveRebind(RebindAction target, Action<bool> completed)
+        {
+            if (_rebindOperation != null || !TryResolveBinding(target, out var action, out var bindingIndex))
+                return false;
+
+            _rebindAction = action;
+            _rebindActionWasEnabled = action.enabled;
+            action.Disable();
+            _rebindOperation = action.PerformInteractiveRebinding(bindingIndex)
+                .WithControlsExcluding("<Mouse>")
+                .WithCancelingThrough("<Keyboard>/escape")
+                .OnCancel(_ => FinishInteractiveRebind(false, completed))
+                .OnComplete(_ => FinishInteractiveRebind(true, completed));
+            _rebindOperation.Start();
+            return true;
+        }
+
+        public void ResetBindingsToDefault()
+        {
+            if (_actions == null)
+                return;
+
+            _actions.RemoveAllBindingOverrides();
+            SaveService.Data.inputBindingOverridesJson = string.Empty;
+            SaveService.Save();
+            BindingsChanged?.Invoke();
         }
 
         public void SetGameplayEnabled(bool enabled)
@@ -96,6 +174,64 @@ namespace BlockEscape.Core
                 _tetrisMap?.Disable();
                 _playerMap?.Disable();
             }
+        }
+
+        private void FinishInteractiveRebind(bool changed, Action<bool> completed)
+        {
+            var operation = _rebindOperation;
+            _rebindOperation = null;
+            operation?.Dispose();
+
+            if (_rebindActionWasEnabled)
+                _rebindAction?.Enable();
+            _rebindAction = null;
+
+            if (changed)
+            {
+                SaveService.Data.inputBindingOverridesJson = _actions.SaveBindingOverridesAsJson();
+                SaveService.Save();
+                BindingsChanged?.Invoke();
+            }
+
+            completed?.Invoke(changed);
+        }
+
+        private bool TryResolveBinding(RebindAction target, out InputAction action, out int bindingIndex)
+        {
+            EnsureInitialized();
+            action = target switch
+            {
+                RebindAction.TetrisLeft or RebindAction.TetrisRight => TetrisMove,
+                RebindAction.TetrisRotate => TetrisRotate,
+                RebindAction.TetrisSoftDrop => TetrisSoftDrop,
+                RebindAction.PlayerLeft or RebindAction.PlayerRight => PlayerMove,
+                RebindAction.PlayerJump => PlayerJump,
+                RebindAction.PlayerCrouch => PlayerCrouch,
+                _ => null
+            };
+
+            if (action == null)
+            {
+                bindingIndex = -1;
+                return false;
+            }
+
+            var partName = target switch
+            {
+                RebindAction.TetrisLeft or RebindAction.PlayerLeft => "negative",
+                RebindAction.TetrisRight or RebindAction.PlayerRight => "positive",
+                _ => null
+            };
+            bindingIndex = partName == null ? 0 : FindBindingPart(action, partName);
+            return bindingIndex >= 0;
+        }
+
+        private static int FindBindingPart(InputAction action, string partName)
+        {
+            for (var i = 0; i < action.bindings.Count; i++)
+                if (string.Equals(action.bindings[i].name, partName, StringComparison.OrdinalIgnoreCase))
+                    return i;
+            return -1;
         }
 
         private static InputActionAsset CreateRuntimeDefaults()

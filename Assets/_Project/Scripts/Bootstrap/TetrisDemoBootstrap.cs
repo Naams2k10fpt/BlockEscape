@@ -34,8 +34,6 @@ namespace BlockEscape.Bootstrap
         [SerializeField] private TetrisGameOverMenu _gameOverMenu;
 
         private readonly GameSession _session = new();
-        private TetrominoKind _lastSpawned;
-        private bool _paused;
         private bool _gameOver;
         private Transform _player;
         private PlayerController _playerController;
@@ -45,7 +43,7 @@ namespace BlockEscape.Bootstrap
         private DroneController _drone;
         private EventDirector _eventDirector;
         private PickupDirector _pickupDirector;
-        private string _lastDynamicEvent = "NONE";
+        private BlockEscape.Bootstrap.AppBootstrap _appAudio;
 
         private static readonly Vector3 PlayerSpawnPosition = new(0f, -4.6f, 0f);
         private const float CrushRespawnHeightAboveHighestBlock = 5f;
@@ -55,10 +53,12 @@ namespace BlockEscape.Bootstrap
         private const float RespawnProbeStep = 1f;
         private const int RespawnProbeSteps = 12;
         private const float CountdownSeconds = 3f;
+        private bool IsPaused => _session.State == GameSessionState.Paused;
 
         private void Awake()
         {
             Time.timeScale = 1f;
+            _appAudio = BlockEscape.Bootstrap.AppBootstrap.EnsureExists();
             SaveService.Load();
             SaveService.ApplyDisplaySettings();
             if (_config == null)
@@ -138,7 +138,10 @@ namespace BlockEscape.Bootstrap
                 _board.PlayerCrushed -= OnPlayerCrushed;
             }
             if (_spawner != null)
+            {
                 _spawner.PlayerCrushed -= OnPlayerCrushed;
+                _spawner.NearMiss -= OnNearMiss;
+            }
             UnbindAiAndEvents();
             _session.StateChanged -= OnSessionStateChanged;
             _session.PhaseChanged -= OnSessionPhaseChanged;
@@ -174,9 +177,9 @@ namespace BlockEscape.Bootstrap
             _board.Overflowed += OnOverflowed;
             _board.PlayerCrushed += OnPlayerCrushed;
 
-            _spawner.PieceSpawned += kind => _lastSpawned = kind;
             _spawner.NextPieceChanged += OnNextPieceChanged;
             _spawner.PlayerCrushed += OnPlayerCrushed;
+            _spawner.NearMiss += OnNearMiss;
             _spawner.Initialize(_board, _config, _inputService, startSpawning: false);
         }
 
@@ -191,7 +194,6 @@ namespace BlockEscape.Bootstrap
             {
                 var droneConfig = Resources.Load<DroneConfig>("DroneConfig");
                 _drone.Initialize(droneConfig, _player, _board);
-                _drone.DestroyedByFallingBlock += OnDroneDestroyedByFallingBlock;
             }
 
             if (_eventDirector == null)
@@ -204,12 +206,10 @@ namespace BlockEscape.Bootstrap
             var eventConfig = Resources.Load<DynamicEventConfig>("DynamicEventConfig");
             _eventDirector.Initialize(eventConfig, _spawner, _spawner != null ? _spawner.Seed : 0, _player);
             _eventDirector.StatusChanged += OnDynamicEventStatusChanged;
-            _lastDynamicEvent = "NONE";
         }
 
         private void ResetAiAndEvents()
         {
-            _lastDynamicEvent = "NONE";
             if (_drone != null)
             {
                 _drone.SetPhase(_session.Phase);
@@ -228,8 +228,6 @@ namespace BlockEscape.Bootstrap
 
         private void UnbindAiAndEvents()
         {
-            if (_drone != null)
-                _drone.DestroyedByFallingBlock -= OnDroneDestroyedByFallingBlock;
             if (_eventDirector != null)
                 _eventDirector.StatusChanged -= OnDynamicEventStatusChanged;
             if (_pickupDirector != null)
@@ -282,10 +280,13 @@ namespace BlockEscape.Bootstrap
 
             var visual = new GameObject("Visual");
             visual.transform.SetParent(droneObject.transform, false);
-            visual.transform.localScale = new Vector3(0.85f, 0.85f, 1f);
+            var droneSprite = Resources.Load<Sprite>("Art/Drone");
+            visual.transform.localScale = droneSprite != null
+                ? Vector3.one
+                : new Vector3(0.85f, 0.85f, 1f);
             var renderer = visual.AddComponent<SpriteRenderer>();
-            renderer.sprite = RuntimeVisuals.Square;
-            renderer.color = new Color(0.75f, 0.25f, 1f);
+            renderer.sprite = droneSprite != null ? droneSprite : RuntimeVisuals.Square;
+            renderer.color = droneSprite != null ? Color.white : new Color(0.75f, 0.25f, 1f);
             renderer.sortingOrder = 24;
 
             return droneObject.AddComponent<DroneController>();
@@ -351,6 +352,7 @@ namespace BlockEscape.Bootstrap
             }
 
             _inputService.EnsureInitialized();
+            _inputService.LoadSavedBindings();
             _inputService.SetGameplayEnabled(true);
         }
 
@@ -517,15 +519,17 @@ namespace BlockEscape.Bootstrap
 
             var visual = new GameObject("Visual");
             visual.transform.SetParent(player.transform, false);
-            visual.transform.localScale = new Vector3(0.72f, 1.45f, 1f);
+            var playerSprite = Resources.Load<Sprite>("Art/PlayerRunner");
+            visual.transform.localScale = playerSprite != null
+                ? Vector3.one
+                : new Vector3(0.72f, 1.45f, 1f);
             var renderer = visual.AddComponent<SpriteRenderer>();
-            renderer.sprite = RuntimeVisuals.Square;
-            renderer.color = new Color(0.95f, 0.86f, 0.30f);
+            renderer.sprite = playerSprite != null ? playerSprite : RuntimeVisuals.Square;
+            renderer.color = playerSprite != null ? Color.white : new Color(0.95f, 0.86f, 0.30f);
             renderer.sortingOrder = 25;
-            visual.AddComponent<Animator>();
-
             player.AddComponent<PlayerController>();
             player.AddComponent<PlayerHealth>();
+            player.AddComponent<PlayerPresentation>();
             return player;
         }
 
@@ -546,7 +550,7 @@ namespace BlockEscape.Bootstrap
             title.color = new Color(0.35f, 0.85f, 1f);
 
             _statsText = CreateText(canvasObject.transform, "Stats", string.Empty, 24, TextAnchor.UpperLeft);
-            SetRect(_statsText.rectTransform, new Vector2(24f, -80f), new Vector2(520f, 220f), new Vector2(0f, 1f));
+            SetRect(_statsText.rectTransform, new Vector2(24f, -80f), new Vector2(320f, 150f), new Vector2(0f, 1f));
 
             var help = CreateText(canvasObject.transform, "Tetris Controls (WASD)", "A / D  MOVE\nW  ROTATE\nS  SOFT DROP\nR  RESET MENU\nESC  PAUSE", 21, TextAnchor.LowerRight);
             SetRect(help.rectTransform, new Vector2(-24f, 24f), new Vector2(500f, 190f), new Vector2(1f, 0f));
@@ -564,7 +568,7 @@ namespace BlockEscape.Bootstrap
 
         private void UpdateHud()
         {
-            if (_session.State == GameSessionState.Countdown && _statusText != null && !_paused)
+            if (_session.State == GameSessionState.Countdown && _statusText != null)
             {
                 _statusText.text = $"GET READY  {Mathf.CeilToInt(_session.CountdownRemaining)}";
                 _statusText.color = new Color(1f, 0.85f, 0.25f);
@@ -572,27 +576,23 @@ namespace BlockEscape.Bootstrap
 
             if (_healthText != null)
                 _healthText.text = FormatHealth();
-            if (_statsText == null || _board == null || _spawner == null)
+            if (_statsText == null)
                 return;
 
+            var boost = _playerController != null && _playerController.JumpBoostActive
+                ? $"\nBOOST      JUMP {Mathf.CeilToInt(_playerController.JumpBoostSecondsRemaining)}s"
+                : string.Empty;
             _statsText.text =
-                $"SEED       {_spawner.Seed}\n" +
                 $"TIME       {FormatTime(_session.SurvivalTime)}\n" +
-                $"PHASE      {_session.Phase} ({FormatTime(_session.TimeUntilNextPhase)})\n" +
-                $"SPAWNED    {_spawner.PiecesSpawned}\n" +
-                $"LAST PIECE {_lastSpawned}\n" +
-                $"LOCKED     {_board.Model.OccupiedCount} CELLS\n" +
-                $"DRONE      {FormatDroneState()}\n" +
-                $"EVENT      {_lastDynamicEvent}\n" +
-                $"POWER      {FormatPowerUpState()}\n" +
+                $"PHASE      {_session.Phase}\n" +
                 $"ROWS       {_session.RowsCleared}\n" +
-                $"SCORE      {_session.Score}";
+                $"SCORE      {_session.Score}" +
+                boost;
         }
 
         private void ResetDemo()
         {
             Time.timeScale = 1f;
-            _paused = false;
             _gameOver = false;
             StopRespawnHover(restoreGravity: true);
             if (_pauseMenu != null) _pauseMenu.HideAll();
@@ -859,7 +859,7 @@ namespace BlockEscape.Bootstrap
                 return;
             }
 
-            if (_paused)
+            if (IsPaused)
                 ResumeGame();
             else
                 PauseGame();
@@ -867,56 +867,20 @@ namespace BlockEscape.Bootstrap
 
         private void PauseGame()
         {
-            _paused = true;
             _session.Pause();
-            SetAuxiliaryGameplayRunning(false);
-            Time.timeScale = 0f;
-            if (_inputService != null) _inputService.SetGameplayEnabled(false);
-            if (_pauseMenu != null)
-            {
-                UpdatePauseStatistics();
-                _pauseMenu.ShowPause();
-            }
-            if (_statusText != null)
-            {
-                _statusText.text = "PAUSED";
-                _statusText.color = new Color(1f, 0.85f, 0.25f);
-            }
         }
 
         private void ResumeGame()
         {
-            _paused = false;
             _session.Resume();
-            var playing = _session.State == GameSessionState.Playing;
-            SetAuxiliaryGameplayRunning(playing);
-            Time.timeScale = 1f;
-            if (_inputService != null)
-                _inputService.SetGameplayEnabled(playing && _board != null && !_board.IsOverflowed);
-            if (_pauseMenu != null) _pauseMenu.HideAll();
-            if (_statusText != null)
-            {
-                _statusText.text = !playing
-                    ? $"GET READY  {Mathf.CeilToInt(_session.CountdownRemaining)}"
-                    : _board != null && _board.IsOverflowed ? "BOARD OVERFLOW — PRESS R" : "RUNNING";
-                _statusText.color = !playing
-                    ? new Color(1f, 0.85f, 0.25f)
-                    : _board != null && _board.IsOverflowed ? new Color(1f, 0.2f, 0.25f) : Color.white;
-            }
         }
 
         private void OpenResetConfirmation()
         {
-            _paused = true;
+            if (_session.State != GameSessionState.Playing)
+                return;
+
             _session.Pause();
-            SetAuxiliaryGameplayRunning(false);
-            Time.timeScale = 0f;
-            if (_inputService != null) _inputService.SetGameplayEnabled(false);
-            if (_statusText != null)
-            {
-                _statusText.text = "PAUSED";
-                _statusText.color = new Color(1f, 0.85f, 0.25f);
-            }
             if (_pauseMenu != null)
                 _pauseMenu.ShowResetConfirmation();
             else
@@ -939,7 +903,7 @@ namespace BlockEscape.Bootstrap
 
         private void OnPieceLocked(TetrominoKind kind)
         {
-            if (_statusText != null && !_paused)
+            if (_statusText != null && !IsPaused)
                 _statusText.text = $"{kind} LOCKED";
         }
 
@@ -952,34 +916,41 @@ namespace BlockEscape.Bootstrap
         private void OnRowsCleared(int[] rows)
         {
             var points = _session.AddRowsCleared(rows.Length);
+            foreach (var row in rows)
+            {
+                var center = _board.WorldForCell(new Vector2Int(_board.Width / 2, row));
+                GameplayVfx.Burst(center, new Color(0.35f, 1f, 0.55f), 16, 0.55f);
+            }
             _statusText.text = $"{rows.Length} ROW{(rows.Length > 1 ? "S" : string.Empty)} CLEARED";
             _statusText.color = new Color(0.35f, 1f, 0.55f);
             if (points > 0)
                 _statusText.text += $" +{points}";
         }
 
-        private void OnDroneDestroyedByFallingBlock(DroneController drone)
-        {
-            var points = _session.AddBonusScore(drone != null ? drone.DestroyScore : 300);
-            if (_statusText != null && !_paused && !_gameOver)
-            {
-                _statusText.text = points > 0 ? $"DRONE DESTROYED +{points}" : "DRONE DESTROYED";
-                _statusText.color = new Color(0.75f, 0.35f, 1f);
-            }
-        }
-
         private void OnDynamicEventStatusChanged(string message)
         {
-            _lastDynamicEvent = string.IsNullOrEmpty(message) ? "NONE" : message;
-            if (_statusText != null && !_paused && !_gameOver)
+            var eventStatus = string.IsNullOrEmpty(message) ? "NONE" : message;
+            if (eventStatus.StartsWith("EVENT: CUTTER SWEEP"))
+                _appAudio?.PlaySfx("rocket");
+            else if (eventStatus.StartsWith("EVENT: METEOR ") && eventStatus.Contains("/"))
+                _appAudio?.PlaySfx("meteor");
+            if (_statusText != null && !IsPaused && !_gameOver)
             {
-                _statusText.text = _lastDynamicEvent;
-                _statusText.color = new Color(1f, 0.45f, 0.2f);
+                var eventEnded = eventStatus == "NONE" || eventStatus.EndsWith(" END");
+                _statusText.text = eventEnded ? "RUNNING" : eventStatus;
+                _statusText.color = eventEnded ? Color.white : new Color(1f, 0.45f, 0.2f);
             }
         }
 
         private void OnPickupCollected(PickupKind kind)
         {
+            _appAudio?.PlaySfx(kind == PickupKind.HealthPack ? "extra_heart" : "collected");
+            var pickupColor = kind switch
+            {
+                PickupKind.ScoreCrystal => new Color(0.2f, 0.85f, 1f),
+                PickupKind.HealthPack => new Color(1f, 0.3f, 0.4f),
+                _ => new Color(1f, 0.8f, 0.2f)
+            };
             var message = kind switch
             {
                 PickupKind.ScoreCrystal => $"SCORE CRYSTAL +{_session.AddBonusScore(100)}",
@@ -989,13 +960,17 @@ namespace BlockEscape.Bootstrap
 
             if (kind == PickupKind.JumpBoost)
                 _playerController?.ApplyJumpBoost(1.2f, 8f);
+            if (_player != null)
+                GameplayVfx.Burst(
+                    _player.position,
+                    pickupColor,
+                    12,
+                    0.45f);
 
-            if (_statusText != null && !_paused && !_gameOver)
+            if (_statusText != null && !IsPaused && !_gameOver)
             {
                 _statusText.text = message;
-                _statusText.color = kind == PickupKind.HealthPack
-                    ? new Color(1f, 0.3f, 0.4f)
-                    : new Color(1f, 0.8f, 0.2f);
+                _statusText.color = pickupColor;
             }
         }
 
@@ -1011,7 +986,7 @@ namespace BlockEscape.Bootstrap
                     _overflowWarningRenderer.color = color;
                 }
             }
-            if (dangerous && !_paused && _statusText != null)
+            if (dangerous && !IsPaused && _statusText != null)
             {
                 _statusText.text = "DANGER — CLEAR THE TOP";
                 _statusText.color = new Color(1f, 0.25f, 0.25f);
@@ -1049,10 +1024,15 @@ namespace BlockEscape.Bootstrap
             EndRun("PLAYER HẾT MÁU");
         }
 
+        private void OnPlayerDamaged()
+        {
+            _appAudio?.PlaySfx("player_hurt");
+        }
+
         private void OnSessionPhaseChanged(int phase)
         {
             ApplySessionPhase();
-            if (_statusText != null && !_paused && !_gameOver)
+            if (_statusText != null && !IsPaused && !_gameOver)
             {
                 _statusText.text = $"PHASE {phase}";
                 _statusText.color = new Color(1f, 0.75f, 0.25f);
@@ -1061,29 +1041,73 @@ namespace BlockEscape.Bootstrap
 
         private void OnSessionStateChanged(GameSessionState state)
         {
-            if (state != GameSessionState.Playing || _paused || _gameOver)
+            ApplySessionState(state);
+        }
+
+        private void ApplySessionState(GameSessionState state)
+        {
+            if (state == GameSessionState.GameOver)
+                _appAudio?.PlaySfx("game_over");
+            _appAudio?.SetMusicPaused(state == GameSessionState.Paused || state == GameSessionState.GameOver);
+            if (state == GameSessionState.Countdown)
+            {
+                Time.timeScale = 1f;
+                SetPlayerRunning(false);
+                _inputService?.SetGameplayEnabled(false);
+                SetAuxiliaryGameplayRunning(false);
+                _pauseMenu?.HideAll();
+                return;
+            }
+
+            if (state == GameSessionState.Paused)
+            {
+                SetAuxiliaryGameplayRunning(false);
+                _inputService?.SetGameplayEnabled(false);
+                UpdatePauseStatistics();
+                _pauseMenu?.ShowPause();
+                if (_statusText != null)
+                {
+                    _statusText.text = "PAUSED";
+                    _statusText.color = new Color(1f, 0.85f, 0.25f);
+                }
+                Time.timeScale = 0f;
+                return;
+            }
+
+            if (state != GameSessionState.Playing || _gameOver)
                 return;
 
+            Time.timeScale = 1f;
             SetPlayerRunning(true);
-            if (_inputService != null)
-                _inputService.SetGameplayEnabled(true);
+            _inputService?.SetGameplayEnabled(_board != null && !_board.IsOverflowed);
             _spawner?.StartSpawning();
             SetAuxiliaryGameplayRunning(true);
+            _pauseMenu?.HideAll();
             if (_statusText != null)
             {
-                _statusText.text = "RUNNING";
-                _statusText.color = Color.white;
+                var overflowed = _board != null && _board.IsOverflowed;
+                _statusText.text = overflowed ? "BOARD OVERFLOW — PRESS R" : "RUNNING";
+                _statusText.color = overflowed ? new Color(1f, 0.2f, 0.25f) : Color.white;
             }
+        }
+
+        private void OnNearMiss()
+        {
+            var points = _session.AddBonusScore(50);
+            if (points <= 0 || _statusText == null || IsPaused || _gameOver)
+                return;
+
+            _statusText.text = $"NEAR MISS +{points}";
+            _statusText.color = new Color(0.35f, 1f, 0.85f);
+            if (_player != null)
+                GameplayVfx.Burst(_player.position, _statusText.color, 8, 0.35f);
         }
 
         private void StartCountdown()
         {
             _session.StartCountdown(CountdownSeconds, _config != null ? _config.phaseDurationSeconds : 45f);
             ApplySessionPhase();
-            SetPlayerRunning(false);
-            if (_inputService != null)
-                _inputService.SetGameplayEnabled(false);
-            SetAuxiliaryGameplayRunning(false);
+            ApplySessionState(GameSessionState.Countdown);
             UpdateHud();
         }
 
@@ -1105,7 +1129,8 @@ namespace BlockEscape.Bootstrap
                 return;
 
             _gameOver = true;
-            _paused = false;
+            if (_player != null)
+                GameplayVfx.Burst(_player.position, new Color(1f, 0.2f, 0.25f), 22, 0.8f);
             if (_overflowWarningRenderer != null)
                 _overflowWarningRenderer.enabled = false;
             StopRespawnHover(restoreGravity: true);
@@ -1318,22 +1343,6 @@ namespace BlockEscape.Bootstrap
                 _eventDirector.SetPhase(_session.Phase);
         }
 
-        private string FormatDroneState()
-        {
-            if (_drone == null)
-                return "---";
-            if (_drone.IsDestroyed)
-                return $"RESPAWN {Mathf.CeilToInt(_drone.RespawnSecondsRemaining)}s";
-            return _drone.State.ToString().ToUpperInvariant();
-        }
-
-        private string FormatPowerUpState()
-        {
-            return _playerController != null && _playerController.JumpBoostActive
-                ? $"JUMP {Mathf.CeilToInt(_playerController.JumpBoostSecondsRemaining)}s"
-                : "NONE";
-        }
-
         private void SetPlayer(Transform player)
         {
             UnbindPlayerHealth();
@@ -1341,13 +1350,19 @@ namespace BlockEscape.Bootstrap
             _playerController = _player != null ? _player.GetComponent<PlayerController>() : null;
             _playerHealth = _player != null ? _player.GetComponent<PlayerHealth>() : null;
             if (_playerHealth != null)
+            {
+                _playerHealth.Damaged += OnPlayerDamaged;
                 _playerHealth.Died += OnPlayerDied;
+            }
         }
 
         private void UnbindPlayerHealth()
         {
             if (_playerHealth != null)
+            {
+                _playerHealth.Damaged -= OnPlayerDamaged;
                 _playerHealth.Died -= OnPlayerDied;
+            }
             _playerController = null;
             _playerHealth = null;
         }
@@ -1555,29 +1570,22 @@ namespace BlockEscape.AI
     internal enum DroneState
     {
         Disabled,
-        Patrol,
-        Detect,
-        Telegraph,
-        Dash,
-        Recover
+        Patrol
     }
 
     [CreateAssetMenu(menuName = "Block Escape/Drone Config", fileName = "DroneConfig")]
     internal sealed class DroneConfig : ScriptableObject
     {
-        [Header("Patrol")]
-        [Min(0.1f)] public float patrolSpeed = 2.2f;
-        [Range(0.5f, 0.95f)] public float patrolHeightNormalized = 0.72f;
+        [Header("Tracking")]
+        [Min(0.1f)] public float followSpeed = 5f;
         [Min(0.1f)] public float arenaSidePadding = 1f;
 
-        [Header("Attack")]
-        [Min(0.1f)] public float detectRange = 8f;
-        [Min(0f)] public float detectConfirmSeconds = 0.15f;
-        [Min(0f)] public float telegraphSeconds = 0.8f;
-        [Min(0.1f)] public float dashSpeed = 13f;
-        [Min(0.05f)] public float dashSeconds = 0.45f;
-        [Min(0f)] public float recoverSeconds = 1.5f;
-        public Vector2 knockback = new(8f, 3f);
+        [Header("Dash Clone")]
+        [Min(0.1f)] public float cloneIntervalSeconds = 6f;
+        [Min(0f)] public float cloneTelegraphSeconds = 0.6f;
+        [Min(0.1f)] public float cloneDashSpeed = 13f;
+        [Min(0.05f)] public float cloneDashSeconds = 1.2f;
+        public Vector2 cloneKnockback = new(8f, 3f);
 
         [Header("Projectile")]
         [Min(0.1f)] public float shootIntervalSeconds = 1.6f;
@@ -1585,27 +1593,18 @@ namespace BlockEscape.AI
         [Min(0.1f)] public float bulletLifetimeSeconds = 4f;
         [Min(0.05f)] public float explosionSeconds = 0.28f;
 
-        [Header("Lifecycle")]
-        [Min(0f)] public float respawnSeconds = 6f;
-        [Min(1)] public int destroyScore = 300;
-
         public void Sanitize()
         {
-            patrolSpeed = Mathf.Max(0.1f, patrolSpeed);
-            patrolHeightNormalized = Mathf.Clamp(patrolHeightNormalized, 0.5f, 0.95f);
+            followSpeed = Mathf.Max(0.1f, followSpeed);
             arenaSidePadding = Mathf.Max(0.1f, arenaSidePadding);
-            detectRange = Mathf.Max(0.1f, detectRange);
-            detectConfirmSeconds = Mathf.Max(0f, detectConfirmSeconds);
-            telegraphSeconds = Mathf.Max(0f, telegraphSeconds);
-            dashSpeed = Mathf.Max(0.1f, dashSpeed);
-            dashSeconds = Mathf.Max(0.05f, dashSeconds);
-            recoverSeconds = Mathf.Max(0f, recoverSeconds);
+            cloneIntervalSeconds = Mathf.Max(0.1f, cloneIntervalSeconds);
+            cloneTelegraphSeconds = Mathf.Max(0f, cloneTelegraphSeconds);
+            cloneDashSpeed = Mathf.Max(0.1f, cloneDashSpeed);
+            cloneDashSeconds = Mathf.Max(0.05f, cloneDashSeconds);
             shootIntervalSeconds = Mathf.Max(0.1f, shootIntervalSeconds);
             bulletSpeed = Mathf.Max(0.1f, bulletSpeed);
             bulletLifetimeSeconds = Mathf.Max(0.1f, bulletLifetimeSeconds);
             explosionSeconds = Mathf.Max(0.05f, explosionSeconds);
-            respawnSeconds = Mathf.Max(0f, respawnSeconds);
-            destroyScore = Mathf.Max(1, destroyScore);
         }
     }
 
@@ -1619,44 +1618,24 @@ namespace BlockEscape.AI
         private Collider2D _collider;
         private Transform _player;
         private BlockEscape.Tetris.BlockBoard _board;
+        private BlockEscape.Bootstrap.AppBootstrap _appAudio;
         private Rect _arena;
-        private Vector2 _spawnPosition;
-        private Vector2 _dashDirection = Vector2.right;
-        private Vector2 _dashTarget;
-        private float _stateTimer;
-        private float _respawnTimer;
         private int _phase = 1;
-        private int _patrolDirection = 1;
         private bool _running;
-        private bool _destroyed;
-        private bool _damagedThisDash;
         private float _shootTimer;
-
-        public event System.Action<DroneController> DestroyedByFallingBlock;
+        private float _cloneTimer;
 
         public DroneState State { get; private set; } = DroneState.Disabled;
-        public int DestroyScore => _config != null ? _config.destroyScore : 300;
-        public bool IsDestroyed => _destroyed;
-        public float RespawnSecondsRemaining => Mathf.Max(0f, _respawnTimer);
 
         private void Awake()
         {
             EnsureComponents();
+            _appAudio = FindAnyObjectByType<BlockEscape.Bootstrap.AppBootstrap>();
         }
 
         private void Update()
         {
             Tick(Time.deltaTime);
-        }
-
-        private void OnTriggerEnter2D(Collider2D other)
-        {
-            HandleTrigger(other);
-        }
-
-        private void OnTriggerStay2D(Collider2D other)
-        {
-            HandleTrigger(other);
         }
 
         public void Initialize(DroneConfig config, Transform player, BlockEscape.Tetris.BlockBoard board)
@@ -1667,10 +1646,9 @@ namespace BlockEscape.AI
             _player = player;
             _board = board;
             RefreshArena();
-            _spawnPosition = GetPatrolPoint(0.5f);
-            _body.position = _spawnPosition;
-            _patrolDirection = 1;
+            _body.position = GetTrackingPoint();
             _shootTimer = _config.shootIntervalSeconds * 0.5f;
+            _cloneTimer = _config.cloneIntervalSeconds;
             SetPhase(_phase);
         }
 
@@ -1684,16 +1662,7 @@ namespace BlockEscape.AI
         public void SetPhase(int phase)
         {
             _phase = Mathf.Max(1, phase);
-            if (_phase < 1)
-            {
-                _destroyed = false;
-                _respawnTimer = 0f;
-                ChangeState(DroneState.Disabled);
-                SetVisible(false);
-                return;
-            }
-
-            if (State == DroneState.Disabled && !_destroyed)
+            if (State == DroneState.Disabled)
                 ResetDrone();
         }
 
@@ -1701,16 +1670,13 @@ namespace BlockEscape.AI
         {
             EnsureComponents();
             RefreshArena();
-            _destroyed = false;
-            _respawnTimer = 0f;
-            _damagedThisDash = false;
-            _spawnPosition = GetPatrolPoint(0.5f);
-            _body.position = _spawnPosition;
+            ClearDashClones();
+            _body.position = GetTrackingPoint();
             _body.linearVelocity = Vector2.zero;
-            _patrolDirection = 1;
             _shootTimer = _config.shootIntervalSeconds * 0.5f;
-            SetVisible(_phase >= 1);
-            ChangeState(_phase >= 1 ? DroneState.Patrol : DroneState.Disabled);
+            _cloneTimer = _config.cloneIntervalSeconds;
+            SetVisible(true);
+            ChangeState(DroneState.Patrol);
         }
 
         public void ManualTick(float deltaTime)
@@ -1723,70 +1689,27 @@ namespace BlockEscape.AI
             if (!_running || deltaTime <= 0f || _config == null)
                 return;
 
-            if (_destroyed)
-            {
-                TickRespawn(deltaTime);
-                return;
-            }
-
             if (_phase < 1 || State == DroneState.Disabled)
                 return;
 
+            TickTracking(deltaTime);
             TickShooting(deltaTime);
-            switch (State)
-            {
-                case DroneState.Patrol:
-                    TickPatrol(deltaTime);
-                    break;
-                case DroneState.Detect:
-                    TickDetect(deltaTime);
-                    break;
-                case DroneState.Telegraph:
-                    TickTelegraph(deltaTime);
-                    break;
-                case DroneState.Dash:
-                    TickDash(deltaTime);
-                    break;
-                case DroneState.Recover:
-                    TickRecover(deltaTime);
-                    break;
-            }
+            TickCloneDrop(deltaTime);
         }
 
-        private void TickRespawn(float deltaTime)
-        {
-            if (_phase < 1)
-                return;
-
-            _respawnTimer -= deltaTime;
-            if (_respawnTimer <= 0f)
-                ResetDrone();
-        }
-
-        private void TickPatrol(float deltaTime)
+        private void TickTracking(float deltaTime)
         {
             var position = _body.position;
-            position.x += _patrolDirection * _config.patrolSpeed * deltaTime;
-            if (position.x <= _arena.xMin + _config.arenaSidePadding)
-            {
-                position.x = _arena.xMin + _config.arenaSidePadding;
-                _patrolDirection = 1;
-            }
-            else if (position.x >= _arena.xMax - _config.arenaSidePadding)
-            {
-                position.x = _arena.xMax - _config.arenaSidePadding;
-                _patrolDirection = -1;
-            }
-
+            var targetX = _player != null ? _player.position.x : position.x;
+            targetX = Mathf.Clamp(targetX, _arena.xMin + _config.arenaSidePadding, _arena.xMax - _config.arenaSidePadding);
+            position.x = Mathf.MoveTowards(position.x, targetX, _config.followSpeed * deltaTime);
             position.y = GetPatrolY();
             _body.position = position;
-            if (CanDetectPlayer())
-                ChangeState(DroneState.Detect);
         }
 
         private void TickShooting(float deltaTime)
         {
-            if (State == DroneState.Dash || State == DroneState.Disabled)
+            if (State == DroneState.Disabled)
                 return;
 
             _shootTimer -= deltaTime;
@@ -1799,6 +1722,7 @@ namespace BlockEscape.AI
 
         private void FireBullet()
         {
+            _appAudio?.PlaySfx("laser");
             var bulletObject = new GameObject("Drone Bullet");
             bulletObject.transform.SetParent(transform.parent, false);
             bulletObject.transform.position = _body.position + Vector2.down * 0.55f;
@@ -1824,98 +1748,62 @@ namespace BlockEscape.AI
             bullet.Initialize(Vector2.down, _config.bulletSpeed, _config.bulletLifetimeSeconds, _config.explosionSeconds);
         }
 
-        private void TickDetect(float deltaTime)
+        private void TickCloneDrop(float deltaTime)
         {
-            if (!CanDetectPlayer())
+            _cloneTimer -= deltaTime;
+            if (_cloneTimer > 0f || _player == null)
+                return;
+
+            _cloneTimer = _config.cloneIntervalSeconds;
+            SpawnDashClone(_player.position);
+        }
+
+        private void SpawnDashClone(Vector2 target)
+        {
+            var cloneObject = new GameObject("Drone Dash Clone");
+            cloneObject.transform.SetParent(transform.parent, false);
+            cloneObject.transform.position = _body.position;
+            var enemyLayer = LayerMask.NameToLayer("Enemy");
+            if (enemyLayer >= 0)
+                cloneObject.layer = enemyLayer;
+
+            var renderer = cloneObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = _renderer != null ? _renderer.sprite : BlockEscape.Tetris.RuntimeVisuals.Square;
+            renderer.color = new Color(0.8f, 0.35f, 1f, 0.75f);
+            renderer.sortingOrder = 24;
+
+            var collider = cloneObject.AddComponent<CircleCollider2D>();
+            collider.radius = 0.45f;
+            collider.isTrigger = true;
+
+            var body = cloneObject.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.gravityScale = 0f;
+
+            cloneObject.AddComponent<DroneDashClone>().Initialize(
+                target,
+                _config.cloneTelegraphSeconds,
+                _config.cloneDashSpeed,
+                _config.cloneDashSeconds,
+                _config.cloneKnockback);
+        }
+
+        private void ClearDashClones()
+        {
+            if (transform.parent == null)
+                return;
+
+            for (var i = transform.parent.childCount - 1; i >= 0; i--)
             {
-                ChangeState(DroneState.Patrol);
-                return;
+                var child = transform.parent.GetChild(i);
+                if (child.name == "Drone Dash Clone")
+                    Destroy(child.gameObject);
             }
-
-            _stateTimer += deltaTime;
-            if (_stateTimer >= _config.detectConfirmSeconds)
-            {
-                _dashTarget = _player.position;
-                ChangeState(DroneState.Telegraph);
-            }
-        }
-
-        private void TickTelegraph(float deltaTime)
-        {
-            _stateTimer += deltaTime;
-            if (_stateTimer < _config.telegraphSeconds)
-                return;
-
-            _dashDirection = (_dashTarget - _body.position).normalized;
-            if (_dashDirection.sqrMagnitude < 0.01f)
-                _dashDirection = Vector2.down;
-            ChangeState(DroneState.Dash);
-        }
-
-        private void TickDash(float deltaTime)
-        {
-            _stateTimer += deltaTime;
-            _body.position += _dashDirection * _config.dashSpeed * deltaTime;
-            if (!IsInsideArena(_body.position) || _stateTimer >= _config.dashSeconds)
-                ChangeState(DroneState.Recover);
-        }
-
-        private void TickRecover(float deltaTime)
-        {
-            _stateTimer += deltaTime;
-            if (_stateTimer >= _config.recoverSeconds)
-                ChangeState(DroneState.Patrol);
-        }
-
-        private void HandleTrigger(Collider2D other)
-        {
-            if (_destroyed || other == null || !other.enabled)
-                return;
-
-            if (other.gameObject.layer == LayerMask.NameToLayer("FallingBlock"))
-            {
-                DestroyByFallingBlock();
-                return;
-            }
-
-            if (State != DroneState.Dash || _damagedThisDash)
-                return;
-
-            var damageable = other.GetComponentInParent<BlockEscape.Core.IDamageable>();
-            if (damageable == null)
-                return;
-
-            var knockbackDirection = _dashDirection.x < 0f ? -1f : 1f;
-            var knockback = new Vector2(_config.knockback.x * knockbackDirection, _config.knockback.y);
-            if (damageable.TakeDamage(new BlockEscape.Core.DamageInfo(1, knockback, gameObject, BlockEscape.Core.DamageType.Enemy)))
-                _damagedThisDash = true;
-        }
-
-        private void DestroyByFallingBlock()
-        {
-            _destroyed = true;
-            _respawnTimer = _config.respawnSeconds;
-            _body.linearVelocity = Vector2.zero;
-            ChangeState(DroneState.Disabled);
-            SetVisible(false);
-            DestroyedByFallingBlock?.Invoke(this);
-        }
-
-        private bool CanDetectPlayer()
-        {
-            if (_player == null)
-                return false;
-
-            var toPlayer = (Vector2)_player.position - _body.position;
-            return toPlayer.sqrMagnitude <= _config.detectRange * _config.detectRange;
         }
 
         private void ChangeState(DroneState state)
         {
             State = state;
-            _stateTimer = 0f;
-            if (state == DroneState.Dash)
-                _damagedThisDash = false;
             ApplyStateColor();
         }
 
@@ -1924,14 +1812,7 @@ namespace BlockEscape.AI
             if (_renderer == null)
                 return;
 
-            _renderer.color = State switch
-            {
-                DroneState.Detect => new Color(1f, 0.75f, 0.25f),
-                DroneState.Telegraph => new Color(1f, 0.2f, 0.25f),
-                DroneState.Dash => new Color(1f, 0.45f, 0.15f),
-                DroneState.Recover => new Color(0.55f, 0.6f, 0.7f),
-                _ => new Color(0.75f, 0.25f, 1f)
-            };
+            _renderer.color = new Color(0.75f, 0.25f, 1f);
         }
 
         private void SetVisible(bool visible)
@@ -1954,23 +1835,21 @@ namespace BlockEscape.AI
             _arena = new Rect(origin.x, origin.y, _board.Width, _board.Height);
         }
 
-        private Vector2 GetPatrolPoint(float normalizedX)
+        private Vector2 GetTrackingPoint()
         {
-            var x = Mathf.Lerp(_arena.xMin + _config.arenaSidePadding, _arena.xMax - _config.arenaSidePadding, normalizedX);
+            var x = Mathf.Clamp(
+                _player != null ? _player.position.x : _arena.center.x,
+                _arena.xMin + _config.arenaSidePadding,
+                _arena.xMax - _config.arenaSidePadding);
             return new Vector2(x, GetPatrolY());
         }
 
         private float GetPatrolY()
         {
-            return Mathf.Lerp(_arena.yMin, _arena.yMax, _config.patrolHeightNormalized);
-        }
-
-        private bool IsInsideArena(Vector2 position)
-        {
-            return position.x >= _arena.xMin &&
-                   position.x <= _arena.xMax &&
-                   position.y >= _arena.yMin &&
-                   position.y <= _arena.yMax;
+            var dangerY = _board != null && _board.Config != null
+                ? _arena.yMin + Mathf.Clamp(_board.Config.dangerStartRow, 0, _board.Height)
+                : _arena.yMax - 2f;
+            return Mathf.Lerp(dangerY, _arena.yMax, 0.5f);
         }
 
         private void EnsureComponents()
@@ -1991,6 +1870,92 @@ namespace BlockEscape.AI
 
             if (_collider != null)
                 _collider.isTrigger = true;
+        }
+    }
+
+    [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(SpriteRenderer))]
+    internal sealed class DroneDashClone : MonoBehaviour
+    {
+        private Rigidbody2D _body;
+        private SpriteRenderer _renderer;
+        private Vector2 _direction = Vector2.down;
+        private Vector2 _knockback;
+        private float _telegraphSeconds;
+        private float _dashSpeed;
+        private float _dashSeconds;
+        private float _elapsed;
+        private bool _dashing;
+        private bool _damagedPlayer;
+
+        public void Initialize(Vector2 target, float telegraphSeconds, float dashSpeed, float dashSeconds, Vector2 knockback)
+        {
+            _body = GetComponent<Rigidbody2D>();
+            _renderer = GetComponent<SpriteRenderer>();
+            _direction = (target - _body.position).normalized;
+            if (_direction.sqrMagnitude < 0.01f)
+                _direction = Vector2.down;
+            _telegraphSeconds = Mathf.Max(0f, telegraphSeconds);
+            _dashSpeed = Mathf.Max(0.1f, dashSpeed);
+            _dashSeconds = Mathf.Max(0.05f, dashSeconds);
+            _knockback = knockback;
+        }
+
+        private void Update()
+        {
+            Tick(Time.deltaTime);
+        }
+
+        public void ManualTick(float deltaTime)
+        {
+            Tick(deltaTime);
+        }
+
+        private void Tick(float deltaTime)
+        {
+            if (deltaTime <= 0f)
+                return;
+
+            _elapsed += deltaTime;
+            if (!_dashing)
+            {
+                if (_renderer != null)
+                    _renderer.color = new Color(1f, 0.2f, 0.35f, Mathf.Lerp(0.35f, 0.9f, Mathf.PingPong(_elapsed * 6f, 1f)));
+                if (_elapsed < _telegraphSeconds)
+                    return;
+
+                _dashing = true;
+                _elapsed = 0f;
+                if (_renderer != null)
+                    _renderer.color = new Color(1f, 0.45f, 0.15f, 0.9f);
+            }
+
+            _body.position += _direction * _dashSpeed * deltaTime;
+            if (_elapsed >= _dashSeconds)
+                Destroy(gameObject);
+        }
+
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            TryDamagePlayer(other);
+        }
+
+        private void OnTriggerStay2D(Collider2D other)
+        {
+            TryDamagePlayer(other);
+        }
+
+        private void TryDamagePlayer(Collider2D other)
+        {
+            if (!_dashing || _damagedPlayer || other == null || !other.enabled)
+                return;
+
+            var damageable = other.GetComponentInParent<BlockEscape.Core.IDamageable>();
+            if (damageable == null)
+                return;
+
+            var knockback = new Vector2(_knockback.x * Mathf.Sign(_direction.x), _knockback.y);
+            if (damageable.TakeDamage(new BlockEscape.Core.DamageInfo(1, knockback, gameObject, BlockEscape.Core.DamageType.Enemy)))
+                _damagedPlayer = true;
         }
     }
 

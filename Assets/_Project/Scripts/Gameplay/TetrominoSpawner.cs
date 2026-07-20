@@ -24,6 +24,7 @@ namespace BlockEscape.Tetris
         public event Action<TetrominoKind> PieceSpawned;
         public event Action<TetrominoKind> NextPieceChanged;
         public event Action PlayerCrushed;
+        public event Action NearMiss;
 
         public ActiveTetromino ActivePiece => _activePiece;
         public int Seed { get; private set; }
@@ -114,11 +115,13 @@ namespace BlockEscape.Tetris
             RefreshFallSpeed();
         }
 
-        public void NotifyPieceFinished(ActiveTetromino piece)
+        public void NotifyPieceFinished(ActiveTetromino piece, bool nearMiss = false)
         {
             piece.PlayerCrushed -= OnActivePiecePlayerCrushed;
             if (_activePiece == piece)
                 _activePiece = null;
+            if (nearMiss)
+                NearMiss?.Invoke();
         }
 
         private IEnumerator SpawnLoop()
@@ -343,6 +346,11 @@ namespace BlockEscape.Events
             return phase >= 1;
         }
 
+        public static bool CanCutterDamage(bool isCrouching)
+        {
+            return !isCrouching;
+        }
+
         public static int GetCutterTargetRow(BlockEscape.Tetris.BlockBoard board, Vector2 playerPosition)
         {
             if (board == null || board.Height <= 1)
@@ -458,12 +466,35 @@ namespace BlockEscape.Events
             var start = new Vector2(fromLeft ? boardLeft - 0.5f : boardRight + 0.5f, rowY);
             var end = new Vector2(fromLeft ? boardRight + 0.5f : boardLeft - 0.5f, rowY);
             var cutter = BlockEscape.Tetris.RuntimeVisuals.CreateQuad(
-                "Cutter",
+                "Cutter Rocket",
                 root,
                 start,
-                new Vector2(0.36f, 0.9f),
-                new Color(1f, 0.15f, 0.2f),
+                Vector2.one,
+                Color.white,
                 26);
+            var cutterRenderer = cutter.GetComponent<SpriteRenderer>();
+            var rocketSprite = Resources.Load<Sprite>("Art/CutterRocket");
+            if (rocketSprite != null)
+            {
+                cutterRenderer.sprite = rocketSprite;
+                cutterRenderer.flipX = !fromLeft;
+            }
+            else
+            {
+                cutter.transform.localScale = new Vector3(0.36f, 0.9f, 1f);
+                cutterRenderer.color = new Color(1f, 0.15f, 0.2f);
+            }
+
+            var exhaust = BlockEscape.Tetris.RuntimeVisuals.CreateQuad(
+                "Rocket Exhaust",
+                cutter.transform,
+                start,
+                new Vector2(0.42f, 0.14f),
+                new Color(0.2f, 0.9f, 1f, 0.9f),
+                25);
+            var exhaustRenderer = exhaust.GetComponent<SpriteRenderer>();
+            exhaust.transform.localPosition = new Vector3(fromLeft ? -0.68f : 0.68f, 0f, 0f);
+            BlockEscape.Tetris.GameplayVfx.Burst(start, new Color(1f, 0.45f, 0.08f), 8, 0.3f);
 
             StatusChanged?.Invoke($"EVENT: CUTTER SWEEP ROW {row + 1}");
             var duration = Vector2.Distance(start, end) / _config.cutterSpeed;
@@ -473,15 +504,25 @@ namespace BlockEscape.Events
             {
                 var position = Vector2.Lerp(start, end, Mathf.Clamp01(elapsed / duration));
                 cutter.transform.position = position;
+                var pulse = 0.8f + Mathf.PingPong(elapsed * 8f, 0.5f);
+                exhaust.transform.localScale = new Vector3(0.42f * pulse, 0.14f, 1f);
+                exhaustRenderer.color = Color.Lerp(
+                    new Color(0.2f, 0.9f, 1f, 0.9f),
+                    new Color(1f, 0.45f, 0.08f, 0.9f),
+                    Mathf.PingPong(elapsed * 12f, 1f));
                 if (!touchedPlayer && playerMask != 0)
                 {
                     var hit = Physics2D.OverlapBox(position, new Vector2(0.42f, 0.9f), 0f, playerMask);
                     if (hit != null)
                     {
-                        touchedPlayer = true;
-                        var knockback = new Vector2(fromLeft ? 4f : -4f, 2f);
-                        hit.GetComponentInParent<IDamageable>()?.TakeDamage(
-                            new DamageInfo(1, knockback, cutter, DamageType.Hazard));
+                        var player = hit.GetComponentInParent<BlockEscape.Player.PlayerController>();
+                        if (CanCutterDamage(player != null && player.IsCrouching))
+                        {
+                            touchedPlayer = true;
+                            var knockback = new Vector2(fromLeft ? 4f : -4f, 2f);
+                            hit.GetComponentInParent<IDamageable>()?.TakeDamage(
+                                new DamageInfo(1, knockback, cutter, DamageType.Hazard));
+                        }
                     }
                 }
 
@@ -489,6 +530,7 @@ namespace BlockEscape.Events
             }
 
             cutter.transform.position = end;
+            BlockEscape.Tetris.GameplayVfx.Burst(end, new Color(1f, 0.45f, 0.08f), 10, 0.35f);
             if (_cutterRoot != null)
                 Destroy(_cutterRoot.gameObject);
             _cutterRoot = null;

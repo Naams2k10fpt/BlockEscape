@@ -10,6 +10,15 @@ namespace BlockEscape.Tetris.Tests
     {
         private const BindingFlags InstanceFields = BindingFlags.Instance | BindingFlags.NonPublic;
 
+        [TestCase("Art/PickupScoreCrystal")]
+        [TestCase("Art/PickupHealthPack")]
+        [TestCase("Art/PickupJumpBoost")]
+        [TestCase("Art/CutterRocket")]
+        public void GameplayVisuals_AreImportableSprites(string resourcePath)
+        {
+            Assert.That(Resources.Load<Sprite>(resourcePath), Is.Not.Null);
+        }
+
         [Test]
         public void PickupDirector_SpawnsKinematicPickupsWithinConfiguredTimingAndLifetime()
         {
