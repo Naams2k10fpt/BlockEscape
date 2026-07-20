@@ -34,6 +34,7 @@ namespace BlockEscape.UI
 
         private void OnEnable()
         {
+            NeonMenuTheme.ApplyOverlay(_panel);
             BindButtons();
         }
 
@@ -55,6 +56,7 @@ namespace BlockEscape.UI
             _bindingValues = bindingValues;
             _resetButton = resetButton;
             _backButton = backButton;
+            NeonMenuTheme.ApplyOverlay(_panel);
             if (isActiveAndEnabled)
                 BindButtons();
         }

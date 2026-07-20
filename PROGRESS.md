@@ -913,6 +913,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 20/07/2026 | AUDIO-01/settings | Ba volume slider áp dụng tức thời qua SaveService; Apply lưu, Back/ESC hoàn tác preview | Có regression test cho Master/Music/SFX data và AudioListener volume |
 | 20/07/2026 | AUDIO-01/Game Over SFX | Thêm `game_over.mp3` khi GameSession chuyển sang GameOver, đồng thời dừng BGM | SFX dùng source riêng nên vẫn phát trên màn tổng kết |
 | 20/07/2026 | UI/Animator polish | Rút HUD gameplay còn Time/Phase/Rows/Score và boost đang chạy; ẩn tên chữ thừa dưới preview, reset status khi event kết thúc và bỏ Animator rỗng khỏi player | Runtime/test/editor build 0 warning/0 error; không còn nguồn gọi `Animator.SetBool` gây spam Console |
+| 20/07/2026 | UI menu theme | Đồng bộ Main Menu, tutorial, Pause, Options, Rebind, xác nhận và Game Over theo theme neon/pixel xanh đen | Nút tối có viền cyan, màu cảnh báo cam/tím và hover/pressed rõ hơn |
 | 20/07/2026 | Difficulty balance | Rút phase còn 30 giây, tăng fall speed 2.5→6.5, giảm spawn delay còn 0.35 giây và overflow grace còn 1.75 giây | Tăng áp lực từ board trước khi thay đổi Drone, pickup hoặc event |
 | 20/07/2026 | Drone tracking/clone dash | Drone gốc bất tử, bám X phía trên vạch đỏ và thả clone mỗi 6 giây; clone telegraph rồi dash về player | Falling block không còn phá drone; giữ dash pressure mà không kéo drone gốc khỏi vị trí bắn |
 

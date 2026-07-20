@@ -26,6 +26,7 @@ namespace BlockEscape.UI
 
         private void OnEnable()
         {
+            ApplyTheme();
             if (_startButton != null) _startButton.onClick.AddListener(RequestStartGame);
             if (_optionsButton != null) _optionsButton.onClick.AddListener(OpenOptions);
             if (_exitButton != null) _exitButton.onClick.AddListener(ExitGame);
@@ -69,9 +70,16 @@ namespace BlockEscape.UI
             _optionsMenu = optionsMenu;
             _tutorialPanel = tutorialPanel;
             _tutorialContinueButton = tutorialContinueButton;
+            ApplyTheme();
 
             if (isActiveAndEnabled)
                 OnEnable();
+        }
+
+        private void ApplyTheme()
+        {
+            NeonMenuTheme.ApplyButtons(_startButton, _optionsButton, _exitButton);
+            NeonMenuTheme.ApplyOverlay(_tutorialPanel);
         }
 
         private void OpenOptions()

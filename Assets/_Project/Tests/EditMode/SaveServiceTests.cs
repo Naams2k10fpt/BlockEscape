@@ -164,6 +164,33 @@ namespace BlockEscape.Tetris.Tests
             }
         }
 
+        [Test]
+        public void PauseMenu_ConfigureAppliesNeonTheme()
+        {
+            var host = new GameObject("Pause Theme Test");
+            var overlay = new GameObject("Pause Overlay", typeof(RectTransform), typeof(Image));
+            var dialog = new GameObject("Pause Dialog", typeof(RectTransform), typeof(Image));
+            var buttonObject = new GameObject("Resume Button", typeof(RectTransform), typeof(Image), typeof(Button));
+            overlay.transform.SetParent(host.transform, false);
+            dialog.transform.SetParent(overlay.transform, false);
+            buttonObject.transform.SetParent(dialog.transform, false);
+            try
+            {
+                var button = buttonObject.GetComponent<Button>();
+                var menu = host.AddComponent<TetrisPauseMenu>();
+                menu.Configure(overlay, null, null, null, button, null, null, null, null, null, null, null, null);
+
+                Assert.That(dialog.GetComponent<Outline>(), Is.Not.Null);
+                Assert.That(buttonObject.GetComponent<Outline>(), Is.Not.Null);
+                Assert.That(button.colors.normalColor.b, Is.GreaterThan(button.colors.normalColor.r));
+                Assert.That(overlay.GetComponent<Image>().color.a, Is.EqualTo(0.9f).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
         private static Slider CreateSlider(string name, Transform parent)
         {
             var gameObject = new GameObject(name, typeof(RectTransform), typeof(Slider));

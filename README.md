@@ -28,6 +28,7 @@ Người chơi sẽ điều khiển tetromino để tạo địa hình, sau đó
 - Input System được tách thành ba map `Tetris`, `Player`, `System` và quản lý tập trung qua `InputService`.
 - Game session runtime quản lý Countdown 3 giây trước mỗi run cùng các trạng thái Playing/Paused/Game Over, thời gian sống sót, phase độ khó và score.
 - HUD gameplay chỉ giữ Time/Phase/Rows/Score và boost đang hoạt động; các số liệu chi tiết của lượt chơi nằm trong Pause/Game Over để màn chơi dễ đọc hơn.
+- Main Menu, tutorial, Pause, Options, Rebind, xác nhận và Game Over dùng chung theme neon/pixel xanh đen với viền cyan, màu nhấn tím/cam và trạng thái nút rõ ràng.
 - Phase độ khó tăng mỗi 30 giây; piece bắt đầu ở 2.5 ô/giây, tăng 0.5 mỗi phase và tối đa 6.5 ô/giây.
 - Player runtime spawn trong `TetrisDemo`, có di chuyển, nhảy, cúi, health, iFrame và death event.
 - Player movement được quản lý trong `PlayerConfig`, hiện đặt `jumpVelocity = 12.5` và `gravityScale = 3` để nhảy cao hơn và rơi vừa hơn.
