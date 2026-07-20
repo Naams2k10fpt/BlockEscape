@@ -916,6 +916,7 @@ Tetris Core chỉ chuyển từ 90% thành 100% khi:
 | 20/07/2026 | UI menu theme | Đồng bộ Main Menu, tutorial, Pause, Options, Rebind, xác nhận và Game Over theo theme neon/pixel xanh đen | Nút tối có viền cyan, màu cảnh báo cam/tím và hover/pressed rõ hơn |
 | 20/07/2026 | Difficulty balance | Rút phase còn 30 giây, tăng fall speed 2.5→6.5, giảm spawn delay còn 0.35 giây và overflow grace còn 1.75 giây | Tăng áp lực từ board trước khi thay đổi Drone, pickup hoặc event |
 | 20/07/2026 | Drone tracking/clone dash | Drone gốc bất tử, bám X phía trên vạch đỏ và thả clone mỗi 6 giây; clone telegraph rồi dash về player | Falling block không còn phá drone; giữ dash pressure mà không kéo drone gốc khỏi vị trí bắn |
+| 20/07/2026 | TEST/full project | Thêm 5 exhaustive suite cho board/tetromino, core/save/input, player/combat, runtime event/pickup và UI/asset integration; sửa overflow khi `TryHeal(int.MaxValue)` | Thêm 607 test case; EditMode Test Runner 687/687 pass |
 
 ## 13. Cách cập nhật file này
 
